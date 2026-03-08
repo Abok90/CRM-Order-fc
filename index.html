@@ -39,13 +39,13 @@
         .custom-checkbox {
             appearance: none;
             background-color: #fff;
-            width: 1.2rem; height: 1.2rem;
-            border: 2px solid #cbd5e1; border-radius: 0.3rem;
+            width: 1.5rem; height: 1.5rem;
+            border: 2px solid #cbd5e1; border-radius: 0.4rem;
             display: grid; place-content: center; cursor: pointer;
             transition: all 0.2s ease-in-out;
         }
         .custom-checkbox::before {
-            content: ""; width: 0.65em; height: 0.65em; transform: scale(0);
+            content: ""; width: 0.8rem; height: 0.8rem; transform: scale(0);
             box-shadow: inset 1em 1em white; background-color: white;
             clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
         }
@@ -54,9 +54,9 @@
         
         /* تصميم مدخلات الإكسيل الداخلي */
         .excel-input {
-            width: 100%; min-width: 90px; padding: 6px;
+            width: 100%; min-width: 90px; padding: 8px;
             border: 1px solid transparent; background: transparent;
-            outline: none; font-size: 0.8rem; transition: all 0.2s;
+            outline: none; font-size: 0.9rem; transition: all 0.2s;
         }
         .excel-input:focus { background: #f0f9ff; border-color: #bae6fd; border-radius: 6px; }
         
@@ -68,7 +68,7 @@
         }
     </style>
 </head>
-<body class="text-slate-800 antialiased">
+<body class="text-slate-800 antialiased overflow-x-hidden">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -259,32 +259,29 @@
             };
 
             // ==========================================
-            // 5. الـ useEffects الأساسية
+            // 5. الـ useEffects (إدارة حالة الدخول الحية)
             // ==========================================
 
             useEffect(() => {
-                let mounted = true;
+                let isMounted = true;
                 const initSession = async () => {
                     try {
                         const { data: { session } } = await supabase.auth.getSession();
-                        if (mounted) {
-                            if (session?.user) {
-                                setUser(session.user);
-                                await fetchUserRole(session.user.id, session.user.email);
-                            } else {
-                                setAuthLoading(false);
-                            }
+                        if (isMounted) {
+                            setUser(session?.user || null);
+                            if (session?.user) await fetchUserRole(session.user.id, session.user.email);
+                            else setAuthLoading(false);
                         }
                     } catch (err) {
-                        if (mounted) setAuthLoading(false);
+                        if (isMounted) setAuthLoading(false);
                     }
                 };
                 initSession();
 
                 const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-                    if (mounted) {
+                    if (isMounted) {
+                        setUser(session?.user || null);
                         if (session?.user) {
-                            setUser(session.user);
                             fetchUserRole(session.user.id, session.user.email);
                         } else {
                             setUser(null);
@@ -296,7 +293,7 @@
                 });
 
                 return () => {
-                    mounted = false;
+                    isMounted = false;
                     subscription?.unsubscribe();
                 };
             }, []);
@@ -358,22 +355,13 @@
             }, [filteredOrders]);
 
             // ==========================================
-            // 7. دوال التحكم والإضافة (Action Handlers)
+            // 7. دوال واجهة المستخدم والأكشن (UI Handlers)
             // ==========================================
 
             const resetFilters = () => { 
-                setSearchQuery(''); 
-                setFilterStatus('الكل'); 
+                setSearchQuery(''); setFilterStatus('الكل'); 
                 setFilterPage(userRole?.role === 'agent' ? userRole.assigned_page : 'الكل'); 
-                setDateFrom(''); 
-                setDateTo(''); 
-                setCurrentPage(1);
-            };
-
-            const navigateToFilteredOrders = (page, status) => { 
-                setFilterPage(page); 
-                setFilterStatus(status); 
-                setCurrentTab('orders'); 
+                setDateFrom(''); setDateTo(''); setCurrentPage(1);
             };
 
             const handleLogin = async (e) => {
@@ -381,7 +369,7 @@
                 try {
                     const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
                     if (error) throw error;
-                } catch (error) { setAuthError("خطأ في تسجيل الدخول. تأكد من البيانات."); setAuthLoading(false); } 
+                } catch (error) { setAuthError("خطأ في تسجيل الدخول. تأكد من الإيميل والباسورد."); setAuthLoading(false); } 
             };
 
             const handleLogout = async () => { 
@@ -389,19 +377,19 @@
                 try { await supabase.auth.signOut(); } catch(e) {}
                 localStorage.clear(); 
                 sessionStorage.clear();
-                window.location.replace(window.location.pathname); // يمنع تعليق الكوكيز نهائيا
+                window.location.replace(window.location.pathname); // يمنع تعليق المتصفح نهائياً
             };
 
             const handleAddOrEditOrder = async (e) => {
-                e.preventDefault(); 
+                e.preventDefault();
                 if (!user) return;
 
                 if (!isEditing && userRole?.role === 'agent' && userRole?.assigned_page !== newOrder.page) {
-                    alert(`صلاحياتك تسمح لك بالإضافة في صفحة "${userRole.assigned_page}" فقط.`);
+                    alert(`عفواً، صلاحياتك تسمح لك بالإضافة في صفحة "${userRole.assigned_page}" فقط.`);
                     return;
                 }
 
-                // الحماية من الإرسال الصامت
+                // الحماية من الخطأ الصامت (Validation)
                 if (!newOrder.customer || String(newOrder.customer).trim() === '') return alert("يرجى إدخال اسم العميل.");
                 if (!newOrder.phone || String(newOrder.phone).trim() === '') return alert("يرجى إدخال رقم الهاتف.");
                 if (!newOrder.address || String(newOrder.address).trim() === '') return alert("يرجى إدخال العنوان.");
@@ -429,28 +417,25 @@
                 try {
                     if (isEditing) {
                         if (originalOrderId !== finalOrderId) {
-                            const { error: insErr } = await supabase.from('orders').insert([orderPayload]);
-                            if (insErr) throw insErr;
+                            await supabase.from('orders').insert([orderPayload]);
                             await supabase.from('orders').delete().eq('id', originalOrderId);
                         } else {
                             const updatePayload = { ...orderPayload };
                             delete updatePayload.id; 
-                            const { error: updErr } = await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
-                            if (updErr) throw updErr;
+                            await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
                         }
                         alert("تم التعديل بنجاح!");
                         closeModal();
                     } else {
-                        const { error: insErr } = await supabase.from('orders').insert([orderPayload]);
-                        if (insErr) throw insErr;
+                        const { error } = await supabase.from('orders').insert([orderPayload]);
+                        if (error) throw error;
                         
                         closeModal();
-                        setSuccessOrderMessage(orderPayload); 
+                        setSuccessOrderMessage(orderPayload); // إظهار نافذة الواتساب
                     }
                     fetchOrdersData(); 
                 } catch (error) { 
-                    console.error("Save error:", error); 
-                    alert(`فشل الحفظ: ${error.message}\nتأكد أن رقم الطلب غير مكرر.`); 
+                    alert(`فشل الحفظ!\nالسبب: ${error.message}\nتأكد من عدم تكرار رقم الطلب.`); 
                 }
             };
 
@@ -519,7 +504,7 @@
                     const { error } = await supabase.from('orders').delete().in('id', idsToDelete);
                     if (error) throw error;
                 } catch (error) { 
-                    alert(`فشل المسح الجماعي: ${error.message}`); 
+                    alert(`فشل المسح: ${error.message}`); 
                     setOrders(previousOrders);
                 } finally { 
                     setIsDeletingMultiple(false); 
@@ -583,7 +568,7 @@
             };
 
             // ==========================================
-            // 9. النوافذ المنبثقة والمساعدات (تصدير CSV)
+            // 9. النوافذ المنبثقة والمساعدات
             // ==========================================
             
             const openAddModal = () => { setNewOrder({ ...initialOrderState, page: userRole?.role === 'agent' ? userRole.assigned_page : pages[0] }); setIsEditing(false); setOriginalOrderId(null); setIsAddModalOpen(true); };
@@ -597,6 +582,7 @@
                 setCopiedType(type); setTimeout(() => setCopiedType(''), 2000);
             };
 
+            // تصدير إكسيل عادي
             const exportSelectedToCSV = () => {
                 if (selectedOrders.length === 0) return;
                 const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
@@ -607,6 +593,7 @@
                 const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `نسخة_احتياطية_طلبات_${new Date().toISOString().split('T')[0]}.csv`; link.click();
             };
 
+            // تصدير إكسيل خاص بشركة الشحن
             const exportShippingCSV = () => {
                 if (selectedOrders.length === 0) return;
                 const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
@@ -702,6 +689,7 @@
                 }
             };
 
+            const navigateToFilteredOrders = (page, status) => { setFilterPage(page); setFilterStatus(status); setCurrentTab('orders'); };
             const handleSelectAll = (e) => { e.target.checked ? setSelectedOrders(displayedOrders.map(o => o.id)) : setSelectedOrders([]); };
             const handleSelectOrder = (id) => { selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); };
 
@@ -755,29 +743,38 @@
             if (!user) {
                 return (
                     <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
-                        <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md text-center">
+                        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl w-full max-w-md text-center">
                             <div className="flex justify-center mb-6 text-indigo-600"><IconPackage size={64} /></div>
-                            <h2 className="text-2xl font-black text-slate-800 mb-2">تسجيل الدخول للنظام</h2>
-                            <p className="text-slate-500 font-bold mb-6 text-sm">أول حساب يسجل سيتم تعيينه كـ (مدير) تلقائياً.</p>
-                            {authError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-bold mb-4">{authError}</div>}
+                            <h2 className="text-xl md:text-2xl font-black text-slate-800 mb-2">تسجيل الدخول للنظام</h2>
+                            <p className="text-slate-500 font-bold mb-6 text-xs md:text-sm">أول حساب يتم إنشاؤه سيكون حساب (المدير) تلقائياً.</p>
+                            {authError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-xs md:text-sm font-bold mb-4">{authError}</div>}
                             <form onSubmit={handleLogin} className="space-y-4">
                                 <div><label className="block text-sm font-bold text-slate-700 mb-1 text-right">البريد الإلكتروني</label><input type="email" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-left" dir="ltr" value={authEmail} onChange={e => setAuthEmail(e.target.value)} /></div>
                                 <div><label className="block text-sm font-bold text-slate-700 mb-1 text-right">كلمة المرور</label><input type="password" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-left" dir="ltr" value={authPassword} onChange={e => setAuthPassword(e.target.value)} /></div>
-                                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl transition-colors mt-2 shadow-md">دخول إلى لوحة التحكم</button>
+                                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl transition-colors mt-2 shadow-md text-sm md:text-base">دخول إلى لوحة التحكم</button>
                             </form>
                             <div className="mt-6 text-center border-t border-slate-100 pt-4">
-                                <p className="text-xs font-bold text-slate-400 mb-2">لإنشاء حسابات للموظفين:</p>
                                 <button type="button" onClick={async () => {
-                                    const email = prompt("أدخل إيميل الموظف الجديد:");
-                                    if(!email) return;
-                                    const password = prompt("أدخل باسورد (6 أحرف على الأقل):");
-                                    if(!password || password.length < 6) return alert("الباسورد يجب أن يكون 6 أحرف على الأقل");
+                                    const email = prompt("أدخل إيميل الموظف الجديد (مثال: ali@crm.com):");
+                                    if(!email || !email.includes('@')) return alert("يرجى كتابة إيميل بصيغة صحيحة!");
+                                    const password = prompt("أدخل باسورد (6 أحرف أو أرقام على الأقل):");
+                                    if(!password || password.length < 6) return alert("الباسورد ضعيف! يجب أن يكون 6 أحرف على الأقل.");
+                                    
                                     setAuthLoading(true);
                                     const {data, error} = await supabase.auth.signUp({email, password});
                                     setAuthLoading(false);
-                                    if(error) alert(error.message); 
-                                    else alert("تم إنشاء الحساب بنجاح!\n\nمهم جداً: لكي يظهر الحساب في لوحة الإدارة، يجب على الموظف أن يقوم بتسجيل الدخول بحسابه مرة واحدة على الأقل.");
-                                }} className="text-sm font-bold text-indigo-600 hover:underline">إنشاء حساب جديد (سريع)</button>
+                                    
+                                    if(error) {
+                                        alert("لم يتم إنشاء الحساب بسبب: " + error.message);
+                                    } else {
+                                        if(data?.session) {
+                                            alert("تم إنشاء الحساب بنجاح! سيتم تحويلك الآن.");
+                                            window.location.reload();
+                                        } else {
+                                            alert("⚠️ تنبيه هام: تم تسجيل البيانات، ولكن الحساب معلق!\n\nيجب إيقاف خيار (Confirm email) من إعدادات Supabase ثم إعادة المحاولة ليعمل الحساب فوراً.");
+                                        }
+                                    }
+                                }} className="text-xs md:text-sm font-bold text-indigo-600 hover:text-indigo-800 p-2 bg-indigo-50 rounded-lg transition-colors w-full border border-indigo-100">إنشاء حساب جديد للموظفين</button>
                             </div>
                         </div>
                     </div>
@@ -790,7 +787,7 @@
                         <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-100 text-center">
                             <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
                             <h2 className="text-xl font-black text-slate-800 mb-4">جاري التحقق من الصلاحيات...</h2>
-                            <button onClick={handleLogout} className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold mt-4">إلغاء العملية والتحديث</button>
+                            <button onClick={handleLogout} className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold mt-4 text-sm">إلغاء العملية والتحديث</button>
                         </div>
                     </div>
                  );
@@ -827,8 +824,8 @@
                                 <button className="md:hidden p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors" onClick={() => setIsSidebarOpen(true)}><IconMenu /></button>
                                 <h1 className="text-lg md:text-2xl font-black text-slate-800 drop-shadow-sm">
                                     {currentTab === 'dashboard' && 'نظرة عامة'}
-                                    {currentTab === 'orders' && (userRole.role === 'admin' ? 'إدارة الطلبات' : `طلبات ${userRole.assigned_page}`)}
-                                    {currentTab === 'pages' && 'إحصائيات الصفحات'}
+                                    {currentTab === 'orders' && (userRole.role === 'admin' ? 'إدارة كل الطلبات' : `طلبات صفحة ${userRole.assigned_page}`)}
+                                    {currentTab === 'pages' && 'الإحصائيات المتقدمة'}
                                     {currentTab === 'users' && 'لوحة الإدارة'}
                                 </h1>
                             </div>
@@ -851,7 +848,8 @@
                                     <div className="bg-indigo-50 border border-indigo-200 p-4 md:p-5 rounded-2xl">
                                         <h2 className="font-black text-indigo-900 text-base md:text-lg mb-2">إدارة حسابات الموظفين</h2>
                                         <p className="text-xs md:text-sm text-indigo-800 font-bold mb-4 leading-relaxed">
-                                            لإضافة موظفة جديدة: اطلبي منها الضغط على "إنشاء حساب جديد" في شاشة الدخول وتسجيل حسابها. <br/><span className="text-red-600">هام جداً:</span> يجب على الموظفة <b>تسجيل الدخول مرة واحدة</b> على الأقل بعد إنشاء الحساب. بعدها سيظهر إيميلها هنا في الأسفل لتتمكني من تحديد صفحتها.
+                                            لإضافة موظفة جديدة: اطلبي منها الضغط على "إنشاء حساب جديد" في شاشة الدخول وتسجيل حسابها. <br/>
+                                            إذا لم تتمكن من الدخول، تأكدي من إيقاف خيار <b>Confirm email</b> من إعدادات (Auth) في Supabase.
                                         </p>
                                         <button onClick={fetchUsersList} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs md:text-sm shadow-md w-full md:w-auto">تحديث القائمة 🔄</button>
                                     </div>
@@ -1163,7 +1161,7 @@
                                     {csvHeaders.length === 0 ? (
                                         <div className="border-2 border-dashed border-indigo-200 rounded-2xl bg-indigo-50/50 p-6 md:p-8 text-center"><IconUpload size={48} className="mx-auto text-indigo-400 mb-3 md:mb-4" /><h3 className="text-sm md:text-lg font-black text-indigo-900 mb-1.5 md:mb-2">اختر ملف CSV من جهازك</h3><p className="text-[10px] md:text-sm text-indigo-600/80 mb-4 md:mb-6">قم بتحميل ملفك من Google Sheets بصيغة (.csv)</p><input type="file" accept=".csv" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="csv-upload" /><label htmlFor="csv-upload" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 md:px-6 md:py-3 rounded-xl text-sm font-bold cursor-pointer inline-flex transition-colors shadow-md">اختيار الملف</label></div>
                                     ) : isImporting ? (
-                                        <div className="py-8 md:py-12 flex flex-col items-center justify-center text-center"><div className="w-12 h-12 md:w-16 md:h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4 md:mb-6"></div><h3 className="text-lg md:text-xl font-black text-slate-800 mb-1.5 md:mb-2">جاري استيراد الطلبات...</h3><p className="text-xs md:text-sm text-slate-600 font-bold mb-3 md:mb-4">{importStatusText}</p><div className="w-full max-w-xs md:max-w-md bg-slate-100 rounded-full h-3 md:h-4 overflow-hidden border border-slate-200 shadow-inner"><div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300" style={{ width: `${importProgress}%` }}></div></div><p className="mt-2 font-black text-indigo-700 text-sm">{importProgress}%</p></div>
+                                        <div className="py-8 md:py-12 flex flex-col items-center justify-center text-center"><div className="w-12 h-12 md:w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4 md:mb-6"></div><h3 className="text-lg md:text-xl font-black text-slate-800 mb-1.5 md:mb-2">جاري استيراد الطلبات...</h3><p className="text-xs md:text-sm text-slate-600 font-bold mb-3 md:mb-4">{importStatusText}</p><div className="w-full max-w-xs md:max-w-md bg-slate-100 rounded-full h-3 md:h-4 overflow-hidden border border-slate-200 shadow-inner"><div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300" style={{ width: `${importProgress}%` }}></div></div><p className="mt-2 font-black text-indigo-700 text-sm">{importProgress}%</p></div>
                                     ) : (
                                         <div className="animate-in fade-in">
                                             <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 md:p-5 mb-4 md:mb-6 shadow-sm"><label className="block text-xs md:text-sm font-black text-indigo-900 mb-1.5 md:mb-2">1. حدد الصفحة التي تنتمي إليها طلبات هذا الشيت:</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-white border border-indigo-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs md:text-sm text-indigo-800 shadow-sm ${userRole?.role === 'agent' ? 'opacity-70 bg-slate-100' : ''}`} value={importTargetPage} onChange={(e) => setImportTargetPage(e.target.value)} disabled={userRole?.role === 'agent'}>{pages.map(p => <option key={p} value={p}>{p}</option>)}</select><p className="text-[10px] md:text-xs text-indigo-600/80 mt-1.5 md:mt-2 font-bold">سيتم تعيين كل الطلبات المرفوعة من هذا الملف إلى الصفحة المحددة أعلاه.</p></div>
@@ -1186,15 +1184,15 @@
                                 <form onSubmit={handleAddOrEditOrder} className={`p-4 md:p-6 space-y-3 md:space-y-4 overflow-y-auto flex-1 ${currentTheme.bgLight}`}>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5 bg-white/80 backdrop-blur-sm p-4 md:p-6 rounded-2xl border border-white shadow-md">
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الطلب</label><input type="text" disabled={isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status)} placeholder="يولد تلقائياً إذا تُرك فارغاً" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''} ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.id} onChange={e => setNewOrder({...newOrder, id: e.target.value})} />{isEditing && ['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) && (<p className="text-[10px] md:text-xs text-indigo-600 mt-1 font-bold">يمكنك تعديل رقم الطلب في هذه الحالة.</p>)}</div>
-                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">اسم العميل <span className="text-red-500">*</span></label><input type="text" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.customer} onChange={e => setNewOrder({...newOrder, customer: e.target.value})} /></div>
-                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">العنوان التفصيلي <span className="text-red-500">*</span></label><input type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
-                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الموبايل <span className="text-red-500">*</span></label><input type="text" dir="ltr" maxLength="11" placeholder="مثال: 01012345678" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-right transition-shadow font-bold tracking-wider text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => { const val = e.target.value.replace(/\D/g, ''); if(val.length <= 11) setNewOrder({...newOrder, phone: val}); }} /></div>
+                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">اسم العميل <span className="text-red-500">*</span></label><input required type="text" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.customer} onChange={e => setNewOrder({...newOrder, customer: e.target.value})} /></div>
+                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">العنوان التفصيلي <span className="text-red-500">*</span></label><input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
+                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الموبايل <span className="text-red-500">*</span></label><input required type="text" dir="ltr" maxLength="11" placeholder="مثال: 01012345678" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-right transition-shadow font-bold tracking-wider text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => { const val = e.target.value.replace(/\D/g, ''); if(val.length <= 11) setNewOrder({...newOrder, phone: val}); }} /></div>
                                         <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">الصفحة (المصدر)</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2 ${userRole.role === 'agent' ? 'opacity-70 cursor-not-allowed' : ''}`} value={newOrder.page} onChange={e => setNewOrder({...newOrder, page: e.target.value})} disabled={userRole.role === 'agent'}>{pages.map(page => <option key={page} value={page}>{page}</option>)}</select></div>
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">الملحوظات</label><textarea rows="2" placeholder="أي ملحوظات إضافية بخصوص الطلب..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.notes || ''} onChange={e => setNewOrder({...newOrder, notes: e.target.value})}></textarea></div>
-                                        <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">المنتج / الوصف <span className="text-red-500">*</span></label><textarea rows="2" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
+                                        <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">المنتج / الوصف <span className="text-red-500">*</span></label><textarea required rows="2" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">حالة الطلب</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.status} onChange={e => setNewOrder({...newOrder, status: e.target.value})}>{orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}</select></div>
-                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر الشحن (ج.م) <span className="text-red-500">*</span></label><input type="number" min="0" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.shippingPrice} onChange={e => setNewOrder({...newOrder, shippingPrice: e.target.value})} /></div>
-                                        <div className="relative"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر المنتج (ج.م) <span className="text-red-500">*</span></label><div className="relative"><input type="number" min="0" className={`w-full px-3 py-2 md:px-4 md:py-2.5 pl-10 md:pl-12 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} /><button type="button" onClick={() => setShowCalc(!showCalc)} className={`absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 p-1.5 md:p-2 rounded-lg transition-colors bg-white shadow-sm border border-slate-100 ${currentTheme.textPrimary} hover:bg-slate-50`}><IconCalc /></button></div>{showCalc && (<div dir="ltr" className="absolute z-10 bottom-full left-0 mb-2 md:mb-3 bg-white border border-slate-200 shadow-2xl rounded-2xl p-3 md:p-4 w-48 md:w-56 animate-in zoom-in-95"><div className="mb-2 md:mb-3 p-2 md:p-3 bg-slate-100 text-right font-mono text-base md:text-xl rounded-xl border border-slate-200 min-h-[40px] md:min-h-[50px] break-all font-bold shadow-inner text-slate-800">{calcExp || '0'}</div><div className="grid grid-cols-4 gap-1.5 md:gap-2">{calcButtons.map(btn => (<button key={btn} type="button" onClick={() => handleCalcBtn(btn)} className={`p-2 md:p-3 text-xs md:text-sm font-black rounded-xl flex items-center justify-center transition-all ${btn === '=' ? `${currentTheme.btnPrimary} col-span-2 shadow-md` : btn === 'C' ? 'bg-red-100 text-red-600 hover:bg-red-200' : ['+','-','*','/'].includes(btn) ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'}`}>{btn}</button>))}</div></div>)}</div>
+                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر الشحن (ج.م) <span className="text-red-500">*</span></label><input required type="number" min="0" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.shippingPrice} onChange={e => setNewOrder({...newOrder, shippingPrice: e.target.value})} /></div>
+                                        <div className="relative"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر المنتج (ج.م) <span className="text-red-500">*</span></label><div className="relative"><input required type="number" min="0" className={`w-full px-3 py-2 md:px-4 md:py-2.5 pl-10 md:pl-12 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} /><button type="button" onClick={() => setShowCalc(!showCalc)} className={`absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 p-1.5 md:p-2 rounded-lg transition-colors bg-white shadow-sm border border-slate-100 ${currentTheme.textPrimary} hover:bg-slate-50`}><IconCalc /></button></div>{showCalc && (<div dir="ltr" className="absolute z-10 bottom-full left-0 mb-2 md:mb-3 bg-white border border-slate-200 shadow-2xl rounded-2xl p-3 md:p-4 w-48 md:w-56 animate-in zoom-in-95"><div className="mb-2 md:mb-3 p-2 md:p-3 bg-slate-100 text-right font-mono text-base md:text-xl rounded-xl border border-slate-200 min-h-[40px] md:min-h-[50px] break-all font-bold shadow-inner text-slate-800">{calcExp || '0'}</div><div className="grid grid-cols-4 gap-1.5 md:gap-2">{calcButtons.map(btn => (<button key={btn} type="button" onClick={() => handleCalcBtn(btn)} className={`p-2 md:p-3 text-xs md:text-sm font-black rounded-xl flex items-center justify-center transition-all ${btn === '=' ? `${currentTheme.btnPrimary} col-span-2 shadow-md` : btn === 'C' ? 'bg-red-100 text-red-600 hover:bg-red-200' : ['+','-','*','/'].includes(btn) ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'}`}>{btn}</button>))}</div></div>)}</div>
                                         <div className="md:col-span-2 p-3 md:p-4 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-between text-white shadow-inner"><span className="text-xs md:text-sm font-bold text-slate-300">الإجمالي النهائي المطلوب:</span><span className="font-black text-lg md:text-2xl tracking-wide">{(Number(newOrder.shippingPrice) || 0) + (Number(newOrder.productPrice) || 0)} <span className="text-[10px] md:text-sm font-normal text-slate-400">ج.م</span></span></div>
                                         <div className="md:col-span-2 pt-2 border-t border-slate-200"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1 flex items-center gap-1 md:gap-2"><IconCalendar /> 10. تاريخ الطلب</label><input type="date" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.date || ''} onChange={e => setNewOrder({...newOrder, date: e.target.value})} /><p className="text-[9px] md:text-xs font-bold text-slate-400 mt-1">يُترك فارغاً ليتم تسجيل تاريخ اليوم تلقائياً.</p></div>
                                         <div className="md:col-span-2 pt-3 md:pt-4 mt-2 border-t-2 border-dashed border-slate-200"><label className="block text-[11px] md:text-sm font-black text-teal-700 mb-1.5 md:mb-2 flex items-center gap-1 md:gap-2"><IconTruck /> 11. رقم بوليصة الشحن (تتبع الأوردر)</label><input type="text" placeholder="يُكتب هنا رقم البوليصة لتتبع الأوردر..." className={`w-full px-3 py-2 md:px-4 md:py-3 border-2 border-teal-200 bg-teal-50/50 rounded-lg md:rounded-xl outline-none transition-shadow font-bold text-xs md:text-sm text-teal-900 focus:ring-2 focus:ring-teal-500`} value={newOrder.trackingNumber || ''} onChange={e => setNewOrder({...newOrder, trackingNumber: e.target.value})} /><p className="text-[9px] md:text-xs font-bold text-slate-400 mt-1.5 md:mt-2">ملاحظة: البنت المسؤولة عن الشحن ستضيف هذا الرقم لاحقاً عند تعديل الطلب.</p></div>
