@@ -105,9 +105,10 @@
             const [authError, setAuthError] = useState('');
 
             // حالة واجهة المستخدم والتبويبات
+            const [initialLoad, setInitialLoad] = useState(true);
+            const [loadingDB, setLoadingDB] = useState(false);
             const [currentTab, setCurrentTab] = useState('dashboard');
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-            const [loadingDB, setLoadingDB] = useState(false);
             
             // نوافذ إضافة/تعديل/عرض/استيراد
             const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -637,6 +638,10 @@
             // ==========================================
             // 8. واجهة المستخدم (Rendering)
             // ==========================================
+
+            if (!isSupabaseConfigured) {
+                return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="bg-white p-8 rounded-3xl shadow-xl text-center"><h2 className="text-2xl font-black mb-4">إعداد قاعدة البيانات</h2><p>يرجى إدخال بيانات Supabase في الكود.</p></div></div>;
+            }
 
             if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>;
 
