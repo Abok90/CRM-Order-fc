@@ -50,20 +50,13 @@
         }
         .custom-checkbox:checked { background-color: #4f46e5; border-color: #4f46e5; }
         .custom-checkbox:checked::before { transform: scale(1); }
-        
-        .copy-animation { animation: pulse-copy 0.5s ease-out; }
-        @keyframes pulse-copy {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); background-color: #dcfce7; color: #166534; border-color: #86efac; }
-            100% { transform: scale(1); }
-        }
     </style>
 </head>
 <body class="text-slate-800 antialiased">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
         const { createClient } = window.supabase;
 
         // ==========================================
@@ -71,7 +64,11 @@
         // ==========================================
         const SUPABASE_URL = 'https://tdprtlvogzfzfckpvkpa.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkcHJ0bHZvZ3pmemZja3B2a3BhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4OTUwMTcsImV4cCI6MjA4ODQ3MTAxN30.0TrcH65HQO5gboqsNfadSCGZQ95anY_0Bz97db5dPBg';
-        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        let supabase = null;
+        if (SUPABASE_URL.startsWith('http')) {
+            supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
 
         // ==========================================
         // 2. مكونات الأيقونات (SVG Icons)
@@ -103,7 +100,7 @@
         // 3. المكون الرئيسي (App)
         // ==========================================
         function App() {
-            // حالة المصادقة
+            // -- حالة المصادقة --
             const [user, setUser] = useState(null);
             const [userRole, setUserRole] = useState(null); 
             const [authEmail, setAuthEmail] = useState('');
@@ -111,28 +108,29 @@
             const [authLoading, setAuthLoading] = useState(true);
             const [authError, setAuthError] = useState('');
 
-            // حالة واجهة المستخدم والتبويبات
+            // -- حالة الواجهة --
+            const [initialLoad, setInitialLoad] = useState(true);
             const [loadingDB, setLoadingDB] = useState(false);
             const [currentTab, setCurrentTab] = useState('dashboard');
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
             
-            // نوافذ الإضافة والعرض
+            // -- نوافذ (Modals) --
             const [isAddModalOpen, setIsAddModalOpen] = useState(false);
             const [isEditing, setIsEditing] = useState(false);
             const [originalOrderId, setOriginalOrderId] = useState(null); 
             const [isViewModalOpen, setIsViewModalOpen] = useState(false);
             const [viewOrder, setViewOrder] = useState(null);
             const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-            const [successOrderMessage, setSuccessOrderMessage] = useState(null); // نافذة رسالة النجاح (واتساب)
+            const [successOrderMessage, setSuccessOrderMessage] = useState(null); 
             const [copiedType, setCopiedType] = useState('');
             const [quickTracking, setQuickTracking] = useState(''); 
             const [quickStatus, setQuickStatus] = useState(''); 
             
-            // البيانات
+            // -- البيانات --
             const [orders, setOrders] = useState([]);
             const [usersList, setUsersList] = useState([]);
             
-            // الفلاتر
+            // -- الفلاتر --
             const [searchQuery, setSearchQuery] = useState('');
             const [filterStatus, setFilterStatus] = useState('الكل');
             const [filterPage, setFilterPage] = useState('الكل');
@@ -143,7 +141,7 @@
             const [selectedOrders, setSelectedOrders] = useState([]);
             const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
 
-            // الصفحات والاستيراد
+            // -- الصفحات والاستيراد --
             const [ordersPerPage, setOrdersPerPage] = useState(100);
             const [currentPage, setCurrentPage] = useState(1);
             const [csvHeaders, setCsvHeaders] = useState([]);
@@ -157,11 +155,11 @@
             });
             const fileInputRef = useRef(null);
 
-            // الآلة الحاسبة
+            // -- الآلة الحاسبة --
             const [showCalc, setShowCalc] = useState(false);
             const [calcExp, setCalcExp] = useState('');
 
-            // الثوابت
+            // -- الثوابت --
             const pages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب'];
             const orderStatuses = ['جاري التحضير', 'تم', 'الشحن', 'مراجعة', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل', 'اعادة ارسال', 'خارجي'];
             const initialOrderState = {
@@ -170,7 +168,7 @@
             const [newOrder, setNewOrder] = useState(initialOrderState);
 
             // ==========================================
-            // 4. دوال الاتصال الأساسية (من الصفر وبأمان)
+            // 4. دوال الاتصال الأساسية
             // ==========================================
 
             const fetchUserRole = async (userId) => {
@@ -184,91 +182,139 @@
                             setImportTargetPage(data.assigned_page);
                         }
                     } else {
-                        setUserRole({ id: userId, name: 'مدير النظام', role: 'admin' });
+                        // محاولة إنشاء دور مبدئي
+                        const { data: newRole } = await supabase.from('user_roles').insert([{ id: userId, name: 'المدير', role: 'admin' }]).select().maybeSingle();
+                        setUserRole(newRole || { id: userId, name: 'المدير', role: 'admin' });
                     }
                 } catch (error) { 
-                    setUserRole({ id: userId, name: 'مدير النظام', role: 'admin' }); 
+                    setUserRole({ id: userId, name: 'مدير (افتراضي)', role: 'admin' }); 
                 } finally { 
                     setAuthLoading(false); 
                 }
             };
 
-            const fetchOrdersData = async () => {
-                setLoadingDB(true);
+            const fetchOrders = useCallback(async (isSilent = false) => {
+                if (!user) return;
+                if (!isSilent) setLoadingDB(true);
+                
                 try {
-                    const { data, error } = await supabase.from('orders').select('*').limit(3000); // جلب سريع بدون تعقيد Loops
-                    if (error) throw error;
-                    
-                    if (data) {
-                        // ترتيب الأوردرات محلياً لتجنب أي أخطاء في قواعد البيانات القديمة
-                        const sortedData = data.sort((a, b) => {
-                            const timeA = new Date(a.created_at || a.createdAt || a.date || 0).getTime() || 0;
-                            const timeB = new Date(b.created_at || b.createdAt || b.date || 0).getTime() || 0;
-                            return timeB - timeA;
-                        });
-                        setOrders(sortedData);
+                    const { data, error } = await supabase
+                        .from('orders')
+                        .select('*')
+                        .order('created_at', { ascending: false })
+                        .limit(2000); 
+                        
+                    if (error) {
+                        console.error("Database fetch error:", error);
+                    } else {
+                        // تنظيف البيانات
+                        const safeOrders = (data || []).map(o => ({
+                            ...o,
+                            productPrice: Number(o.productPrice) || 0,
+                            shippingPrice: Number(o.shippingPrice) || 0
+                        }));
+                        setOrders(safeOrders);
                     }
                 } catch (error) { 
-                    console.error("Fetch orders error:", error); 
+                    console.error("Fetch orders error:", error);
                 } finally { 
                     setLoadingDB(false); 
+                    setInitialLoad(false); 
                 }
-            };
+            }, [user]);
 
             const fetchUsersList = async () => {
                 try {
                     const { data, error } = await supabase.from('user_roles').select('*');
                     if (!error && data) setUsersList(data);
-                } catch (error) { console.error("Fetch users error:", error); }
+                } catch (error) {}
             };
 
             // ==========================================
-            // 5. الـ useEffects (إدارة حالة الدخول الحية)
+            // 5. الـ useEffects الأساسية
             // ==========================================
 
+            // تهيئة الدخول عند تحميل التطبيق
             useEffect(() => {
-                let isMounted = true;
-                
-                const checkSession = async () => {
+                if (!SUPABASE_URL.startsWith('http')) {
+                    setAuthLoading(false);
+                    return;
+                }
+
+                let mounted = true;
+
+                const initAuth = async () => {
                     try {
-                        const { data: { session } } = await supabase.auth.getSession();
-                        if (isMounted) {
-                            setUser(session?.user || null);
-                            if (session?.user) await fetchUserRole(session.user.id);
-                            else setAuthLoading(false);
+                        const { data: { session }, error } = await supabase.auth.getSession();
+                        if (error) throw error;
+                        if (mounted) {
+                            if (session?.user) {
+                                setUser(session.user);
+                                await fetchUserRole(session.user.id);
+                            } else {
+                                setAuthLoading(false);
+                            }
                         }
                     } catch (err) {
-                        if (isMounted) setAuthLoading(false);
+                        if (mounted) setAuthLoading(false);
                     }
                 };
-                
-                checkSession();
 
-                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-                    if (isMounted) {
-                        setUser(session?.user || null);
-                        if (session?.user) {
-                            fetchUserRole(session.user.id);
-                        } else {
-                            setUserRole(null);
-                            setOrders([]);
-                            setAuthLoading(false);
-                        }
+                initAuth();
+
+                const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+                    if (!mounted || _event === 'INITIAL_SESSION') return;
+                    const currentUser = session?.user || null;
+                    setUser(currentUser);
+                    if (currentUser) {
+                        await fetchUserRole(currentUser.id);
+                    } else { 
+                        // تسجيل خروج نظيف
+                        setUserRole(null); 
+                        setOrders([]); 
+                        setAuthLoading(false);
                     }
                 });
-
+                
                 return () => {
-                    isMounted = false;
+                    mounted = false;
                     subscription?.unsubscribe();
                 };
-            }, []);
+            }, []); 
 
+            // جلب البيانات عندما يتوفر المستخدم
             useEffect(() => {
                 if (user && userRole) {
-                    fetchOrdersData();
+                    fetchOrders();
                     if (userRole.role === 'admin') fetchUsersList();
+
+                    // إعداد المراقبة الحية (Realtime) بأمان
+                    const sub = supabase.channel('orders-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+                        setOrders(prev => {
+                            let updated = [...prev];
+                            const cleanPayload = payload.new ? {
+                                ...payload.new,
+                                productPrice: Number(payload.new.productPrice) || 0,
+                                shippingPrice: Number(payload.new.shippingPrice) || 0
+                            } : null;
+
+                            if (payload.eventType === 'INSERT' && cleanPayload) { 
+                                updated = [cleanPayload, ...updated.filter(o => o.id !== cleanPayload.id)]; 
+                            }
+                            else if (payload.eventType === 'UPDATE' && cleanPayload) {
+                                updated = updated.map(o => o.id === cleanPayload.id ? cleanPayload : o);
+                            }
+                            else if (payload.eventType === 'DELETE') {
+                                updated = updated.filter(o => o.id !== payload.old.id);
+                            }
+                            
+                            return updated.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+                        });
+                    }).subscribe();
+
+                    return () => supabase.removeChannel(sub);
                 }
-            }, [user, userRole]);
+            }, [user, userRole, fetchOrders]);
 
             useEffect(() => {
                 setCurrentPage(1);
@@ -319,45 +365,39 @@
                 };
             }, [filteredOrders]);
 
-
             // ==========================================
-            // 7. دوال واجهة المستخدم والأكشن (UI Handlers)
+            // 7. دوال التحكم (Action Handlers)
             // ==========================================
-
-            const resetFilters = () => { 
-                setSearchQuery(''); setFilterStatus('الكل'); 
-                setFilterPage(userRole?.role === 'agent' ? userRole.assigned_page : 'الكل'); 
-                setDateFrom(''); setDateTo(''); setCurrentPage(1);
-            };
 
             const handleLogin = async (e) => {
                 e.preventDefault(); setAuthLoading(true); setAuthError('');
                 try {
                     const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
                     if (error) throw error;
-                } catch (error) { setAuthError("خطأ في تسجيل الدخول. تأكد من الإيميل والباسورد."); } 
-                finally { setAuthLoading(false); }
+                } catch (error) { setAuthError("خطأ في تسجيل الدخول. تأكد من البيانات."); setAuthLoading(false); } 
             };
 
             const handleLogout = async () => { 
                 setAuthLoading(true);
-                await supabase.auth.signOut(); 
-                setUser(null);
-                setUserRole(null);
-                setOrders([]);
+                try { await supabase.auth.signOut(); } catch(e) {}
+                // تفريغ فوري للبيانات لعدم الحاجة لعمل Reload للمتصفح (يمنع تعليق كروم)
+                setUser(null); 
+                setUserRole(null); 
+                setOrders([]); 
                 setAuthLoading(false);
             };
 
+            // دالة الإضافة والتعديل الأساسية
             const handleAddOrEditOrder = async (e) => {
-                e.preventDefault();
+                e.preventDefault(); // يمنع المتصفح من عمل Reload
                 if (!user) return;
 
                 if (!isEditing && userRole?.role === 'agent' && userRole?.assigned_page !== newOrder.page) {
-                    alert(`عفواً، صلاحياتك تسمح لك بالإضافة في صفحة "${userRole.assigned_page}" فقط.`);
+                    alert(`صلاحياتك تسمح لك بالإضافة في صفحة "${userRole.assigned_page}" فقط.`);
                     return;
                 }
 
-                // تجهيز داتا الأوردر بشكل آمن ونظيف
+                // تجهيز بيانات الطلب (مع الحفاظ على الأسماء مطابقة لجدول الـ SQL الجديد)
                 const finalOrderId = newOrder.id && String(newOrder.id).trim() !== '' ? String(newOrder.id).trim() : `ORD-${Date.now().toString().slice(-6)}`;
                 const finalDate = newOrder.date && String(newOrder.date).trim() !== '' ? newOrder.date : new Date().toISOString().split('T')[0];
                 
@@ -379,34 +419,30 @@
 
                 try {
                     if (isEditing) {
-                        if (originalOrderId && originalOrderId !== finalOrderId) {
-                            // إذا غيرنا الـ ID بنمسح القديم ونضيف الجديد
-                            const { error: insErr } = await supabase.from('orders').insert([orderPayload]);
-                            if (insErr) throw insErr;
+                        if (originalOrderId !== finalOrderId) {
+                            // إذا تغير الـ ID، أضف الجديد وامسح القديم
+                            await supabase.from('orders').insert([orderPayload]);
                             await supabase.from('orders').delete().eq('id', originalOrderId);
                         } else {
-                            // تعديل عادي
+                            // تعديل طبيعي
                             const updatePayload = { ...orderPayload };
-                            delete updatePayload.id; // لا نحدث الـ ID لعدم كسر القاعدة
-                            const { error: updErr } = await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
-                            if (updErr) throw updErr;
+                            delete updatePayload.id; 
+                            await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
                         }
-                        
-                        setOrders(prev => prev.map(o => o.id === originalOrderId ? orderPayload : o));
                         alert("تم التعديل بنجاح!");
                         closeModal();
                     } else {
                         // إضافة جديدة
-                        const { error: insErr } = await supabase.from('orders').insert([orderPayload]);
-                        if (insErr) throw insErr;
+                        const { error } = await supabase.from('orders').insert([orderPayload]);
+                        if (error) throw error;
                         
-                        setOrders(prev => [orderPayload, ...prev]);
                         closeModal();
-                        setSuccessOrderMessage(orderPayload); // إظهار نافذة الواتساب
+                        // بعد الإضافة بنجاح، اعرض نافذة رسالة الواتساب
+                        setSuccessOrderMessage(orderPayload); 
                     }
+                    fetchOrders(true);
                 } catch (error) { 
-                    console.error("Save error:", error); 
-                    alert(`لم نتمكن من حفظ الطلب. السبب: ${error.message}`); 
+                    alert(`فشل الحفظ!\nالسبب: ${error.message}\nتأكد من عدم تكرار رقم الطلب.`); 
                 }
             };
 
@@ -423,6 +459,24 @@
                     alert("خطأ في التحديث: " + error.message);
                     setOrders(previousOrders);
                 }
+            };
+
+            const saveQuickUpdate = async () => {
+                 if (!user || !viewOrder) return;
+                 try {
+                     const { error } = await supabase.from('orders').update({ 
+                         trackingNumber: quickTracking, 
+                         status: quickStatus 
+                     }).eq('id', viewOrder.id);
+                     
+                     if(error) throw error;
+                     
+                     setViewOrder({...viewOrder, trackingNumber: quickTracking, status: quickStatus});
+                     setOrders(prev => prev.map(o => o.id === viewOrder.id ? { ...o, trackingNumber: quickTracking, status: quickStatus } : o));
+                     alert("تم الحفظ بنجاح!");
+                 } catch (error) { 
+                     alert("فشل الحفظ: " + error.message); 
+                 }
             };
 
             const handleDeleteOrder = async (id) => {
@@ -464,57 +518,20 @@
                 }
             };
 
-            const openAddModal = () => { 
-                setNewOrder({ ...initialOrderState, page: userRole?.role === 'agent' ? userRole.assigned_page : pages[0] }); 
-                setIsEditing(false); setOriginalOrderId(null); setIsAddModalOpen(true); 
-            };
+            // ==========================================
+            // 8. النوافذ المنبثقة والإضافات
+            // ==========================================
             
-            const openEditModal = (order) => { 
-                setNewOrder(order); setIsEditing(true); setOriginalOrderId(order.id); setIsAddModalOpen(true); 
-            };
-            
-            const closeModal = () => { 
-                setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setNewOrder(initialOrderState); 
-            };
-            
-            const openViewModal = (order) => { 
-                setViewOrder(order); 
-                setQuickTracking(order.trackingNumber || ''); 
-                setQuickStatus(order.status || 'جاري التحضير');
-                setIsViewModalOpen(true); 
-            };
-            
-            const closeViewModal = () => { 
-                setIsViewModalOpen(false); setViewOrder(null); setCopiedType(''); setQuickTracking(''); 
-            };
+            const openAddModal = () => { setNewOrder({ ...initialOrderState, page: userRole?.role === 'agent' ? userRole.assigned_page : pages[0] }); setIsEditing(false); setOriginalOrderId(null); setIsAddModalOpen(true); };
+            const openEditModal = (order) => { setNewOrder(order); setIsEditing(true); setOriginalOrderId(order.id); setIsAddModalOpen(true); };
+            const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setNewOrder(initialOrderState); };
+            const openViewModal = (order) => { setViewOrder(order); setQuickTracking(order.trackingNumber || ''); setQuickStatus(order.status || 'جاري التحضير'); setIsViewModalOpen(true); };
+            const closeViewModal = () => { setIsViewModalOpen(false); setViewOrder(null); setCopiedType(''); setQuickTracking(''); };
 
-            const saveQuickUpdate = async () => {
-                 if (!user || !viewOrder) return;
-                 try {
-                     const { error } = await supabase.from('orders').update({ 
-                         trackingNumber: quickTracking, 
-                         status: quickStatus 
-                     }).eq('id', viewOrder.id);
-                     
-                     if(error) throw error;
-                     
-                     setViewOrder({...viewOrder, trackingNumber: quickTracking, status: quickStatus});
-                     setOrders(prev => prev.map(o => o.id === viewOrder.id ? { ...o, trackingNumber: quickTracking, status: quickStatus } : o));
-                     alert("تم الحفظ بنجاح!");
-                 } catch (error) { 
-                     alert("فشل الحفظ: " + error.message); 
-                 }
-            };
-
-            // --- دوال مساعدة إضافية ---
             const copyToClipboard = (text, type) => {
                 const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
                 setCopiedType(type); setTimeout(() => setCopiedType(''), 2000);
             };
-
-            const navigateToFilteredOrders = (page, status) => { setFilterPage(page); setFilterStatus(status); setCurrentTab('orders'); };
-            const handleSelectAll = (e) => { e.target.checked ? setSelectedOrders(displayedOrders.map(o => o.id)) : setSelectedOrders([]); };
-            const handleSelectOrder = (id) => { selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); };
 
             const handleCalcBtn = (btn) => {
                 if (btn === 'C') { setCalcExp(''); setNewOrder({ ...newOrder, productPrice: '' }); } 
@@ -557,99 +574,8 @@
                 }
             };
 
-            // دوال الإكسيل المعقدة مبسطة هنا
-            const exportSelectedToCSV = () => {
-                if (selectedOrders.length === 0) return;
-                const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
-                const headers = ['رقم الطلب', 'اسم العميل', 'رقم الموبايل', 'العنوان', 'الصفحة', 'المنتج/الوصف', 'حالة الطلب', 'سعر المنتج', 'سعر الشحن', 'رقم البوليصة', 'تاريخ الطلب', 'الملاحظات'];
-                const rows = toExport.map(o => [`"${String(o.id || '')}"`, `"${String(o.customer || '').replace(/"/g, '""')}"`, `"${String(o.phone || '').replace(/"/g, '""')}"`, `"${String(o.address || '').replace(/"/g, '""')}"`, `"${String(o.page || '').replace(/"/g, '""')}"`, `"${String(o.item || '').replace(/"/g, '""')}"`, `"${String(o.status || '')}"`, Number(o.productPrice) || 0, Number(o.shippingPrice) || 0, `"${String(o.trackingNumber || '').replace(/"/g, '""')}"`, `"${String(o.date || '')}"`, `"${String(o.notes || '').replace(/"/g, '""')}"`].join(','));
-                const content = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-                const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `طلبات_محددة_${new Date().toISOString().split('T')[0]}.csv`; link.click();
-            };
-
-            const parseCSV = (text) => {
-                const result = []; let row = []; let inQuotes = false; let currentVal = '';
-                for (let i = 0; i < text.length; i++) {
-                    const char = text[i];
-                    if (inQuotes) { if (char === '"') { if (text[i+1] === '"') { currentVal += '"'; i++; } else { inQuotes = false; } } else { currentVal += char; } } 
-                    else { if (char === '"') { inQuotes = true; } else if (char === ',') { row.push(currentVal.trim()); currentVal = ''; } else if (char === '\n' || char === '\r') { row.push(currentVal.trim()); result.push(row); row = []; currentVal = ''; if (char === '\r' && text[i+1] === '\n') i++; } else { currentVal += char; } }
-                }
-                if (currentVal || row.length) { row.push(currentVal.trim()); result.push(row); }
-                return result.filter(r => r.some(cell => cell && cell.trim() !== '')); 
-            };
-
-            const handleFileUpload = (e) => {
-                const file = e.target.files[0]; if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => { const text = event.target.result; const parsed = parseCSV(text); if (parsed.length > 0) { setCsvHeaders(parsed[0]); setCsvData(parsed.slice(1)); } };
-                reader.readAsText(file, 'UTF-8'); 
-            };
-
-            const startImport = async () => {
-                if (!user) return;
-                setIsImporting(true); setImportProgress(0); setImportStatusText("جاري معالجة الشيت...");
-
-                try {
-                    let validRecordsCount = 0;
-                    const uniqueRowsMap = new Map();
-
-                    for (let i = 0; i < csvData.length; i++) {
-                        const row = csvData[i];
-                        const getVal = (sysField) => { const colName = columnMapping[sysField]; if (!colName) return ''; const colIdx = csvHeaders.indexOf(colName); return colIdx !== -1 && row[colIdx] ? String(row[colIdx]).trim() : ''; };
-
-                        let rawId = getVal('id'); let orderId = rawId !== '' ? rawId : `ORD-IMP-${Date.now()}-${i}`;
-                        orderId = String(orderId).replace(/[\/\\?%*:|"<>#\s]/g, '-').trim();
-
-                        const priceRaw = getVal('productPrice') || '0'; const shipRaw = getVal('shippingPrice') || '0';
-                        const cleanProductPrice = parseFloat(String(priceRaw).replace(/[^\d.-]/g, '')) || 0;
-                        const cleanShippingPrice = parseFloat(String(shipRaw).replace(/[^\d.-]/g, '')) || 0;
-                        
-                        let importedStatus = getVal('status');
-                        if(!orderStatuses.includes(importedStatus)) importedStatus = 'جاري التحضير';
-                        
-                        let rawDate = getVal('date'); let finalDate = new Date().toISOString().split('T')[0];
-                        if (rawDate && String(rawDate).trim() !== '') {
-                            let cleanDateStr = String(rawDate).replace(/\//g, '-').replace(/\./g, '-');
-                            let parsedDate = new Date(cleanDateStr);
-                            if (!isNaN(parsedDate.getTime())) finalDate = parsedDate.toISOString().split('T')[0];
-                        }
-
-                        const orderData = {
-                            id: orderId, customer: getVal('customer') || 'غير محدد', phone: getVal('phone') || '',
-                            address: getVal('address') || '', notes: getVal('notes') || '', page: importTargetPage, 
-                            item: getVal('item') || 'مستورد من إكسيل', productPrice: cleanProductPrice,
-                            shippingPrice: cleanShippingPrice, trackingNumber: getVal('trackingNumber') || '',
-                            status: importedStatus, date: finalDate, user_id: user.id
-                        };
-                        uniqueRowsMap.set(orderId, orderData);
-                    }
-                    
-                    const uniqueDataToInsert = Array.from(uniqueRowsMap.values());
-                    validRecordsCount = uniqueDataToInsert.length;
-                    setImportStatusText(`جاري رفع ${validRecordsCount} طلب...`);
-
-                    const chunkSize = 200; 
-                    for (let i = 0; i < uniqueDataToInsert.length; i += chunkSize) {
-                        const chunk = uniqueDataToInsert.slice(i, i + chunkSize);
-                        const { error } = await supabase.from('orders').upsert(chunk, { onConflict: 'id' });
-                        if (error) throw error;
-                        setImportProgress(Math.round(((i + chunk.length) / uniqueDataToInsert.length) * 100));
-                    }
-
-                    setImportStatusText("تم الرفع بنجاح!");
-                    fetchOrdersData(); 
-                    setIsImporting(false); setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]);
-                    alert(`تم استيراد ${validRecordsCount} أوردر بنجاح!`);
-                } catch (err) {
-                    alert(`فشل الرفع: ${err.message}`); 
-                    setIsImporting(false);
-                }
-            };
-
-
             // ==========================================
-            // 8. واجهة المستخدم (Rendering)
+            // 9. واجهة المستخدم (Rendering)
             // ==========================================
 
             if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>;
@@ -686,7 +612,7 @@
                         <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-100 text-center">
                             <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
                             <h2 className="text-xl font-black text-slate-800 mb-4">جاري التحقق من الصلاحيات...</h2>
-                            <button onClick={handleLogout} className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold">تسجيل خروج إجباري</button>
+                            <button onClick={handleLogout} className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold mt-4">تسجيل الخروج (إلغاء العملية)</button>
                         </div>
                     </div>
                  );
@@ -735,7 +661,7 @@
                         </header>
 
                         <div className="flex-1 overflow-auto p-4 md:p-8 relative">
-                            {/* مؤشر التحميل الأولي فقط لمنع الإزعاج أثناء التنقل */}
+                            {/* مؤشر التحميل */}
                             {loadingDB && (
                                 <div className="absolute inset-0 bg-white/60 z-10 flex flex-col items-center justify-center backdrop-blur-sm"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>
                             )}
@@ -813,7 +739,7 @@
                                 <div className="flex flex-col h-full space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     <div className="glass-panel p-5 rounded-2xl shadow-sm border border-white flex flex-col gap-4 shrink-0">
                                         <div className="flex items-center justify-between mb-1">
-                                            <div className="flex items-center gap-2"><IconFilter /> <h3 className="font-bold text-slate-700">تصفية وبحث متقدم</h3>{isSearchingDb && <span className="text-xs text-indigo-500 font-bold bg-indigo-50 px-2 py-1 rounded animate-pulse">جاري البحث...</span>}</div>
+                                            <div className="flex items-center gap-2"><IconFilter /> <h3 className="font-bold text-slate-700">تصفية وبحث متقدم</h3></div>
                                             {selectedOrders.length > 0 && (
                                                 <div className="flex items-center gap-2">
                                                     <button onClick={exportSelectedToCSV} className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-xl font-bold text-sm shadow-md transition-colors" title="تنزيل الطلبات المحددة في ملف إكسيل"><IconDownload /> إكسيل</button>
@@ -990,7 +916,10 @@
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
                             <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-4 ${currentTheme.border}`}>
                                 <div className={`px-6 py-5 border-b flex justify-between items-center shrink-0 ${currentTheme.bgLight}`}><div className="flex items-center gap-3"><div className={`p-2 rounded-lg bg-white shadow-sm ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit /> : <IconPlus />}</div><h2 className={`text-xl font-black ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2></div><button onClick={closeModal} className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={20} /></button></div>
-                                <form onSubmit={handleAddOrEditOrder} className={`p-6 space-y-4 overflow-y-auto ${currentTheme.bgLight}`}>
+                                
+                                {/* تم إرجاع onSubmit ليقوم بالتحقق الأصلي (Native Validation) للحقول المطلوبة.
+                                */}
+                                <form onSubmit={handleAddOrEditOrder} className={`p-6 space-y-4 overflow-y-auto flex-1 ${currentTheme.bgLight}`}>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-white shadow-md">
                                         <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">رقم الطلب</label><input type="text" disabled={isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status)} placeholder="يولد تلقائياً إذا تُرك فارغاً" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''} ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.id} onChange={e => setNewOrder({...newOrder, id: e.target.value})} />{isEditing && ['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) && (<p className="text-xs text-indigo-600 mt-1 font-bold">يمكنك تعديل رقم الطلب في هذه الحالة.</p>)}</div>
                                         <div><label className="block text-sm font-black text-slate-700 mb-1.5">اسم العميل <span className="text-red-500">*</span></label><input required type="text" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.customer} onChange={e => setNewOrder({...newOrder, customer: e.target.value})} /></div>
@@ -1000,13 +929,16 @@
                                         <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">الملحوظات</label><textarea rows="2" placeholder="أي ملحوظات إضافية بخصوص الطلب..." className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none resize-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.notes || ''} onChange={e => setNewOrder({...newOrder, notes: e.target.value})}></textarea></div>
                                         <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">المنتج / الوصف <span className="text-red-500">*</span></label><textarea required rows="2" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none resize-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
                                         <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">حالة الطلب</label><select className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.status} onChange={e => setNewOrder({...newOrder, status: e.target.value})}>{orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}</select></div>
-                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">سعر الشحن (ج.م) <span className="text-red-500">*</span></label><input type="number" min="0" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-black text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.shippingPrice} onChange={e => setNewOrder({...newOrder, shippingPrice: e.target.value})} /></div>
-                                        <div className="relative"><label className="block text-sm font-black text-slate-700 mb-1.5">سعر المنتج (ج.م) <span className="text-red-500">*</span></label><div className="relative"><input type="number" min="0" className={`w-full px-4 py-2.5 pl-12 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-black text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} /><button type="button" onClick={() => setShowCalc(!showCalc)} className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors bg-white shadow-sm border border-slate-100 ${currentTheme.textPrimary} hover:bg-slate-50`}><IconCalc /></button></div>{showCalc && (<div dir="ltr" className="absolute z-10 bottom-full left-0 mb-3 bg-white border border-slate-200 shadow-2xl rounded-2xl p-4 w-56 animate-in zoom-in-95"><div className="mb-3 p-3 bg-slate-100 text-right font-mono text-xl rounded-xl border border-slate-200 min-h-[50px] break-all font-bold shadow-inner text-slate-800">{calcExp || '0'}</div><div className="grid grid-cols-4 gap-2">{calcButtons.map(btn => (<button key={btn} type="button" onClick={() => handleCalcBtn(btn)} className={`p-3 text-sm font-black rounded-xl flex items-center justify-center transition-all ${btn === '=' ? `${currentTheme.btnPrimary} col-span-2 shadow-md` : btn === 'C' ? 'bg-red-100 text-red-600 hover:bg-red-200' : ['+','-','*','/'].includes(btn) ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'}`}>{btn}</button>))}</div></div>)}</div>
+                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">سعر الشحن (ج.م) <span className="text-red-500">*</span></label><input required type="number" min="0" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-black text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.shippingPrice} onChange={e => setNewOrder({...newOrder, shippingPrice: e.target.value})} /></div>
+                                        <div className="relative"><label className="block text-sm font-black text-slate-700 mb-1.5">سعر المنتج (ج.م) <span className="text-red-500">*</span></label><div className="relative"><input required type="number" min="0" className={`w-full px-4 py-2.5 pl-12 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-black text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} /><button type="button" onClick={() => setShowCalc(!showCalc)} className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors bg-white shadow-sm border border-slate-100 ${currentTheme.textPrimary} hover:bg-slate-50`}><IconCalc /></button></div>{showCalc && (<div dir="ltr" className="absolute z-10 bottom-full left-0 mb-3 bg-white border border-slate-200 shadow-2xl rounded-2xl p-4 w-56 animate-in zoom-in-95"><div className="mb-3 p-3 bg-slate-100 text-right font-mono text-xl rounded-xl border border-slate-200 min-h-[50px] break-all font-bold shadow-inner text-slate-800">{calcExp || '0'}</div><div className="grid grid-cols-4 gap-2">{calcButtons.map(btn => (<button key={btn} type="button" onClick={() => handleCalcBtn(btn)} className={`p-3 text-sm font-black rounded-xl flex items-center justify-center transition-all ${btn === '=' ? `${currentTheme.btnPrimary} col-span-2 shadow-md` : btn === 'C' ? 'bg-red-100 text-red-600 hover:bg-red-200' : ['+','-','*','/'].includes(btn) ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'}`}>{btn}</button>))}</div></div>)}</div>
                                         <div className="md:col-span-2 p-4 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-between text-white shadow-inner"><span className="text-sm font-bold text-slate-300">الإجمالي النهائي المطلوب:</span><span className="font-black text-2xl tracking-wide">{(Number(newOrder.shippingPrice) || 0) + (Number(newOrder.productPrice) || 0)} <span className="text-sm font-normal text-slate-400">ج.م</span></span></div>
                                         <div className="md:col-span-2 pt-2 border-t border-slate-200"><label className="block text-sm font-black text-slate-700 mb-1.5 flex items-center gap-2"><IconCalendar /> 10. تاريخ الطلب</label><input type="date" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.date || ''} onChange={e => setNewOrder({...newOrder, date: e.target.value})} /><p className="text-xs font-bold text-slate-400 mt-1">يُترك فارغاً ليتم تسجيل تاريخ اليوم تلقائياً.</p></div>
                                         <div className="md:col-span-2 pt-4 mt-2 border-t-2 border-dashed border-slate-200"><label className="block text-sm font-black text-teal-700 mb-2 flex items-center gap-2"><IconTruck /> 11. رقم بوليصة الشحن (تتبع الأوردر)</label><input type="text" placeholder="يُكتب هنا رقم البوليصة لتتبع الأوردر..." className={`w-full px-4 py-3 border-2 border-teal-200 bg-teal-50/50 rounded-xl outline-none transition-shadow font-bold text-teal-900 focus:ring-2 focus:ring-teal-500`} value={newOrder.trackingNumber || ''} onChange={e => setNewOrder({...newOrder, trackingNumber: e.target.value})} /><p className="text-xs font-bold text-slate-400 mt-2">ملاحظة: البنت المسؤولة عن الشحن ستضيف هذا الرقم لاحقاً عند تعديل الطلب.</p></div>
                                     </div>
-                                    <div className="pt-4 flex gap-4"><button type="submit" className={`flex-1 font-black text-lg py-4 rounded-xl transition-all shadow-md transform hover:-translate-y-1 ${currentTheme.btnPrimary}`}>{isEditing ? 'حفظ تعديلات الطلب' : 'تأكيد وإضافة الطلب'}</button><button type="button" onClick={closeModal} className={`flex-none px-8 font-black py-4 rounded-xl transition-all bg-white border-2 hover:bg-slate-50 ${currentTheme.border} ${currentTheme.textPrimary}`}>إلغاء</button></div>
+                                    <div className="pt-4 flex gap-4">
+                                        <button type="submit" className={`flex-1 font-black text-lg py-4 rounded-xl transition-all shadow-md transform hover:-translate-y-1 ${currentTheme.btnPrimary}`}>{isEditing ? 'حفظ تعديلات الطلب' : 'تأكيد وإضافة الطلب'}</button>
+                                        <button type="button" onClick={closeModal} className={`flex-none px-8 font-black py-4 rounded-xl transition-all bg-white border-2 hover:bg-slate-50 ${currentTheme.border} ${currentTheme.textPrimary}`}>إلغاء</button>
+                                    </div>
                                 </form>
                             </div>
                         </div>
