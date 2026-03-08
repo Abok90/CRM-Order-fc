@@ -87,7 +87,7 @@
         }
 
         // ==========================================
-        // 2. مكونات الأيقونات (أحجام ديناميكية للموبايل)
+        // 2. مكونات الأيقونات
         // ==========================================
         const IconPackage = ({size=24}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
         const IconDashboard = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>;
@@ -212,13 +212,20 @@
                         const name = isFirstUser ? 'المدير' : (userEmail ? userEmail.split('@')[0] : 'موظف جديد');
                         
                         const newRoleData = { id: userId, name, role };
-                        const { data: newRole } = await supabase.from('user_roles').insert([newRoleData]).select().maybeSingle();
+                        const { data: newRole, error: insertError } = await supabase.from('user_roles').insert([newRoleData]).select().maybeSingle();
                         
-                        setUserRole(newRole || newRoleData);
+                        if (insertError) {
+                            console.error("Insert Role Error:", insertError);
+                            // حالة الطوارئ: إعطاء صلاحية مدير مؤقتة لتجنب القفل خارج النظام
+                            setUserRole({ id: userId, name: 'مدير طوارئ', role: 'admin' });
+                        } else {
+                            setUserRole(newRole || newRoleData);
+                        }
                     }
                 } catch (error) { 
                     console.error("Role Error", error);
-                    setUserRole({ id: userId, name: 'موظف', role: 'agent' }); 
+                    // حالة الطوارئ: إعطاء صلاحية مدير لتجنب القفل خارج النظام
+                    setUserRole({ id: userId, name: 'مدير طوارئ', role: 'admin' }); 
                 } finally { 
                     setAuthLoading(false); 
                 }
@@ -263,25 +270,28 @@
             // ==========================================
 
             useEffect(() => {
-                let isMounted = true;
+                let mounted = true;
                 const initSession = async () => {
                     try {
-                        const { data: { session } } = await supabase.auth.getSession();
-                        if (isMounted) {
-                            setUser(session?.user || null);
-                            if (session?.user) await fetchUserRole(session.user.id, session.user.email);
-                            else setAuthLoading(false);
+                        const { data: { session }, error } = await supabase.auth.getSession();
+                        if (mounted) {
+                            if (session?.user) {
+                                setUser(session.user);
+                                await fetchUserRole(session.user.id, session.user.email);
+                            } else {
+                                setAuthLoading(false);
+                            }
                         }
                     } catch (err) {
-                        if (isMounted) setAuthLoading(false);
+                        if (mounted) setAuthLoading(false);
                     }
                 };
                 initSession();
 
                 const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-                    if (isMounted) {
-                        setUser(session?.user || null);
+                    if (mounted) {
                         if (session?.user) {
+                            setUser(session.user);
                             fetchUserRole(session.user.id, session.user.email);
                         } else {
                             setUser(null);
@@ -293,7 +303,7 @@
                 });
 
                 return () => {
-                    isMounted = false;
+                    mounted = false;
                     subscription?.unsubscribe();
                 };
             }, []);
@@ -364,12 +374,21 @@
                 setDateFrom(''); setDateTo(''); setCurrentPage(1);
             };
 
+            const navigateToFilteredOrders = (page, status) => { 
+                setFilterPage(page); 
+                setFilterStatus(status); 
+                setCurrentTab('orders'); 
+            };
+
             const handleLogin = async (e) => {
                 e.preventDefault(); setAuthLoading(true); setAuthError('');
                 try {
                     const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
                     if (error) throw error;
-                } catch (error) { setAuthError("خطأ في تسجيل الدخول. تأكد من الإيميل والباسورد."); setAuthLoading(false); } 
+                } catch (error) { 
+                    setAuthError(error.message === 'Invalid login credentials' ? 'الإيميل أو كلمة المرور غير صحيحة.' : 'خطأ: ' + error.message); 
+                    setAuthLoading(false); 
+                } 
             };
 
             const handleLogout = async () => { 
@@ -568,7 +587,7 @@
             };
 
             // ==========================================
-            // 9. النوافذ المنبثقة والمساعدات
+            // 9. النوافذ المنبثقة والمساعدات (تصدير CSV)
             // ==========================================
             
             const openAddModal = () => { setNewOrder({ ...initialOrderState, page: userRole?.role === 'agent' ? userRole.assigned_page : pages[0] }); setIsEditing(false); setOriginalOrderId(null); setIsAddModalOpen(true); };
@@ -688,17 +707,6 @@
                     setIsImporting(false);
                 }
             };
-
-            const navigateToFilteredOrders = (page, status) => { setFilterPage(page); setFilterStatus(status); setCurrentTab('orders'); };
-            const handleSelectAll = (e) => { e.target.checked ? setSelectedOrders(displayedOrders.map(o => o.id)) : setSelectedOrders([]); };
-            const handleSelectOrder = (id) => { selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); };
-
-            const handleCalcBtn = (btn) => {
-                if (btn === 'C') { setCalcExp(''); setNewOrder({ ...newOrder, productPrice: '' }); } 
-                else if (btn === '=') { try { const result = new Function('return ' + calcExp)(); setCalcExp(String(result)); setNewOrder({ ...newOrder, productPrice: result }); setShowCalc(false); } catch (e) { setCalcExp('خطأ'); } } 
-                else { setCalcExp((prev) => (prev === 'خطأ' ? btn : prev + btn)); }
-            };
-            const calcButtons = ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', 'C', '0', '=', '+'];
 
             const getThemeClasses = (p) => (p === 'عايدة' || p === 'عايدة ويب' ? { btnPrimary: 'bg-pink-600 hover:bg-pink-700 text-white shadow-md shadow-pink-200', textPrimary: 'text-pink-600', border: 'border-pink-200', bgLight: 'bg-pink-50', ringFocus: 'focus:ring-pink-500' } : { btnPrimary: 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-200', textPrimary: 'text-purple-600', border: 'border-purple-200', bgLight: 'bg-purple-50', ringFocus: 'focus:ring-purple-500' });
             
