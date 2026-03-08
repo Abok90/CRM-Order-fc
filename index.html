@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة الطلبات (CRM)</title>
+    
+    <!-- مكتبة التصميم -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Supabase -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- الخطوط -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Cairo', sans-serif; 
+            background-color: #f8fafc; 
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f8fafc; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .glass-panel {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        
+        .custom-checkbox {
+            appearance: none;
+            background-color: #fff;
+            width: 1.25em; height: 1.25em;
+            border: 2px solid #cbd5e1; border-radius: 0.3em;
+            display: grid; place-content: center; cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .custom-checkbox::before {
+            content: ""; width: 0.65em; height: 0.65em; transform: scale(0);
+            box-shadow: inset 1em 1em white; background-color: white;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        .custom-checkbox:checked { background-color: #4f46e5; border-color: #4f46e5; }
+        .custom-checkbox:checked::before { transform: scale(1); }
+    </style>
+</head>
+<body class="text-slate-800 antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
+        const { createClient } = window.supabase;
+
+        // ==========================================
+        // 1. إعدادات قاعدة البيانات Supabase
+        // ==========================================
+        const SUPABASE_URL = 'https://tdprtlvogzfzfckpvkpa.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkcHJ0bHZvZ3pmemZja3B2a3BhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4OTUwMTcsImV4cCI6MjA4ODQ3MTAxN30.0TrcH65HQO5gboqsNfadSCGZQ95anY_0Bz97db5dPBg';
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ==========================================
+        // 2. مكونات الأيقونات (SVG Icons)
+        // ==========================================
+        const IconPackage = ({size=24}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
+        const IconDashboard = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>;
+        const IconCart = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>;
+        const IconStore = ({size=20}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg>;
+        const IconPlus = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+        const IconSearch = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
+        const IconCheck = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
+        const IconClock = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+        const IconMenu = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg>;
+        const IconX = ({size=20}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+        const IconCalc = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>;
+        const IconEdit = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+        const IconTrash = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
+        const IconTruck = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="15" height="10" x="3" y="8" rx="2"/><path d="M18 8h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><circle cx="7" cy="20" r="2"/><circle cx="17" cy="20" r="2"/></svg>;
+        const IconFilter = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>;
+        const IconCalendar = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+        const IconUpload = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>;
+        const IconEye = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
+        const IconCopy = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>;
+        const IconLogOut = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
+        const IconUsers = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>;
+        const IconDownload = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+
+        // ==========================================
+        // 3. المكون الرئيسي (App)
+        // ==========================================
+        function App() {
+            // حالة المصادقة
+            const [user, setUser] = useState(null);
+            const [userRole, setUserRole] = useState(null); 
+            const [authEmail, setAuthEmail] = useState('');
+            const [authPassword, setAuthPassword] = useState('');
+            const [authLoading, setAuthLoading] = useState(true);
+            const [authError, setAuthError] = useState('');
+
+            // حالة واجهة المستخدم والتبويبات
+            const [currentTab, setCurrentTab] = useState('dashboard');
+            const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+            const [loadingDB, setLoadingDB] = useState(false);
+            
+            // نوافذ إضافة/تعديل/عرض/استيراد
+            const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+            const [isEditing, setIsEditing] = useState(false);
+            const [originalOrderId, setOriginalOrderId] = useState(null); 
+            const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+            const [viewOrder, setViewOrder] = useState(null);
+            const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+            const [copiedType, setCopiedType] = useState('');
+            const [quickTracking, setQuickTracking] = useState(''); 
+            
+            // البيانات
+            const [orders, setOrders] = useState([]);
+            const ordersRef = useRef([]); // لحفظ نسخة سريعة من البيانات
+            const [usersList, setUsersList] = useState([]);
+            
+            // الفلاتر والبحث
+            const [searchQuery, setSearchQuery] = useState('');
+            const [filterStatus, setFilterStatus] = useState('الكل');
+            const [filterPage, setFilterPage] = useState('الكل');
+            const [dateFrom, setDateFrom] = useState('');
+            const [dateTo, setDateTo] = useState('');
+            const [statsDateFrom, setStatsDateFrom] = useState('');
+            const [statsDateTo, setStatsDateTo] = useState('');
+            const [selectedOrders, setSelectedOrders] = useState([]);
+            const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
+            const [searchResults, setSearchResults] = useState([]); 
+            const [isSearchingDb, setIsSearchingDb] = useState(false); 
+
+            // الصفحات والاستيراد
+            const [ordersPerPage, setOrdersPerPage] = useState(100);
+            const [currentPage, setCurrentPage] = useState(1);
+            const [csvHeaders, setCsvHeaders] = useState([]);
+            const [csvData, setCsvData] = useState([]);
+            const [importProgress, setImportProgress] = useState(0);
+            const [importStatusText, setImportStatusText] = useState(""); 
+            const [isImporting, setIsImporting] = useState(false);
+            const [importTargetPage, setImportTargetPage] = useState('عايدة'); 
+            const [columnMapping, setColumnMapping] = useState({
+                id: '', customer: '', phone: '', address: '', item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: '', date: '', notes: ''
+            });
+            const fileInputRef = useRef(null);
+
+            // الآلة الحاسبة
+            const [showCalc, setShowCalc] = useState(false);
+            const [calcExp, setCalcExp] = useState('');
+
+            // الثوابت
+            const pages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب'];
+            const orderStatuses = ['جاري التحضير', 'تم', 'الشحن', 'مراجعة', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل', 'اعادة ارسال', 'خارجي'];
+            const initialOrderState = {
+                id: '', customer: '', address: '', phone: '', notes: '', page: pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: ''
+            };
+            const [newOrder, setNewOrder] = useState(initialOrderState);
+            const isSupabaseConfigured = SUPABASE_URL.startsWith('http');
+
+            // ==========================================
+            // 4. دوال التحكم والـ Handlers 
+            // ==========================================
+
+            const resetFilters = () => { 
+                setSearchQuery(''); 
+                setFilterStatus('الكل'); 
+                setFilterPage(userRole?.role === 'agent' ? userRole.assigned_page : 'الكل'); 
+                setDateFrom(''); 
+                setDateTo(''); 
+                setSearchResults([]); 
+                setCurrentPage(1);
+            };
+
+            const fetchUserRole = async (userId) => {
+                try {
+                    const { data, error } = await supabase.from('user_roles').select('*').eq('id', userId).maybeSingle();
+                    if (data) {
+                        setUserRole(data);
+                        if (data.role === 'agent' && data.assigned_page) {
+                            setFilterPage(data.assigned_page);
+                            setNewOrder(prev => ({...prev, page: data.assigned_page}));
+                            setImportTargetPage(data.assigned_page);
+                        }
+                    } else {
+                        // محاولة إنشاء دور مبدئي
+                        const { data: newRole } = await supabase.from('user_roles').insert([{ id: userId, name: 'المدير', role: 'admin' }]).select().maybeSingle();
+                        setUserRole(newRole || { id: userId, name: 'المدير', role: 'admin' });
+                    }
+                } catch (error) { 
+                    setUserRole({ id: userId, name: 'مدير (افتراضي)', role: 'admin' }); 
+                } finally { 
+                    setAuthLoading(false); 
+                }
+            };
+
+            const fetchOrders = useCallback(async () => {
+                if (!user) return;
+                setLoadingDB(true);
+                try {
+                    const { data, error } = await supabase
+                        .from('orders')
+                        .select('*')
+                        .limit(2000); // تحديد جلب 2000 طلب كحد أقصى مبدئياً لسرعة التحميل
+                        
+                    if (error) throw error;
+                    
+                    const safeOrders = (data || []).map(o => ({
+                        ...o,
+                        productPrice: Number(o.productPrice) || 0,
+                        shippingPrice: Number(o.shippingPrice) || 0
+                    }));
+                    setOrders(safeOrders);
+                } catch (error) { 
+                    console.error("Fetch orders error:", error);
+                } finally { 
+                    setLoadingDB(false); 
+                    setInitialLoad(false); 
+                }
+            }, [user]);
+
+            const fetchUsersList = async () => {
+                try {
+                    const { data, error } = await supabase.from('user_roles').select('*');
+                    if (!error && data) setUsersList(data);
+                } catch (error) { console.error("Error fetching users:", error); }
+            };
+
+            // ==========================================
+            // 5. الـ useEffects الأساسية
+            // ==========================================
+
+            useEffect(() => {
+                setCurrentPage(1);
+            }, [searchQuery, filterStatus, filterPage, dateFrom, dateTo]);
+
+            useEffect(() => {
+                let mounted = true;
+                
+                const initAuth = async () => {
+                    try {
+                        const { data: { session }, error } = await supabase.auth.getSession();
+                        if (error) throw error;
+                        
+                        if (mounted) {
+                            if (session?.user) {
+                                setUser(session.user);
+                                await fetchUserRole(session.user.id);
+                            } else {
+                                setAuthLoading(false);
+                            }
+                        }
+                    } catch (err) {
+                        if (mounted) setAuthLoading(false);
+                    }
+                };
+
+                initAuth();
+
+                const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+                    if (!mounted || _event === 'INITIAL_SESSION') return;
+                    const currentUser = session?.user || null;
+                    setUser(currentUser);
+                    if (currentUser) {
+                        await fetchUserRole(currentUser.id);
+                    } else { 
+                        setUserRole(null); setOrders([]); setAuthLoading(false);
+                    }
+                });
+                
+                return () => {
+                    mounted = false;
+                    subscription?.unsubscribe();
+                };
+            }, []); 
+
+            useEffect(() => {
+                if (user && userRole) {
+                    fetchOrders();
+                    if (userRole.role === 'admin') fetchUsersList();
+                }
+            }, [user, userRole, fetchOrders]); 
+
+            // ==========================================
+            // 6. تجهيز الفلاتر والعرض (useMemos)
+            // ==========================================
+
+            const filteredOrders = useMemo(() => {
+                return orders.filter(order => {
+                    const search = String(searchQuery).toLowerCase();
+                    const matchesSearch = String(order.customer || '').toLowerCase().includes(search) || 
+                                          String(order.phone || '').toLowerCase().includes(search) || 
+                                          String(order.id || '').toLowerCase().includes(search) || 
+                                          String(order.trackingNumber || '').toLowerCase().includes(search);
+                                          
+                    const matchesStatus = filterStatus === 'الكل' || order.status === filterStatus;
+                    const matchesPage = filterPage === 'الكل' || order.page === filterPage;
+                    const matchesRole = userRole?.role === 'admin' ? true : order.page === userRole?.assigned_page;
+                    const matchesDateFrom = !dateFrom || (order.date && order.date >= dateFrom);
+                    const matchesDateTo = !dateTo || (order.date && order.date <= dateTo);
+
+                    return matchesSearch && matchesStatus && matchesPage && matchesRole && matchesDateFrom && matchesDateTo;
+                });
+            }, [orders, searchQuery, filterStatus, filterPage, userRole, dateFrom, dateTo]);
+
+            const displayedOrders = useMemo(() => {
+                if (ordersPerPage === 'All') return filteredOrders;
+                const start = (currentPage - 1) * ordersPerPage;
+                return filteredOrders.slice(start, start + ordersPerPage);
+            }, [filteredOrders, currentPage, ordersPerPage]);
+
+            const totalPages = ordersPerPage === 'All' ? 1 : Math.ceil(filteredOrders.length / ordersPerPage);
+
+            const statsFilteredOrders = useMemo(() => {
+                return filteredOrders.filter(order => (!statsDateFrom || order.date >= statsDateFrom) && (!statsDateTo || order.date <= statsDateTo));
+            }, [filteredOrders, statsDateFrom, statsDateTo]);
+
+            const globalStats = useMemo(() => {
+                const delivered = filteredOrders.filter(o => o.status === 'تم');
+                return {
+                    total: filteredOrders.length,
+                    new: filteredOrders.filter(o => ['جاري التحضير', 'مراجعة', 'تاجيل'].includes(o.status)).length,
+                    processing: filteredOrders.filter(o => ['الشحن', 'استبدال', 'اعادة ارسال'].includes(o.status)).length,
+                    delivered: delivered.length,
+                    revenue: delivered.reduce((sum, o) => sum + (Number(o.productPrice) || 0) + (Number(o.shippingPrice) || 0), 0)
+                };
+            }, [filteredOrders]);
+
+            // ==========================================
+            // 7. دوال التحكم والإضافة (Action Handlers)
+            // ==========================================
+
+            const handleLogin = async (e) => {
+                e.preventDefault(); setAuthLoading(true); setAuthError('');
+                try {
+                    const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+                    if (error) throw error;
+                } catch (error) { setAuthError("خطأ في تسجيل الدخول. تأكد من البيانات."); } 
+                finally { setAuthLoading(false); }
+            };
+
+            const handleLogout = async () => { 
+                await supabase.auth.signOut(); 
+                window.location.reload(); 
+            };
+
+            const handleAddOrEditOrder = async (e) => {
+                e.preventDefault();
+                if (!user) return;
+
+                if (!isEditing && userRole?.role === 'agent' && userRole?.assigned_page !== newOrder.page) {
+                    alert(`صلاحياتك تسمح لك بالإضافة في صفحة "${userRole.assigned_page}" فقط.`);
+                    return;
+                }
+
+                const finalOrderId = newOrder.id && String(newOrder.id).trim() !== '' ? String(newOrder.id).trim() : `ORD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 100)}`;
+                const finalDate = newOrder.date && String(newOrder.date).trim() !== '' ? newOrder.date : new Date().toISOString().split('T')[0];
+                
+                const orderPayload = { 
+                    id: finalOrderId, 
+                    customer: newOrder.customer,
+                    address: newOrder.address,
+                    phone: newOrder.phone,
+                    page: newOrder.page,
+                    item: newOrder.item,
+                    status: newOrder.status,
+                    notes: newOrder.notes,
+                    productPrice: Number(newOrder.productPrice) || 0, 
+                    shippingPrice: Number(newOrder.shippingPrice) || 0,
+                    trackingNumber: newOrder.trackingNumber,
+                    date: finalDate,
+                    user_id: user.id
+                };
+
+                try {
+                    if (isEditing) {
+                        if (originalOrderId && originalOrderId !== finalOrderId) {
+                            const { error: insertErr } = await supabase.from('orders').insert([orderPayload]);
+                            if (insertErr) throw insertErr;
+                            await supabase.from('orders').delete().eq('id', originalOrderId);
+                        } else {
+                            const { error: updateErr } = await supabase.from('orders').update(orderPayload).eq('id', finalOrderId);
+                            if (updateErr) throw updateErr;
+                        }
+                    } else {
+                        const { error: insertErr } = await supabase.from('orders').insert([orderPayload]);
+                        if (insertErr) throw insertErr;
+                    }
+                    
+                    alert("تم حفظ الطلب بنجاح!");
+                    closeModal();
+                    fetchOrders(); 
+                } catch (error) { 
+                    console.error("Save error: ", error); 
+                    alert(`فشل الحفظ:\n${error.message}\nتأكد أن رقم الطلب غير مكرر.`); 
+                }
+            };
+
+            const handleStatusChange = async (id, newStatus) => {
+                if (!user) return;
+                const previousOrders = [...orders];
+                setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
+                if(viewOrder && viewOrder.id === id) setViewOrder({...viewOrder, status: newStatus});
+
+                try {
+                    const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', id);
+                    if(error) throw error;
+                } catch (error) { 
+                    alert("فشل تحديث الحالة: " + error.message);
+                    setOrders(previousOrders);
+                }
+            };
+
+            const handleDeleteOrder = async (id) => {
+                if (!user) return;
+                if (!window.confirm(`هل أنت متأكد من مسح الطلب (${id}) نهائياً؟`)) return;
+                
+                const exactId = String(id); 
+                const previousOrders = [...orders];
+                setOrders(prev => prev.filter(o => o.id !== exactId));
+                setSelectedOrders(prev => prev.filter(orderId => orderId !== exactId));
+
+                try {
+                    const { error } = await supabase.from('orders').delete().eq('id', exactId);
+                    if(error) throw error;
+                } catch (error) { 
+                    alert(`حدث خطأ أثناء المسح: ${error.message}`);
+                    setOrders(previousOrders);
+                }
+            };
+
+            const handleDeleteMultipleOrders = async () => {
+                if (!user || selectedOrders.length === 0) return;
+                if (!window.confirm(`هل أنت متأكد من مسح ${selectedOrders.length} طلبات نهائياً؟`)) return;
+                
+                setIsDeletingMultiple(true);
+                const previousOrders = [...orders];
+                const idsToDelete = [...selectedOrders];
+                
+                setOrders(prev => prev.filter(o => !idsToDelete.includes(o.id)));
+                setSelectedOrders([]); 
+
+                try {
+                    const { error } = await supabase.from('orders').delete().in('id', idsToDelete);
+                    if (error) throw error;
+                } catch (error) { 
+                    alert(`فشل المسح الجماعي: ${error.message}`); 
+                    setOrders(previousOrders);
+                } finally { 
+                    setIsDeletingMultiple(false); 
+                }
+            };
+
+            // --- دوال الاستيراد والتصدير ---
+            const exportSelectedToCSV = () => {
+                if (selectedOrders.length === 0) return;
+                const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
+                const headers = ['رقم الطلب', 'اسم العميل', 'رقم الموبايل', 'العنوان', 'الصفحة', 'المنتج/الوصف', 'حالة الطلب', 'سعر المنتج', 'سعر الشحن', 'رقم البوليصة', 'تاريخ الطلب', 'الملاحظات'];
+                const rows = toExport.map(o => [`"${String(o.id || '')}"`, `"${String(o.customer || '').replace(/"/g, '""')}"`, `"${String(o.phone || '').replace(/"/g, '""')}"`, `"${String(o.address || '').replace(/"/g, '""')}"`, `"${String(o.page || '').replace(/"/g, '""')}"`, `"${String(o.item || '').replace(/"/g, '""')}"`, `"${String(o.status || '')}"`, Number(o.productPrice) || 0, Number(o.shippingPrice) || 0, `"${String(o.trackingNumber || '').replace(/"/g, '""')}"`, `"${String(o.date || '')}"`, `"${String(o.notes || '').replace(/"/g, '""')}"`].join(','));
+                const content = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+                const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `طلبات_محددة_${new Date().toISOString().split('T')[0]}.csv`; link.click();
+            };
+
+            const parseCSV = (text) => {
+                const result = []; let row = []; let inQuotes = false; let currentVal = '';
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    if (inQuotes) { if (char === '"') { if (text[i+1] === '"') { currentVal += '"'; i++; } else { inQuotes = false; } } else { currentVal += char; } } 
+                    else { if (char === '"') { inQuotes = true; } else if (char === ',') { row.push(currentVal.trim()); currentVal = ''; } else if (char === '\n' || char === '\r') { row.push(currentVal.trim()); result.push(row); row = []; currentVal = ''; if (char === '\r' && text[i+1] === '\n') i++; } else { currentVal += char; } }
+                }
+                if (currentVal || row.length) { row.push(currentVal.trim()); result.push(row); }
+                return result.filter(r => r.some(cell => cell && cell.trim() !== '')); 
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => { const text = event.target.result; const parsed = parseCSV(text); if (parsed.length > 0) { setCsvHeaders(parsed[0]); setCsvData(parsed.slice(1)); } };
+                reader.readAsText(file, 'UTF-8'); 
+            };
+
+            const startImport = async () => {
+                if (!user) return;
+                setIsImporting(true); setImportProgress(0); setImportStatusText("جاري التنظيف والمعالجة...");
+
+                try {
+                    let validRecordsCount = 0;
+                    const uniqueRowsMap = new Map();
+
+                    for (let i = 0; i < csvData.length; i++) {
+                        const row = csvData[i];
+                        const getVal = (sysField) => { const colName = columnMapping[sysField]; if (!colName) return ''; const colIdx = csvHeaders.indexOf(colName); return colIdx !== -1 && row[colIdx] ? String(row[colIdx]).trim() : ''; };
+
+                        let rawId = getVal('id'); let orderId = rawId !== '' ? rawId : `ORD-IMP-${Date.now()}-${i}`;
+                        orderId = String(orderId).replace(/[\/\\?%*:|"<>#\s]/g, '-').trim();
+
+                        let importedStatus = getVal('status');
+                        if(!orderStatuses.includes(importedStatus)) importedStatus = 'جاري التحضير';
+                        
+                        let rawDate = getVal('date'); let finalDate = new Date().toISOString().split('T')[0];
+                        if (rawDate && String(rawDate).trim() !== '') {
+                            let cleanDateStr = String(rawDate).replace(/\//g, '-').replace(/\./g, '-');
+                            let parsedDate = new Date(cleanDateStr);
+                            if (!isNaN(parsedDate.getTime())) finalDate = parsedDate.toISOString().split('T')[0];
+                        }
+
+                        const orderData = {
+                            id: orderId, customer: getVal('customer') || 'غير محدد', phone: getVal('phone') || '',
+                            address: getVal('address') || '', notes: getVal('notes') || '', page: importTargetPage, 
+                            item: getVal('item') || 'مستورد من إكسيل', 
+                            productPrice: parseFloat(String(getVal('productPrice')).replace(/[^\d.-]/g, '')) || 0,
+                            shippingPrice: parseFloat(String(getVal('shippingPrice')).replace(/[^\d.-]/g, '')) || 0, 
+                            trackingNumber: getVal('trackingNumber') || '',
+                            status: importedStatus, date: finalDate, user_id: user.id
+                        };
+                        uniqueRowsMap.set(orderId, orderData);
+                    }
+                    
+                    const uniqueDataToInsert = Array.from(uniqueRowsMap.values());
+                    validRecordsCount = uniqueDataToInsert.length;
+
+                    setImportStatusText(`جاري رفع ${validRecordsCount} طلب للسيرفر...`);
+
+                    const chunkSize = 200; 
+                    for (let i = 0; i < uniqueDataToInsert.length; i += chunkSize) {
+                        const chunk = uniqueDataToInsert.slice(i, i + chunkSize);
+                        const { error } = await supabase.from('orders').upsert(chunk, { onConflict: 'id' });
+                        if (error) throw error;
+                        setImportProgress(Math.round(((i + chunk.length) / uniqueDataToInsert.length) * 100));
+                    }
+
+                    setImportStatusText("تم الرفع بنجاح! جاري التحديث...");
+                    setTimeout(() => {
+                        fetchOrders(); 
+                        setIsImporting(false); setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]);
+                        alert(`تم استيراد ${validRecordsCount} أوردر بنجاح!`);
+                    }, 1000);
+
+                } catch (err) {
+                    alert(`فشل الرفع. السبب: ${err.message}`); 
+                    setIsImporting(false);
+                }
+            };
+
+            const closeImportModal = () => {
+                if(isImporting) return; 
+                setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]); setImportProgress(0); setImportStatusText("");
+                if (fileInputRef.current) fileInputRef.current.value = "";
+            };
+
+            // --- دوال أخرى ومساعدات ---
+            const handleSelectAll = (e) => { e.target.checked ? setSelectedOrders(displayedOrders.map(o => o.id)) : setSelectedOrders([]); };
+            const handleSelectOrder = (id) => { selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); };
+            const navigateToFilteredOrders = (page, status) => { setFilterPage(page); setFilterStatus(status); setCurrentTab('orders'); };
+            const openAddModal = () => { setNewOrder({ ...initialOrderState, page: userRole?.role === 'agent' ? userRole.assigned_page : pages[0] }); setIsEditing(false); setOriginalOrderId(null); setIsAddModalOpen(true); };
+            const openEditModal = (order) => { setNewOrder(order); setIsEditing(true); setOriginalOrderId(order.id); setIsAddModalOpen(true); };
+            const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setNewOrder(initialOrderState); };
+            const openViewModal = (order) => { setViewOrder(order); setQuickTracking(order.trackingNumber || ''); setIsViewModalOpen(true); };
+            const closeViewModal = () => { setIsViewModalOpen(false); setViewOrder(null); setCopiedType(''); setQuickTracking(''); };
+
+            const saveQuickTracking = async () => {
+                 if (!user || !viewOrder) return;
+                 try {
+                     const { error } = await supabase.from('orders').update({ trackingNumber: quickTracking, status: 'الشحن' }).eq('id', viewOrder.id);
+                     if(error) throw error;
+                     setViewOrder({...viewOrder, trackingNumber: quickTracking, status: 'الشحن'});
+                     setOrders(prev => prev.map(o => o.id === viewOrder.id ? { ...o, trackingNumber: quickTracking, status: 'الشحن' } : o));
+                     alert("تم الحفظ بنجاح!");
+                 } catch (error) { alert("حدث خطأ أثناء الحفظ."); }
+            };
+
+            const copyToClipboard = (text, type) => {
+                const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+                setCopiedType(type); setTimeout(() => setCopiedType(''), 2000);
+            };
+
+            const generateCustomerMessage = () => {
+                if(!viewOrder) return "";
+                const total = Number(viewOrder.productPrice || 0) + Number(viewOrder.shippingPrice || 0);
+                return `أهلاً بك يا فندم في ${viewOrder.page} 🌸\n\nملخص طلبك:\n------------------\nرقم الطلب: ${viewOrder.id}\nالمنتج: ${viewOrder.item}\nالإجمالي المطلوب: ${total} ج.م (شامل الشحن)\nالعنوان: ${viewOrder.address}\n\nيتم تجهيز طلبك الآن، وفي حالة وجود أي استفسار يسعدنا تواصلك معنا.`;
+            };
+
+            const generateShippingData = () => {
+                if(!viewOrder) return "";
+                const total = Number(viewOrder.productPrice || 0) + Number(viewOrder.shippingPrice || 0);
+                return `الاسم: ${viewOrder.customer}\nالموبايل: ${viewOrder.phone}\nالعنوان: ${viewOrder.address}\nالمنتج: ${viewOrder.item}\nالمبلغ المطلوب: ${total}\nالملاحظات: ${viewOrder.notes || 'لا يوجد'}\nالصفحة: ${viewOrder.page}`;
+            };
+
+            const handleCalcBtn = (btn) => {
+                if (btn === 'C') { setCalcExp(''); setNewOrder({ ...newOrder, productPrice: '' }); } 
+                else if (btn === '=') { try { const result = new Function('return ' + calcExp)(); setCalcExp(String(result)); setNewOrder({ ...newOrder, productPrice: result }); setShowCalc(false); } catch (e) { setCalcExp('خطأ'); } } 
+                else { setCalcExp((prev) => (prev === 'خطأ' ? btn : prev + btn)); }
+            };
+            const calcButtons = ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', 'C', '0', '=', '+'];
+
+            const getThemeClasses = (p) => (p === 'عايدة' || p === 'عايدة ويب' ? { btnPrimary: 'bg-pink-600 hover:bg-pink-700 text-white shadow-md shadow-pink-200', textPrimary: 'text-pink-600', border: 'border-pink-200', bgLight: 'bg-pink-50', ringFocus: 'focus:ring-pink-500' } : { btnPrimary: 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-200', textPrimary: 'text-purple-600', border: 'border-purple-200', bgLight: 'bg-purple-50', ringFocus: 'focus:ring-purple-500' });
+            
+            const getRowStatusColor = (status) => {
+                switch(status) {
+                    case 'جاري التحضير': return 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200';
+                    case 'تم': return 'bg-green-50 hover:bg-green-100 text-green-900 border-green-200';
+                    case 'الشحن': return 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200';
+                    case 'مراجعة': return 'bg-yellow-50 hover:bg-yellow-100 text-yellow-900 border-yellow-200';
+                    case 'استبدال': return 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-200';
+                    case 'مرتجع': return 'bg-red-50 hover:bg-red-100 text-red-900 border-red-200';
+                    case 'الغاء': return 'bg-slate-200 hover:bg-slate-300 text-slate-800 border-slate-300';
+                    case 'تاجيل': return 'bg-orange-50 hover:bg-orange-100 text-orange-900 border-orange-200';
+                    case 'اعادة ارسال': return 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200';
+                    case 'خارجي': return 'bg-teal-50 hover:bg-teal-100 text-teal-900 border-teal-200';
+                    default: return 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200';
+                }
+            };
+            
+            const getSelectStatusColor = (status) => {
+                 switch(status) {
+                    case 'جاري التحضير': return 'text-amber-800 border-amber-300 bg-white/60';
+                    case 'تم': return 'text-green-800 border-green-300 bg-white/60';
+                    case 'الشحن': return 'text-blue-800 border-blue-300 bg-white/60';
+                    case 'مراجعة': return 'text-yellow-800 border-yellow-300 bg-white/60';
+                    case 'استبدال': return 'text-purple-800 border-purple-300 bg-white/60';
+                    case 'مرتجع': return 'text-red-800 border-red-300 bg-white/60';
+                    case 'الغاء': return 'text-slate-700 border-slate-400 bg-white/60';
+                    case 'تاجيل': return 'text-orange-800 border-orange-300 bg-white/60';
+                    case 'اعادة ارسال': return 'text-indigo-800 border-indigo-300 bg-white/60';
+                    case 'خارجي': return 'text-teal-800 border-teal-300 bg-white/60';
+                    default: return 'text-slate-800 border-slate-300 bg-white/60';
+                }
+            }
+
+            // ==========================================
+            // 8. واجهة المستخدم (Rendering)
+            // ==========================================
+
+            if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>;
+
+            if (!user) {
+                return (
+                    <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
+                        <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md text-center">
+                            <div className="flex justify-center mb-6 text-indigo-600"><IconPackage size={64} /></div>
+                            <h2 className="text-2xl font-black text-slate-800 mb-2">تسجيل الدخول للنظام</h2>
+                            <p className="text-slate-500 font-bold mb-6 text-sm">أول حساب يسجل سيتم تعيينه كـ (مدير) تلقائياً.</p>
+                            {authError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-bold mb-4">{authError}</div>}
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <div><label className="block text-sm font-bold text-slate-700 mb-1 text-right">البريد الإلكتروني</label><input type="email" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-left" dir="ltr" value={authEmail} onChange={e => setAuthEmail(e.target.value)} /></div>
+                                <div><label className="block text-sm font-bold text-slate-700 mb-1 text-right">كلمة المرور</label><input type="password" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-left" dir="ltr" value={authPassword} onChange={e => setAuthPassword(e.target.value)} /></div>
+                                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl transition-colors mt-2 shadow-md">دخول إلى لوحة التحكم</button>
+                            </form>
+                            <div className="mt-6 text-center border-t border-slate-100 pt-4">
+                                <p className="text-xs font-bold text-slate-400 mb-2">لإنشاء حسابات للموظفين:</p>
+                                <button onClick={() => {
+                                    const email = prompt("أدخل إيميل الموظف الجديد:");
+                                    const password = prompt("أدخل باسورد مؤقت (6 أحرف على الأقل):");
+                                    if(email && password) { supabase.auth.signUp({email, password}).then(({data, error}) => { if(error) alert(error.message); else alert("تم إنشاء الحساب! ادخل بحسابك كمدير لتفعيل صلاحياته."); }); }
+                                }} className="text-sm font-bold text-indigo-600 hover:underline">إنشاء حساب جديد</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!userRole) {
+                 return (
+                    <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
+                        <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-100 text-center">
+                            <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+                            <h2 className="text-xl font-black text-slate-800 mb-4">جاري التحقق من الصلاحيات...</h2>
+                            <p className="text-slate-600 font-bold mb-6 text-sm">يرجى الانتظار قليلاً. إذا استمرت هذه الشاشة، فقد تحتاج إلى أن يحدد المدير صلاحيتك.</p>
+                            <button onClick={handleLogout} className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold">تسجيل الخروج</button>
+                        </div>
+                    </div>
+                 );
+            }
+
+            const currentTheme = getThemeClasses(newOrder.page);
+
+            return (
+                <div className="flex h-screen overflow-hidden bg-[#f8fafc]">
+                    {/* القائمة الجانبية */}
+                    <aside className={`fixed inset-y-0 right-0 z-50 w-64 bg-slate-900 text-white transition-transform transform ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0 md:relative shadow-2xl flex flex-col`}>
+                        <div className="flex items-center justify-between p-6 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-700/50">
+                            <div className="flex items-center gap-3 font-black text-xl tracking-wide"><div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-400"><IconPackage /></div><span>نظام المبيعات</span></div>
+                            <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}><IconX /></button>
+                        </div>
+                        <div className="p-4 bg-slate-800/50 border-b border-slate-800 flex justify-between items-center">
+                            <div className="flex flex-col overflow-hidden"><span className="text-sm font-bold text-white truncate">{userRole.name || 'مستخدم'}</span><span className="text-[10px] text-indigo-300 font-black mt-0.5">{userRole.role === 'admin' ? 'مدير النظام 👑' : `موظف: ${userRole.assigned_page}`}</span></div>
+                            <button onClick={handleLogout} className="text-red-400 hover:text-red-300 p-2 bg-slate-800 rounded-lg" title="تسجيل خروج"><IconLogOut /></button>
+                        </div>
+                        <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
+                            <button onClick={() => {setCurrentTab('dashboard'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconDashboard /></span> <span>لوحة التحكم</span></button>
+                            <button onClick={() => {setCurrentTab('orders'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'orders' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconCart /></span> <span>الطلبات والمتابعة</span></button>
+                            {userRole.role === 'admin' && <button onClick={() => {setCurrentTab('pages'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'pages' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إحصائيات الصفحات</span></button>}
+                            {userRole.role === 'admin' && <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-4 border border-indigo-500/30 ${currentTab === 'users' ? 'bg-indigo-800 text-white shadow-lg shadow-indigo-900/50' : 'text-indigo-300 hover:bg-slate-800 hover:text-white'}`}><span><IconUsers /></span> <span>إدارة الموظفين</span></button>}
+                        </nav>
+                    </aside>
+
+                    {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
+
+                    {/* المحتوى الرئيسي */}
+                    <main className="flex-1 flex flex-col h-screen overflow-hidden">
+                        <header className="glass-panel shadow-sm px-6 py-4 flex items-center justify-between z-10 sticky top-0 flex-wrap gap-4">
+                            <div className="flex items-center gap-4">
+                                <button className="md:hidden p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors" onClick={() => setIsSidebarOpen(true)}><IconMenu /></button>
+                                <h1 className="text-xl md:text-2xl font-black text-slate-800 drop-shadow-sm">
+                                    {currentTab === 'dashboard' && 'نظرة عامة'}
+                                    {currentTab === 'orders' && (userRole.role === 'admin' ? 'إدارة كل الطلبات' : `طلبات صفحة ${userRole.assigned_page}`)}
+                                    {currentTab === 'pages' && 'الإحصائيات المتقدمة'}
+                                    {currentTab === 'users' && 'لوحة الإدارة'}
+                                </h1>
+                            </div>
+                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                <button onClick={() => setIsImportModalOpen(true)} className="flex-1 md:flex-none bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm font-bold"><IconUpload /> <span className="hidden sm:inline">رفع شيت</span></button>
+                                <button onClick={openAddModal} className="flex-1 md:flex-none bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md font-bold transform hover:-translate-y-0.5"><IconPlus /> <span className="hidden sm:inline">طلب جديد</span></button>
+                            </div>
+                        </header>
+
+                        <div className="flex-1 overflow-auto p-4 md:p-8 relative">
+                            {/* مؤشر التحميل الأولي فقط لمنع الإزعاج أثناء التنقل */}
+                            {loadingDB && initialLoad && (
+                                <div className="absolute inset-0 bg-white/60 z-10 flex flex-col items-center justify-center backdrop-blur-sm"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>
+                            )}
+
+                            {/* تبويب إدارة البنات */}
+                            {currentTab === 'users' && userRole.role === 'admin' && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl">
+                                        <h2 className="font-black text-indigo-900 text-lg mb-2">إدارة حسابات الموظفين</h2>
+                                        <p className="text-sm text-indigo-800 font-bold mb-4">اطلب من الموظف إنشاء حساب، ثم قم بتفعيل الصلاحية وتحديد الصفحة من هنا.</p>
+                                        <button onClick={fetchUsersList} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md">تحديث القائمة 🔄</button>
+                                    </div>
+
+                                    <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-hidden">
+                                        <table className="w-full text-right">
+                                            <thead className="bg-slate-800 text-white text-sm"><tr><th className="px-4 py-4 font-bold">الآي دي (ID)</th><th className="px-4 py-4 font-bold">الاسم</th><th className="px-4 py-4 font-bold">الدور</th><th className="px-4 py-4 font-bold">الصفحة المخصصة</th><th className="px-4 py-4 font-bold">الحالة</th></tr></thead>
+                                            <tbody className="divide-y divide-slate-100/50">
+                                                {usersList.map(u => (
+                                                    <tr key={u.id} className="hover:bg-slate-50">
+                                                        <td className="px-4 py-3 text-xs font-mono text-slate-400 break-all">{u.id}</td>
+                                                        <td className="px-4 py-3 font-bold text-sm"><input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); }} className="border p-1 rounded text-sm w-full" /></td>
+                                                        <td className="px-4 py-3 font-bold text-sm"><select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(e.target.value === 'admin') await supabase.from('user_roles').update({assigned_page: null}).eq('id', u.id); fetchUsersList(); }} className="border p-1 rounded text-sm"><option value="agent">موظف (Agent)</option><option value="admin">مدير (Admin)</option></select></td>
+                                                        <td className="px-4 py-3 font-bold text-sm">{u.role === 'admin' ? <span className="text-slate-400 text-xs">كل الصفحات</span> : (<select defaultValue={u.assigned_page} onChange={async (e) => { await supabase.from('user_roles').update({assigned_page: e.target.value}).eq('id', u.id); }} className="border p-1 rounded text-sm w-full"><option value="">-- اختر صفحة --</option>{pages.map(p => <option key={p} value={p}>{p}</option>)}</select>)}</td>
+                                                        <td className="px-4 py-3"><span className="text-green-600 font-bold text-xs">مفعل ✓</span></td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* التبويب الأول: لوحة التحكم */}
+                            {currentTab === 'dashboard' && (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                        <div className="glass-panel p-6 rounded-2xl shadow-sm border border-white flex items-start justify-between hover:shadow-md transition-shadow"><div><p className="text-slate-500 text-sm font-bold mb-1">الطلبات المرئية لك</p><p className="text-4xl font-black text-slate-800">{globalStats.total}</p></div><div className="p-3.5 bg-blue-100 text-blue-600 rounded-2xl"><IconCart /></div></div>
+                                        <div className="glass-panel p-6 rounded-2xl shadow-sm border border-white flex items-start justify-between hover:shadow-md transition-shadow"><div><p className="text-slate-500 text-sm font-bold mb-1">قيد المعالجة</p><p className="text-4xl font-black text-slate-800">{globalStats.new}</p></div><div className="p-3.5 bg-amber-100 text-amber-600 rounded-2xl"><IconClock /></div></div>
+                                        <div className="glass-panel p-6 rounded-2xl shadow-sm border border-white flex items-start justify-between hover:shadow-md transition-shadow"><div><p className="text-slate-500 text-sm font-bold mb-1">تم التوصيل بنجاح</p><p className="text-4xl font-black text-slate-800">{globalStats.delivered}</p></div><div className="p-3.5 bg-green-100 text-green-600 rounded-2xl"><IconCheck /></div></div>
+                                        <div className="glass-panel p-6 rounded-2xl shadow-sm border border-white flex items-start justify-between hover:shadow-md transition-shadow bg-gradient-to-br from-indigo-50 to-white"><div><p className="text-slate-500 text-sm font-bold mb-1">إجمالي الإيرادات</p><p className="text-3xl font-black text-indigo-700">{globalStats.revenue} <span className="text-sm">ج.م</span></p></div><div className="p-3.5 bg-indigo-100 text-indigo-600 rounded-2xl"><IconStore size={24} /></div></div>
+                                    </div>
+
+                                    {/* إحصائيات الصفحات القابلة للنقر */}
+                                    <div>
+                                        <h2 className="font-black text-xl text-slate-800 mb-4 flex items-center gap-2">متابعة الحالات السريعة <span className="text-sm font-bold text-slate-500">(انقر على أي حالة لعرض طلباتها)</span></h2>
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                                            {pages.map(page => {
+                                                if (userRole.role === 'agent' && userRole.assigned_page !== page) return null;
+                                                const pageOrders = filteredOrders.filter(o => o.page === page);
+                                                if (pageOrders.length === 0) return null;
+                                                return (
+                                                    <div key={page} className="glass-panel p-5 rounded-2xl shadow-sm border border-white hover:shadow-md transition-shadow">
+                                                        <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3"><h3 className="font-black text-lg text-indigo-900 flex items-center gap-2"><IconStore size={18}/> {page}</h3><span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-1 rounded-lg">{pageOrders.length} طلب</span></div>
+                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                            {orderStatuses.map(status => {
+                                                                const count = pageOrders.filter(o => o.status === status).length;
+                                                                if (count === 0) return null;
+                                                                return (
+                                                                    <button key={status} onClick={() => navigateToFilteredOrders(page, status)} className={`flex justify-between items-center px-3 py-2 rounded-xl border text-xs font-bold transition-transform hover:scale-105 ${getRowStatusColor(status)}`} title={`عرض طلبات "${status}" لصفحة ${page}`}>
+                                                                        <span className="truncate ml-1">{status}</span><span className="bg-white/90 px-2 py-0.5 rounded shadow-sm text-slate-800">{count}</span>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* التبويب الثاني: الطلبات والمتابعة */}
+                            {currentTab === 'orders' && (
+                                <div className="flex flex-col h-full space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="glass-panel p-5 rounded-2xl shadow-sm border border-white flex flex-col gap-4 shrink-0">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <div className="flex items-center gap-2"><IconFilter /> <h3 className="font-bold text-slate-700">تصفية وبحث متقدم</h3>{isSearchingDb && <span className="text-xs text-indigo-500 font-bold bg-indigo-50 px-2 py-1 rounded animate-pulse">جاري البحث...</span>}</div>
+                                            {selectedOrders.length > 0 && (
+                                                <div className="flex items-center gap-2">
+                                                    <button onClick={exportSelectedToCSV} className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-xl font-bold text-sm shadow-md transition-colors" title="تنزيل الطلبات المحددة في ملف إكسيل"><IconDownload /> إكسيل</button>
+                                                    {userRole.role === 'admin' && (
+                                                        <button onClick={handleDeleteMultipleOrders} disabled={isDeletingMultiple} className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl font-bold text-sm shadow-md transition-colors disabled:opacity-50"><IconTrash /> {isDeletingMultiple ? 'جاري المسح...' : `مسح`}</button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                            <div className="relative lg:col-span-2"><div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400"><IconSearch /></div><input type="text" placeholder="بحث بالاسم، هاتف، طلب، بوليصة..." className="block w-full pl-3 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow text-sm font-semibold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
+                                            <div><select className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="الكل">جميع الحالات</option>{orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                            <div><select className={`w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold ${userRole.role === 'agent' ? 'opacity-70 bg-slate-100 cursor-not-allowed' : ''}`} value={userRole.role === 'agent' ? userRole.assigned_page : filterPage} onChange={(e) => { if(userRole.role === 'admin') setFilterPage(e.target.value) }} disabled={userRole.role === 'agent'}>{userRole.role === 'admin' && <option value="الكل">جميع الصفحات</option>}{pages.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
+                                            <div><button onClick={resetFilters} className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors border border-slate-200">إلغاء الفلاتر</button></div>
+                                        </div>
+                                    </div>
+
+                                    <div className="glass-panel rounded-2xl shadow-sm border border-white flex-1 overflow-hidden flex flex-col">
+                                        <div className="overflow-x-auto flex-1">
+                                            <table className="w-full text-right table-fixed min-w-[1000px]">
+                                                <thead className="bg-slate-800 text-white text-sm sticky top-0 z-10 shadow-md">
+                                                    <tr>
+                                                        <th className="px-3 py-4 w-12 text-center"><input type="checkbox" className="custom-checkbox mx-auto" checked={displayedOrders.length > 0 && selectedOrders.length === displayedOrders.length} onChange={handleSelectAll} /></th>
+                                                        <th className="px-3 py-4 font-bold w-1/12">الطلب</th>
+                                                        <th className="px-3 py-4 font-bold w-2/12">الاسم / العنوان</th>
+                                                        <th className="px-3 py-4 font-bold w-1/12">الموبايل</th>
+                                                        <th className="px-3 py-4 font-bold w-2/12">الملحوظات</th>
+                                                        <th className="px-3 py-4 font-bold w-2/12">المنتج (الصفحة)</th>
+                                                        <th className="px-3 py-4 font-bold w-1/12 text-center">الحالة</th>
+                                                        <th className="px-3 py-4 font-bold w-1/12">المبالغ</th>
+                                                        <th className="px-3 py-4 font-bold w-2/12">التاريخ / البوليصة</th>
+                                                        <th className="px-3 py-4 font-bold w-1/12 text-center">إجراءات</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/40">
+                                                    {displayedOrders.length > 0 ? displayedOrders.map(order => (
+                                                        <tr key={order.id} className={`transition-colors border-b border-white/20 ${selectedOrders.includes(order.id) ? 'bg-indigo-50 border-indigo-200' : getRowStatusColor(order.status)}`}>
+                                                            <td className="px-3 py-3 align-top text-center"><input type="checkbox" className="custom-checkbox mx-auto mt-1" checked={selectedOrders.includes(order.id)} onChange={() => handleSelectOrder(order.id)} /></td>
+                                                            <td className="px-3 py-3 align-top"><div className="font-black text-sm break-all">{order.id}</div></td>
+                                                            <td className="px-3 py-3 align-top whitespace-normal break-words"><div className="font-bold text-sm">{order.customer}</div><div className="text-[11px] font-medium mt-1 leading-tight opacity-80" title={order.address}>{order.address}</div></td>
+                                                            <td className="px-3 py-3 align-top"><div className="text-xs font-bold opacity-90" dir="ltr">{order.phone}</div></td>
+                                                            <td className="px-3 py-3 align-top whitespace-normal break-words"><div className="text-[11px] font-medium leading-tight opacity-80" title={order.notes}>{order.notes || '-'}</div></td>
+                                                            <td className="px-3 py-3 align-top whitespace-normal break-words"><span className={`px-1.5 py-0.5 border rounded text-[9px] font-black mb-1 inline-block shadow-sm bg-white/60`}>{order.page}</span><div className="text-xs font-bold mt-1 leading-snug line-clamp-3" title={order.item}>{order.item}</div></td>
+                                                            <td className="px-3 py-3 align-top text-center"><select value={order.status} onChange={(e) => handleStatusChange(order.id, e.target.value)} className={`text-xs rounded-lg w-full px-2 py-1.5 outline-none focus:ring-2 focus:ring-black/20 font-bold cursor-pointer border shadow-sm ${getSelectStatusColor(order.status)}`}>{orderStatuses.map(status => <option key={status} value={status} className="text-slate-800 bg-white">{status}</option>)}</select></td>
+                                                            <td className="px-3 py-3 align-top"><div className="text-[10px] opacity-80">شحن: {order.shippingPrice || 0} ج</div><div className="font-black text-sm bg-white/60 inline-block px-2 py-1 mt-1 rounded shadow-sm border border-white/40">{Number(order.productPrice || 0) + Number(order.shippingPrice || 0)} ج</div></td>
+                                                            <td className="px-3 py-3 align-top"><div className="text-[11px] font-bold flex items-center gap-1 opacity-90 mb-1.5"><IconCalendar /> {order.date}</div>{order.trackingNumber ? (<div className="text-[11px] font-black flex items-center gap-1 bg-white/50 inline-flex px-1.5 py-0.5 rounded shadow-sm border border-white/40"><IconTruck /> {order.trackingNumber}</div>) : (<div className="text-[10px] font-medium opacity-60">-</div>)}</td>
+                                                            <td className="px-3 py-3 align-top"><div className="flex flex-col gap-1.5"><button onClick={() => openViewModal(order)} className="flex items-center justify-center gap-1 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 py-1.5 px-2 rounded-lg transition-colors shadow-sm w-full"><IconEye /> عرض</button><button onClick={() => openEditModal(order)} className="flex items-center justify-center gap-1 text-[11px] font-bold bg-white/70 hover:bg-white text-slate-800 border border-slate-300/50 py-1.5 px-2 rounded-lg transition-colors shadow-sm w-full"><IconEdit /> تعديل</button>{userRole.role === 'admin' && (<button onClick={() => handleDeleteOrder(order.id)} className="flex items-center justify-center gap-1 text-[11px] font-bold bg-red-100 hover:bg-red-600 hover:text-white text-red-700 border border-red-200 py-1.5 px-2 rounded-lg transition-colors shadow-sm w-full"><IconTrash /> مسح</button>)}</div></td>
+                                                        </tr>
+                                                    )) : (<tr><td colSpan="10" className="px-6 py-16 text-center text-slate-500 font-bold text-lg">لا توجد طلبات مطابقة.</td></tr>)}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        
+                                        <div className="px-4 py-3 bg-slate-800 text-white text-sm font-bold shadow-inner flex flex-wrap justify-between items-center gap-4">
+                                            <div className="flex items-center gap-4"><span>نتائج الفلتر: {filteredOrders.length} طلب</span>{selectedOrders.length > 0 && <span className="text-indigo-300 bg-indigo-900/50 px-2 py-0.5 rounded">محدد: {selectedOrders.length}</span>}</div>
+                                            <div className="flex items-center gap-4 flex-wrap"><div className="flex items-center gap-2"><label className="text-slate-300 text-xs">عرض:</label><select className="bg-slate-700 border border-slate-600 text-white rounded px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-400" value={ordersPerPage} onChange={(e) => { setOrdersPerPage(e.target.value === 'All' ? 'All' : Number(e.target.value)); setCurrentPage(1); }}><option value={50}>50 صف</option><option value={100}>100 صف</option><option value={500}>500 صف</option><option value="All">الكل</option></select></div>{ordersPerPage !== 'All' && totalPages > 1 && (<div className="flex items-center gap-1 bg-slate-700 rounded-lg p-1"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="px-3 py-1 bg-slate-600 hover:bg-slate-500 disabled:opacity-30 rounded text-xs transition-colors">السابق</button><span className="px-2 text-xs">صفحة {currentPage} من {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className="px-3 py-1 bg-slate-600 hover:bg-slate-500 disabled:opacity-30 rounded text-xs transition-colors">التالي</button></div>)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* التبويب الثالث: إحصائيات الصفحات (يظهر للمدير فقط) */}
+                            {currentTab === 'pages' && userRole.role === 'admin' && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="glass-panel p-5 rounded-2xl shadow-sm border border-white flex flex-col md:flex-row items-center gap-4 justify-between"><div className="flex items-center gap-2 font-bold text-slate-700"><IconCalendar /> <span>تحديد فترة الإحصائيات:</span></div><div className="flex items-center gap-3 w-full md:w-auto flex-wrap"><div className="flex items-center gap-2 flex-1 md:flex-none"><label className="text-sm text-slate-500">من:</label><input type="date" className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold w-full" value={statsDateFrom} onChange={e => setStatsDateFrom(e.target.value)} /></div><div className="flex items-center gap-2 flex-1 md:flex-none"><label className="text-sm text-slate-500">إلى:</label><input type="date" className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold w-full" value={statsDateTo} onChange={e => setStatsDateTo(e.target.value)} /></div>{(statsDateFrom || statsDateTo) && (<button onClick={() => { setStatsDateFrom(''); setStatsDateTo(''); }} className="w-full md:w-auto px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-sm rounded-lg border border-red-200 transition-colors">إلغاء الفلتر ✖</button>)}</div></div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">{pages.map((page, idx) => {
+                                        const pageOrders = statsFilteredOrders.filter(o => o.page === page);
+                                        const totalShipping = pageOrders.reduce((sum, o) => sum + Number(o.shippingPrice || 0), 0);
+                                        const totalProducts = pageOrders.reduce((sum, o) => sum + Number(o.productPrice || 0), 0);
+                                        const pageRevenue = totalShipping + totalProducts;
+                                        const theme = getThemeClasses(page);
+                                        return (
+                                            <div key={idx} className={`bg-white rounded-2xl shadow-md border-2 p-6 ${theme.border} transition-all hover:shadow-lg flex flex-col`}><div className="flex items-center gap-4 border-b border-slate-100 pb-4 mb-4"><div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${theme.bgLight} ${theme.textPrimary}`}><IconStore size={28} /></div><div><h3 className={`font-black text-2xl ${theme.textPrimary}`}>{page}</h3><p className="text-slate-500 text-sm font-bold mt-1">إجمالي الطلبات: <span className="text-slate-800">{pageOrders.length}</span></p></div></div><div className="mb-6"><p className="text-xs font-bold text-slate-400 mb-3">تفصيل حالات الطلبات</p><div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">{orderStatuses.map(status => { const count = pageOrders.filter(o => o.status === status).length; const statusColor = getRowStatusColor(status); return (<div key={status} className={`flex justify-between items-center px-2 py-1.5 rounded-lg border text-[11px] font-bold ${statusColor}`}><span className="truncate mr-1">{status}</span><span className="bg-white/80 px-1.5 py-0.5 rounded shadow-sm border border-white">{count}</span></div>) })}</div></div><div className="mt-auto bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3"><div className="flex justify-between text-sm items-center"><span className="text-slate-500 font-bold">إجمالي مبالغ المنتجات:</span><span className="font-black text-slate-700 bg-white px-2 py-1 rounded border shadow-sm">{totalProducts} ج</span></div><div className="flex justify-between text-sm items-center"><span className="text-slate-500 font-bold">إجمالي مبالغ الشحن:</span><span className="font-black text-slate-700 bg-white px-2 py-1 rounded border shadow-sm">{totalShipping} ج</span></div><div className="pt-3 border-t border-slate-200 flex justify-between text-lg items-center"><span className="text-slate-800 font-black">الإجمالي الكلي:</span><span className="font-black text-green-600 bg-green-50 px-3 py-1 rounded-lg border border-green-200 shadow-sm">{pageRevenue} ج.م</span></div></div></div>
+                                        )
+                                    })}</div>
+                                </div>
+                            )}
+                        </div>
+                    </main>
+
+                    {/* نافذة العرض والمشاركة */}
+                    {isViewModalOpen && viewOrder && (
+                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[70] flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200">
+                                <div className="px-6 py-4 border-b bg-indigo-600 flex justify-between items-center text-white"><div className="flex items-center gap-3"><IconEye /><h2 className="text-lg font-black">تفاصيل الطلب: {viewOrder.id}</h2></div><button onClick={closeViewModal} className="text-indigo-200 hover:text-white transition-colors"><IconX size={24} /></button></div>
+                                <div className="p-6 bg-slate-50/50">
+                                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-5 space-y-3"><div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 text-sm font-bold">اسم العميل:</span><span className="text-slate-900 font-black text-lg">{viewOrder.customer}</span></div><div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 text-sm font-bold">رقم الهاتف:</span><span className="text-indigo-700 font-black text-lg" dir="ltr">{viewOrder.phone}</span></div><div className="flex flex-col border-b border-slate-100 pb-2"><span className="text-slate-500 text-sm font-bold mb-1">العنوان:</span><span className="text-slate-800 font-semibold">{viewOrder.address}</span></div><div className="flex flex-col border-b border-slate-100 pb-2"><span className="text-slate-500 text-sm font-bold mb-1">المنتج:</span><span className="text-slate-800 font-semibold">{viewOrder.item}</span></div><div className="flex flex-col border-b border-slate-100 pb-2"><span className="text-slate-500 text-sm font-bold mb-1">الملاحظات:</span><span className="text-red-600 font-bold">{viewOrder.notes || 'لا يوجد'}</span></div><div className="flex justify-between bg-slate-800 text-white p-3 rounded-lg mt-2"><span className="font-bold">المبلغ الكلي للتحصيل:</span><span className="font-black text-xl">{(Number(viewOrder.productPrice) || 0) + (Number(viewOrder.shippingPrice) || 0)} ج.م</span></div></div>
+                                    <div className="grid grid-cols-2 gap-3 mb-6"><button onClick={() => copyToClipboard(generateCustomerMessage(), 'customer')} className={`flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 font-bold text-sm transition-all ${copiedType === 'customer' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400'}`}><IconCopy />{copiedType === 'customer' ? 'تم النسخ بنجاح ✓' : 'نسخ للعميل (واتساب)'}</button><button onClick={() => copyToClipboard(generateShippingData(), 'shipping')} className={`flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 font-bold text-sm transition-all ${copiedType === 'shipping' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-slate-800 border-slate-800 text-white hover:bg-slate-700'}`}><IconTruck />{copiedType === 'shipping' ? 'تم النسخ بنجاح ✓' : 'نسخ لشركة الشحن'}</button></div>
+                                    <div className="bg-teal-50 border border-teal-200 rounded-xl p-4"><label className="block text-sm font-black text-teal-800 mb-2">إضافة رقم البوليصة وتحويل لـ "الشحن":</label><div className="flex gap-2"><input type="text" placeholder="اكتب رقم البوليصة هنا..." className="flex-1 px-3 py-2 border border-teal-300 rounded-lg outline-none focus:ring-2 focus:ring-teal-500 font-bold" value={quickTracking} onChange={(e) => setQuickTracking(e.target.value)} /><button onClick={saveQuickTracking} className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-bold transition-colors">حفظ</button></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* نافذة استيراد الإكسيل */}
+                    {isImportModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[95vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200">
+                                <div className="px-6 py-5 border-b bg-slate-50 flex justify-between items-center"><div className="flex items-center gap-3"><div className="p-2.5 rounded-xl bg-indigo-100 text-indigo-700"><IconUpload /></div><div><h2 className="text-xl font-black text-slate-800">استيراد طلبات سابقة</h2><p className="text-xs text-slate-500 font-bold mt-1">ارفع الشيت، حدد الصفحة التابع لها، واربط الأعمدة</p></div></div><button onClick={closeImportModal} disabled={isImporting} className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm disabled:opacity-50"><IconX size={20} /></button></div>
+                                <div className="p-6 overflow-y-auto flex-1 bg-white">
+                                    {csvHeaders.length === 0 ? (
+                                        <div className="border-2 border-dashed border-indigo-200 rounded-2xl bg-indigo-50/50 p-8 text-center"><IconUpload className="mx-auto h-12 w-12 text-indigo-400 mb-4" /><h3 className="text-lg font-black text-indigo-900 mb-2">اختر ملف CSV من جهازك</h3><p className="text-sm text-indigo-600/80 mb-6">قم بتحميل ملفك من Google Sheets بصيغة (.csv)</p><input type="file" accept=".csv" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="csv-upload" /><label htmlFor="csv-upload" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold cursor-pointer inline-flex transition-colors shadow-md">اختيار الملف</label></div>
+                                    ) : isImporting ? (
+                                        <div className="py-12 flex flex-col items-center justify-center text-center"><div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-6"></div><h3 className="text-xl font-black text-slate-800 mb-2">جاري استيراد الطلبات...</h3><p className="text-slate-600 font-bold mb-4">{importStatusText}</p><div className="w-full max-w-md bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200 shadow-inner"><div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-4 rounded-full transition-all duration-300" style={{ width: `${importProgress}%` }}></div></div><p className="mt-2 font-black text-indigo-700">{importProgress}%</p></div>
+                                    ) : (
+                                        <div className="animate-in fade-in">
+                                            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 mb-6 shadow-sm"><label className="block text-sm font-black text-indigo-900 mb-2">1. حدد الصفحة التي تنتمي إليها طلبات هذا الشيت:</label><select className={`w-full px-4 py-2.5 bg-white border border-indigo-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-800 shadow-sm ${userRole?.role === 'agent' ? 'opacity-70 bg-slate-100' : ''}`} value={importTargetPage} onChange={(e) => setImportTargetPage(e.target.value)} disabled={userRole?.role === 'agent'}>{pages.map(p => <option key={p} value={p}>{p}</option>)}</select><p className="text-xs text-indigo-600/80 mt-2 font-bold">سيتم تعيين كل الطلبات المرفوعة من هذا الملف إلى الصفحة المحددة أعلاه.</p></div>
+                                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3 shadow-sm"><span className="text-amber-600 mt-0.5">⚠️</span><div className="text-sm font-bold text-amber-800">2. وجدنا <span className="font-black text-lg mx-1">{csvData.length}</span> طلب في الملف. لا تقلق من أي أخطاء، سيقوم "المنظف الذكي" بتجاهل الصفوف الفارغة وتصحيح التواريخ تلقائياً.</div></div>
+                                            <div className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden shadow-sm"><table className="w-full text-right text-sm"><thead className="bg-slate-800 text-white"><tr><th className="px-5 py-3 font-bold w-1/2">الخانة في السيستم</th><th className="px-5 py-3 font-bold w-1/2">تقابلها في ملفك (CSV)</th></tr></thead><tbody className="divide-y divide-slate-200 font-bold text-slate-700">{[{ key: 'id', label: 'رقم الطلب (اختياري)' }, { key: 'customer', label: 'اسم العميل' }, { key: 'phone', label: 'رقم الهاتف' }, { key: 'address', label: 'عنوان العميل' }, { key: 'notes', label: 'الملحوظات' }, { key: 'item', label: 'المنتج / الوصف' }, { key: 'productPrice', label: 'سعر المنتج' }, { key: 'shippingPrice', label: 'سعر الشحن' }, { key: 'trackingNumber', label: 'رقم البوليصة' }, { key: 'status', label: 'الحالة' }, { key: 'date', label: 'تاريخ الطلب' }].map(field => (<tr key={field.key} className="hover:bg-indigo-50/50 transition-colors"><td className="px-5 py-3">{field.label}</td><td className="px-5 py-3"><select className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" value={columnMapping[field.key]} onChange={(e) => setColumnMapping({...columnMapping, [field.key]: e.target.value})}><option value="">-- تخطي / غير موجود --</option>{csvHeaders.map(header => <option key={header} value={header}>{header}</option>)}</select></td></tr>))}</tbody></table></div>
+                                        </div>
+                                    )}
+                                </div>
+                                {csvHeaders.length > 0 && !isImporting && (<div className="px-6 py-4 border-t bg-slate-50 flex justify-end gap-3"><button onClick={closeImportModal} className="px-6 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 hover:bg-slate-100 transition-colors">إلغاء</button><button onClick={startImport} className="px-8 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-black shadow-lg shadow-indigo-200 hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:-translate-y-0.5">تأكيد الرفع</button></div>)}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* نافذة الإضافة والتعديل */}
+                    {isAddModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                            <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-4 ${currentTheme.border}`}>
+                                <div className={`px-6 py-5 border-b flex justify-between items-center shrink-0 ${currentTheme.bgLight}`}><div className="flex items-center gap-3"><div className={`p-2 rounded-lg bg-white shadow-sm ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit /> : <IconPlus />}</div><h2 className={`text-xl font-black ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2></div><button onClick={closeModal} className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={20} /></button></div>
+                                <form onSubmit={handleAddOrEditOrder} className={`p-6 space-y-4 overflow-y-auto ${currentTheme.bgLight}`}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-white shadow-md">
+                                        <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">رقم الطلب</label><input type="text" disabled={isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status)} placeholder="يولد تلقائياً إذا تُرك فارغاً" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''} ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.id} onChange={e => setNewOrder({...newOrder, id: e.target.value})} />{isEditing && ['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) && (<p className="text-xs text-indigo-600 mt-1 font-bold">يمكنك تعديل رقم الطلب في هذه الحالة.</p>)}</div>
+                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">اسم العميل</label><input required type="text" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.customer} onChange={e => setNewOrder({...newOrder, customer: e.target.value})} /></div>
+                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">العنوان التفصيلي</label><input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
+                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">رقم الموبايل</label><input required type="text" dir="ltr" maxLength="11" placeholder="مثال: 01012345678" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-right transition-shadow font-bold tracking-wider ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => { const val = e.target.value.replace(/\D/g, ''); if(val.length <= 11) setNewOrder({...newOrder, phone: val}); }} /></div>
+                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">الصفحة (المصدر)</label><select className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2 ${userRole.role === 'agent' ? 'opacity-70 cursor-not-allowed' : ''}`} value={newOrder.page} onChange={e => setNewOrder({...newOrder, page: e.target.value})} disabled={userRole.role === 'agent'}>{pages.map(page => <option key={page} value={page}>{page}</option>)}</select></div>
+                                        <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">الملحوظات</label><textarea rows="2" placeholder="أي ملحوظات إضافية بخصوص الطلب..." className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none resize-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.notes || ''} onChange={e => setNewOrder({...newOrder, notes: e.target.value})}></textarea></div>
+                                        <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">المنتج / الوصف</label><textarea required rows="2" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none resize-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
+                                        <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">حالة الطلب</label><select className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.status} onChange={e => setNewOrder({...newOrder, status: e.target.value})}>{orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}</select></div>
+                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">سعر الشحن (ج.م)</label><input required type="number" min="0" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-black text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.shippingPrice} onChange={e => setNewOrder({...newOrder, shippingPrice: e.target.value})} /></div>
+                                        <div className="relative"><label className="block text-sm font-black text-slate-700 mb-1.5">سعر المنتج (ج.م)</label><div className="relative"><input required type="number" min="0" className={`w-full px-4 py-2.5 pl-12 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-black text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} /><button type="button" onClick={() => setShowCalc(!showCalc)} className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors bg-white shadow-sm border border-slate-100 ${currentTheme.textPrimary} hover:bg-slate-50`}><IconCalc /></button></div>{showCalc && (<div dir="ltr" className="absolute z-10 bottom-full left-0 mb-3 bg-white border border-slate-200 shadow-2xl rounded-2xl p-4 w-56 animate-in zoom-in-95"><div className="mb-3 p-3 bg-slate-100 text-right font-mono text-xl rounded-xl border border-slate-200 min-h-[50px] break-all font-bold shadow-inner text-slate-800">{calcExp || '0'}</div><div className="grid grid-cols-4 gap-2">{calcButtons.map(btn => (<button key={btn} type="button" onClick={() => handleCalcBtn(btn)} className={`p-3 text-sm font-black rounded-xl flex items-center justify-center transition-all ${btn === '=' ? `${currentTheme.btnPrimary} col-span-2 shadow-md` : btn === 'C' ? 'bg-red-100 text-red-600 hover:bg-red-200' : ['+','-','*','/'].includes(btn) ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'}`}>{btn}</button>))}</div></div>)}</div>
+                                        <div className="md:col-span-2 p-4 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-between text-white shadow-inner"><span className="text-sm font-bold text-slate-300">الإجمالي النهائي المطلوب:</span><span className="font-black text-2xl tracking-wide">{(Number(newOrder.shippingPrice) || 0) + (Number(newOrder.productPrice) || 0)} <span className="text-sm font-normal text-slate-400">ج.م</span></span></div>
+                                        <div className="md:col-span-2 pt-2 border-t border-slate-200"><label className="block text-sm font-black text-slate-700 mb-1.5 flex items-center gap-2"><IconCalendar /> 10. تاريخ الطلب</label><input type="date" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.date || ''} onChange={e => setNewOrder({...newOrder, date: e.target.value})} /><p className="text-xs font-bold text-slate-400 mt-1">يُترك فارغاً ليتم تسجيل تاريخ اليوم تلقائياً.</p></div>
+                                        <div className="md:col-span-2 pt-4 mt-2 border-t-2 border-dashed border-slate-200"><label className="block text-sm font-black text-teal-700 mb-2 flex items-center gap-2"><IconTruck /> 11. رقم بوليصة الشحن (تتبع الأوردر)</label><input type="text" placeholder="يُكتب هنا رقم البوليصة لتتبع الأوردر..." className={`w-full px-4 py-3 border-2 border-teal-200 bg-teal-50/50 rounded-xl outline-none transition-shadow font-bold text-teal-900 focus:ring-2 focus:ring-teal-500`} value={newOrder.trackingNumber || ''} onChange={e => setNewOrder({...newOrder, trackingNumber: e.target.value})} /><p className="text-xs font-bold text-slate-400 mt-2">ملاحظة: البنت المسؤولة عن الشحن ستضيف هذا الرقم لاحقاً عند تعديل الطلب.</p></div>
+                                    </div>
+                                    <div className="pt-4 flex gap-4"><button type="submit" className={`flex-1 font-black text-lg py-4 rounded-xl transition-all shadow-md transform hover:-translate-y-1 ${currentTheme.btnPrimary}`}>{isEditing ? 'حفظ تعديلات الطلب' : 'تأكيد وإضافة الطلب'}</button><button type="button" onClick={closeModal} className={`flex-none px-8 font-black py-4 rounded-xl transition-all bg-white border-2 hover:bg-slate-50 ${currentTheme.border} ${currentTheme.textPrimary}`}>إلغاء</button></div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
