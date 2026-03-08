@@ -63,7 +63,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef, useCallback } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
         const { createClient } = window.supabase;
 
         // ==========================================
@@ -71,12 +71,7 @@
         // ==========================================
         const SUPABASE_URL = 'https://tdprtlvogzfzfckpvkpa.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkcHJ0bHZvZ3pmemZja3B2a3BhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4OTUwMTcsImV4cCI6MjA4ODQ3MTAxN30.0TrcH65HQO5gboqsNfadSCGZQ95anY_0Bz97db5dPBg';
-        
-        let supabase = null;
-        const isSupabaseConfigured = SUPABASE_URL.startsWith('http');
-        if (isSupabaseConfigured) {
-            supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        }
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ==========================================
         // 2. مكونات الأيقونات (SVG Icons)
@@ -117,29 +112,27 @@
             const [authError, setAuthError] = useState('');
 
             // حالة واجهة المستخدم والتبويبات
-            const [initialLoad, setInitialLoad] = useState(true);
             const [loadingDB, setLoadingDB] = useState(false);
             const [currentTab, setCurrentTab] = useState('dashboard');
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
             
-            // نوافذ إضافة/تعديل/عرض/استيراد
+            // نوافذ الإضافة والعرض
             const [isAddModalOpen, setIsAddModalOpen] = useState(false);
             const [isEditing, setIsEditing] = useState(false);
             const [originalOrderId, setOriginalOrderId] = useState(null); 
             const [isViewModalOpen, setIsViewModalOpen] = useState(false);
             const [viewOrder, setViewOrder] = useState(null);
             const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-            const [successOrderMessage, setSuccessOrderMessage] = useState(null); // نافذة رسالة النجاح
+            const [successOrderMessage, setSuccessOrderMessage] = useState(null); // نافذة رسالة النجاح (واتساب)
             const [copiedType, setCopiedType] = useState('');
             const [quickTracking, setQuickTracking] = useState(''); 
             const [quickStatus, setQuickStatus] = useState(''); 
             
             // البيانات
             const [orders, setOrders] = useState([]);
-            const ordersRef = useRef([]); // لحفظ نسخة سريعة من البيانات
             const [usersList, setUsersList] = useState([]);
             
-            // الفلاتر والبحث
+            // الفلاتر
             const [searchQuery, setSearchQuery] = useState('');
             const [filterStatus, setFilterStatus] = useState('الكل');
             const [filterPage, setFilterPage] = useState('الكل');
@@ -149,8 +142,6 @@
             const [statsDateTo, setStatsDateTo] = useState('');
             const [selectedOrders, setSelectedOrders] = useState([]);
             const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
-            const [searchResults, setSearchResults] = useState([]); 
-            const [isSearchingDb, setIsSearchingDb] = useState(false); 
 
             // الصفحات والاستيراد
             const [ordersPerPage, setOrdersPerPage] = useState(100);
@@ -179,29 +170,12 @@
             const [newOrder, setNewOrder] = useState(initialOrderState);
 
             // ==========================================
-            // 4. دوال التحكم والـ Handlers 
+            // 4. دوال الاتصال الأساسية (من الصفر وبأمان)
             // ==========================================
-
-            const resetFilters = () => { 
-                setSearchQuery(''); 
-                setFilterStatus('الكل'); 
-                setFilterPage(userRole?.role === 'agent' ? userRole.assigned_page : 'الكل'); 
-                setDateFrom(''); 
-                setDateTo(''); 
-                setSearchResults([]); 
-                setCurrentPage(1);
-            };
 
             const fetchUserRole = async (userId) => {
                 try {
                     const { data, error } = await supabase.from('user_roles').select('*').eq('id', userId).maybeSingle();
-                    
-                    if (error) {
-                        console.error("Role DB error:", error);
-                        setUserRole({ id: userId, name: 'مدير (افتراضي)', role: 'admin' }); 
-                        return;
-                    }
-
                     if (data) {
                         setUserRole(data);
                         if (data.role === 'agent' && data.assigned_page) {
@@ -210,238 +184,103 @@
                             setImportTargetPage(data.assigned_page);
                         }
                     } else {
-                        const { data: newRole, error: insertError } = await supabase.from('user_roles').insert([{ id: userId, name: 'المدير', role: 'admin' }]).select().maybeSingle();
-                        if (insertError) {
-                            console.error("Insert role error:", insertError);
-                            setUserRole({ id: userId, name: 'المدير', role: 'admin' });
-                        } else {
-                            setUserRole(newRole || { id: userId, name: 'المدير', role: 'admin' });
-                        }
+                        setUserRole({ id: userId, name: 'مدير النظام', role: 'admin' });
                     }
                 } catch (error) { 
-                    console.error("Role critical error:", error); 
-                    setUserRole({ id: userId, name: 'مستخدم (افتراضي)', role: 'admin' }); 
+                    setUserRole({ id: userId, name: 'مدير النظام', role: 'admin' }); 
                 } finally { 
                     setAuthLoading(false); 
                 }
             };
 
-            const fetchOrders = useCallback(async (isSilent = false) => {
-                if (!user || !userRole) return;
-                
-                if (!isSilent) setLoadingDB(true);
-                
+            const fetchOrdersData = async () => {
+                setLoadingDB(true);
                 try {
-                    let allOrders = [];
-                    let page = 0;
-                    const pageSize = 1000; 
-                    let fetchMore = true;
-                    let maxPages = 20; // حماية ضد اللوب اللانهائي
-
-                    while (fetchMore && page < maxPages) {
-                        const { data, error } = await supabase
-                            .from('orders')
-                            .select('*')
-                            .range(page * pageSize, (page + 1) * pageSize - 1);
-                            
-                        if (error) {
-                            console.error("Supabase Select Error:", error);
-                            alert("حدث خطأ أثناء جلب الطلبات: " + error.message);
-                            throw error;
-                        }
-                        
-                        if (data && data.length > 0) {
-                            allOrders = [...allOrders, ...data];
-                            if (data.length === pageSize) {
-                                page++;
-                            } else {
-                                fetchMore = false;
-                            }
-                        } else {
-                            fetchMore = false;
-                        }
-                    }
+                    const { data, error } = await supabase.from('orders').select('*').limit(3000); // جلب سريع بدون تعقيد Loops
+                    if (error) throw error;
                     
-                    const safeOrders = allOrders.map(o => ({
-                        ...o,
-                        created_at: o.created_at || o.createdAt || new Date().toISOString(), 
-                        productPrice: Number(o.productPrice || o.productprice) || 0,
-                        shippingPrice: Number(o.shippingPrice || o.shippingprice) || 0
-                    }));
-
-                    ordersRef.current = safeOrders;
-                    setOrders(safeOrders);
+                    if (data) {
+                        // ترتيب الأوردرات محلياً لتجنب أي أخطاء في قواعد البيانات القديمة
+                        const sortedData = data.sort((a, b) => {
+                            const timeA = new Date(a.created_at || a.createdAt || a.date || 0).getTime() || 0;
+                            const timeB = new Date(b.created_at || b.createdAt || b.date || 0).getTime() || 0;
+                            return timeB - timeA;
+                        });
+                        setOrders(sortedData);
+                    }
                 } catch (error) { 
-                    console.error("Fetch error:", error); 
+                    console.error("Fetch orders error:", error); 
                 } finally { 
                     setLoadingDB(false); 
-                    setInitialLoad(false); 
                 }
-            }, [user, userRole]);
+            };
 
             const fetchUsersList = async () => {
                 try {
                     const { data, error } = await supabase.from('user_roles').select('*');
-                    if (error) throw error;
-                    setUsersList(data || []);
-                } catch (error) { 
-                    console.error("Error fetching users:", error); 
-                }
-            };
-
-            const searchDatabase = async (searchText) => {
-                if (!user || String(searchText).trim() === '') { setSearchResults([]); return; }
-                setIsSearchingDb(true);
-                try {
-                    const { data, error } = await supabase.from('orders').select('*')
-                        .or(`customer.ilike.%${searchText}%,phone.ilike.%${searchText}%,id.ilike.%${searchText}%,"trackingNumber".ilike.%${searchText}%`)
-                        .limit(1000); 
-                    if (error) throw error;
-                    setSearchResults(data || []);
-                } catch (err) { 
-                    console.error("Error searching:", err); 
-                } finally { 
-                    setIsSearchingDb(false); 
-                }
+                    if (!error && data) setUsersList(data);
+                } catch (error) { console.error("Fetch users error:", error); }
             };
 
             // ==========================================
-            // 5. تأثيرات دورة حياة المكون (useEffects)
+            // 5. الـ useEffects (إدارة حالة الدخول الحية)
             // ==========================================
+
+            useEffect(() => {
+                let isMounted = true;
+                
+                const checkSession = async () => {
+                    try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (isMounted) {
+                            setUser(session?.user || null);
+                            if (session?.user) await fetchUserRole(session.user.id);
+                            else setAuthLoading(false);
+                        }
+                    } catch (err) {
+                        if (isMounted) setAuthLoading(false);
+                    }
+                };
+                
+                checkSession();
+
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                    if (isMounted) {
+                        setUser(session?.user || null);
+                        if (session?.user) {
+                            fetchUserRole(session.user.id);
+                        } else {
+                            setUserRole(null);
+                            setOrders([]);
+                            setAuthLoading(false);
+                        }
+                    }
+                });
+
+                return () => {
+                    isMounted = false;
+                    subscription?.unsubscribe();
+                };
+            }, []);
+
+            useEffect(() => {
+                if (user && userRole) {
+                    fetchOrdersData();
+                    if (userRole.role === 'admin') fetchUsersList();
+                }
+            }, [user, userRole]);
 
             useEffect(() => {
                 setCurrentPage(1);
             }, [searchQuery, filterStatus, filterPage, dateFrom, dateTo]);
 
-            useEffect(() => {
-                if (!isSupabaseConfigured) {
-                    setAuthLoading(false);
-                    return;
-                }
-                
-                let mounted = true;
-                
-                const authTimeout = setTimeout(() => {
-                    if (mounted) setAuthLoading(false);
-                }, 5000);
-
-                const checkUser = async () => {
-                    try {
-                        const { data: { session }, error } = await supabase.auth.getSession();
-                        if (error) throw error;
-                        
-                        const currentUser = session?.user || null;
-                        if (mounted) {
-                            setUser(currentUser);
-                            if (currentUser) {
-                                await fetchUserRole(currentUser.id);
-                            } else {
-                                setAuthLoading(false);
-                            }
-                        }
-                    } catch (err) {
-                        console.error("Auth init Error:", err);
-                        if (mounted) setAuthLoading(false);
-                    }
-                };
-                checkUser();
-
-                const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-                    if (!mounted || _event === 'INITIAL_SESSION') return;
-                    
-                    const currentUser = session?.user || null;
-                    setUser(currentUser);
-                    if (currentUser) {
-                        await fetchUserRole(currentUser.id);
-                    } else { 
-                        setUserRole(null); setOrders([]); ordersRef.current = []; 
-                        setAuthLoading(false);
-                    }
-                });
-                
-                return () => {
-                    mounted = false;
-                    clearTimeout(authTimeout);
-                    subscription?.unsubscribe();
-                };
-            }, []); 
-
-            useEffect(() => {
-                if (!user || !userRole) return;
-                
-                let isMounted = true;
-                
-                if (ordersRef.current.length === 0) fetchOrders();
-                if (userRole.role === 'admin') fetchUsersList();
-                
-                const sub = supabase.channel('orders-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-                    if (!isMounted) return;
-                    setOrders(prev => {
-                        let updated = [...prev];
-                        
-                        const cleanPayload = payload.new ? {
-                            ...payload.new,
-                            created_at: payload.new.created_at || payload.new.createdAt || new Date().toISOString(),
-                            productPrice: Number(payload.new.productPrice || payload.new.productprice) || 0,
-                            shippingPrice: Number(payload.new.shippingPrice || payload.new.shippingprice) || 0
-                        } : null;
-
-                        if (payload.eventType === 'INSERT' && cleanPayload) { 
-                            if (!updated.find(o => o.id === cleanPayload.id)) updated = [cleanPayload, ...updated]; 
-                        }
-                        else if (payload.eventType === 'UPDATE' && cleanPayload) {
-                            updated = updated.map(o => o.id === cleanPayload.id ? cleanPayload : o);
-                        }
-                        else if (payload.eventType === 'DELETE') {
-                            updated = updated.filter(o => o.id !== payload.old.id);
-                        }
-                        
-                        const getTime = (o) => new Date(o.created_at || o.createdAt || o.date || 0).getTime() || 0;
-                        updated.sort((a, b) => getTime(b) - getTime(a));
-                        
-                        ordersRef.current = updated;
-                        return updated;
-                    });
-                }).subscribe();
-
-                const handleVisible = () => { 
-                    if (document.visibilityState === 'visible' && isMounted) fetchOrders(true); 
-                };
-                document.addEventListener('visibilitychange', handleVisible);
-                
-                return () => { 
-                    isMounted = false;
-                    supabase.removeChannel(sub); 
-                    document.removeEventListener('visibilitychange', handleVisible); 
-                };
-            }, [user, userRole, fetchOrders]); 
-            
-            useEffect(() => {
-                const delayDebounceFn = setTimeout(() => {
-                    if (searchQuery.length > 2) searchDatabase(searchQuery);
-                    else setSearchResults([]); 
-                }, 800); 
-                return () => clearTimeout(delayDebounceFn);
-            }, [searchQuery]);
-
             // ==========================================
-            // 6. تجهيز البيانات للعرض (useMemos)
+            // 6. تجهيز الفلاتر (useMemos)
             // ==========================================
-
-            const allVisibleOrders = useMemo(() => {
-                if (searchResults.length === 0) return orders;
-                const combined = [...orders, ...searchResults];
-                const unique = new Map();
-                combined.forEach(o => unique.set(o.id, o));
-                
-                const getTime = (o) => new Date(o.created_at || o.createdAt || o.date || 0).getTime() || 0;
-                return Array.from(unique.values()).sort((a, b) => getTime(b) - getTime(a));
-            }, [orders, searchResults]);
 
             const filteredOrders = useMemo(() => {
-                return allVisibleOrders.filter(order => {
+                return orders.filter(order => {
                     const search = String(searchQuery).toLowerCase();
-                    
                     const matchesSearch = String(order.customer || '').toLowerCase().includes(search) || 
                                           String(order.phone || '').toLowerCase().includes(search) || 
                                           String(order.id || '').toLowerCase().includes(search) || 
@@ -455,7 +294,7 @@
 
                     return matchesSearch && matchesStatus && matchesPage && matchesRole && matchesDateFrom && matchesDateTo;
                 });
-            }, [allVisibleOrders, searchQuery, filterStatus, filterPage, userRole, dateFrom, dateTo]);
+            }, [orders, searchQuery, filterStatus, filterPage, userRole, dateFrom, dateTo]);
 
             const displayedOrders = useMemo(() => {
                 if (ordersPerPage === 'All') return filteredOrders;
@@ -482,42 +321,13 @@
 
 
             // ==========================================
-            // 7. دوال واجهة المستخدم (UI Handlers)
+            // 7. دوال واجهة المستخدم والأكشن (UI Handlers)
             // ==========================================
 
-            const exportSelectedToCSV = () => {
-                if (selectedOrders.length === 0) return;
-                const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
-                const headers = ['رقم الطلب', 'اسم العميل', 'رقم الموبايل', 'العنوان', 'الصفحة', 'المنتج/الوصف', 'حالة الطلب', 'سعر المنتج', 'سعر الشحن', 'رقم البوليصة', 'تاريخ الطلب', 'الملاحظات'];
-                
-                const rows = toExport.map(o => [
-                    `"${String(o.id || '')}"`, 
-                    `"${String(o.customer || '').replace(/"/g, '""')}"`, 
-                    `"${String(o.phone || '').replace(/"/g, '""')}"`, 
-                    `"${String(o.address || '').replace(/"/g, '""')}"`, 
-                    `"${String(o.page || '').replace(/"/g, '""')}"`, 
-                    `"${String(o.item || '').replace(/"/g, '""')}"`, 
-                    `"${String(o.status || '')}"`, 
-                    Number(o.productPrice) || 0, 
-                    Number(o.shippingPrice) || 0, 
-                    `"${String(o.trackingNumber || '').replace(/"/g, '""')}"`, 
-                    `"${String(o.date || '')}"`, 
-                    `"${String(o.notes || '').replace(/"/g, '""')}"`
-                ].join(','));
-                
-                const content = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-                const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `طلبات_محددة_${new Date().toISOString().split('T')[0]}.csv`;
-                link.click();
-            };
-
-            const handleSelectAll = (e) => { 
-                e.target.checked ? setSelectedOrders(displayedOrders.map(o => o.id)) : setSelectedOrders([]); 
-            };
-            const handleSelectOrder = (id) => { 
-                selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); 
+            const resetFilters = () => { 
+                setSearchQuery(''); setFilterStatus('الكل'); 
+                setFilterPage(userRole?.role === 'agent' ? userRole.assigned_page : 'الكل'); 
+                setDateFrom(''); setDateTo(''); setCurrentPage(1);
             };
 
             const handleLogin = async (e) => {
@@ -525,110 +335,17 @@
                 try {
                     const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
                     if (error) throw error;
-                } catch (error) { setAuthError("خطأ في تسجيل الدخول. تأكد من البيانات."); } 
+                } catch (error) { setAuthError("خطأ في تسجيل الدخول. تأكد من الإيميل والباسورد."); } 
                 finally { setAuthLoading(false); }
             };
 
             const handleLogout = async () => { 
-                try { await supabase.auth.signOut(); } catch(e) {}
-                setUser(null); 
-                setUserRole(null); 
-                setOrders([]); 
-                ordersRef.current = []; 
+                setAuthLoading(true);
+                await supabase.auth.signOut(); 
+                setUser(null);
+                setUserRole(null);
+                setOrders([]);
                 setAuthLoading(false);
-                localStorage.clear();
-                window.location.reload(); 
-            };
-
-            const parseCSV = (text) => {
-                const result = []; let row = []; let inQuotes = false; let currentVal = '';
-                for (let i = 0; i < text.length; i++) {
-                    const char = text[i];
-                    if (inQuotes) { if (char === '"') { if (text[i+1] === '"') { currentVal += '"'; i++; } else { inQuotes = false; } } else { currentVal += char; } } 
-                    else { if (char === '"') { inQuotes = true; } else if (char === ',') { row.push(currentVal.trim()); currentVal = ''; } else if (char === '\n' || char === '\r') { row.push(currentVal.trim()); result.push(row); row = []; currentVal = ''; if (char === '\r' && text[i+1] === '\n') i++; } else { currentVal += char; } }
-                }
-                if (currentVal || row.length) { row.push(currentVal.trim()); result.push(row); }
-                return result.filter(r => r.some(cell => cell && cell.trim() !== '')); 
-            };
-
-            const handleFileUpload = (e) => {
-                const file = e.target.files[0]; if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => { const text = event.target.result; const parsed = parseCSV(text); if (parsed.length > 0) { setCsvHeaders(parsed[0]); setCsvData(parsed.slice(1)); } };
-                reader.readAsText(file, 'UTF-8'); 
-            };
-
-            const startImport = async () => {
-                if (!user) return;
-                setIsImporting(true); setImportProgress(0); setImportStatusText("جاري التنظيف والمعالجة...");
-
-                try {
-                    let validRecordsCount = 0;
-                    const uniqueRowsMap = new Map();
-
-                    for (let i = 0; i < csvData.length; i++) {
-                        const row = csvData[i];
-                        const getVal = (sysField) => { const colName = columnMapping[sysField]; if (!colName) return ''; const colIdx = csvHeaders.indexOf(colName); return colIdx !== -1 && row[colIdx] ? String(row[colIdx]).trim() : ''; };
-
-                        let rawId = getVal('id'); let orderId = rawId !== '' ? rawId : `ORD-IMP-${Date.now()}-${i}`;
-                        orderId = String(orderId).replace(/[\/\\?%*:|"<>#\s]/g, '-').trim();
-
-                        const priceRaw = getVal('productPrice') || '0'; const shipRaw = getVal('shippingPrice') || '0';
-                        const cleanProductPrice = parseFloat(String(priceRaw).replace(/[^\d.-]/g, '')) || 0;
-                        const cleanShippingPrice = parseFloat(String(shipRaw).replace(/[^\d.-]/g, '')) || 0;
-                        
-                        let importedStatus = getVal('status');
-                        if(!orderStatuses.includes(importedStatus)) importedStatus = 'جاري التحضير';
-                        
-                        let rawDate = getVal('date'); let finalDate = new Date().toISOString().split('T')[0];
-                        if (rawDate && String(rawDate).trim() !== '') {
-                            let cleanDateStr = String(rawDate).replace(/\//g, '-').replace(/\./g, '-');
-                            let parsedDate = new Date(cleanDateStr);
-                            if (!isNaN(parsedDate.getTime())) finalDate = parsedDate.toISOString().split('T')[0];
-                        }
-
-                        const orderData = {
-                            id: orderId, customer: getVal('customer') || 'غير محدد', phone: getVal('phone') || '',
-                            address: getVal('address') || '', notes: getVal('notes') || '', page: importTargetPage, 
-                            item: getVal('item') || 'مستورد من إكسيل', productPrice: cleanProductPrice,
-                            shippingPrice: cleanShippingPrice, trackingNumber: getVal('trackingNumber') || '',
-                            status: importedStatus, date: finalDate
-                        };
-                        uniqueRowsMap.set(orderId, orderData);
-                    }
-                    
-                    const uniqueDataToInsert = Array.from(uniqueRowsMap.values());
-                    validRecordsCount = uniqueDataToInsert.length;
-
-                    setImportStatusText(`جاري رفع ${validRecordsCount} طلب للسيرفر...`);
-
-                    const chunkSize = 200; 
-                    for (let i = 0; i < uniqueDataToInsert.length; i += chunkSize) {
-                        const chunk = uniqueDataToInsert.slice(i, i + chunkSize);
-                        const { error } = await supabase.from('orders').upsert(chunk, { onConflict: 'id' });
-                        if (error) throw error;
-                        setImportProgress(Math.round(((i + chunk.length) / uniqueDataToInsert.length) * 100));
-                    }
-
-                    setImportStatusText("تم الرفع بنجاح! جاري التحديث...");
-                    setTimeout(() => {
-                        fetchOrders(false); 
-                        setIsImporting(false); setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]);
-                        alert(`تم استيراد ${validRecordsCount} أوردر بنجاح!`);
-                    }, 1500);
-
-                } catch (err) {
-                    console.error("Import error: ", err); 
-                    setImportStatusText(`حدث خطأ أثناء الرفع: ${err.message}`);
-                    alert(`فشل الرفع. السبب: ${err.message}`); 
-                    setIsImporting(false);
-                }
-            };
-
-            const closeImportModal = () => {
-                if(isImporting) return; 
-                setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]); setImportProgress(0); setImportStatusText("");
-                if (fileInputRef.current) fileInputRef.current.value = "";
             };
 
             const handleAddOrEditOrder = async (e) => {
@@ -640,72 +357,63 @@
                     return;
                 }
 
-                // إضافة حماية يدوية (Manual Validation) تمنع المتصفح من الإيقاف الصامت للزر
-                if (!newOrder.customer || String(newOrder.customer).trim() === '') return alert("عفواً، يرجى إدخال اسم العميل.");
-                if (!newOrder.phone || String(newOrder.phone).trim() === '') return alert("عفواً، يرجى إدخال رقم هاتف العميل.");
-                if (!newOrder.address || String(newOrder.address).trim() === '') return alert("عفواً، يرجى إدخال عنوان العميل.");
-                if (!newOrder.item || String(newOrder.item).trim() === '') return alert("عفواً، يرجى إدخال وصف المنتج.");
-                if (newOrder.productPrice === '' || newOrder.productPrice === null || newOrder.productPrice === undefined) return alert("عفواً، يرجى إدخال سعر المنتج.");
-                if (newOrder.shippingPrice === '' || newOrder.shippingPrice === null || newOrder.shippingPrice === undefined) return alert("عفواً، يرجى إدخال سعر الشحن.");
-
-                const finalOrderId = newOrder.id && String(newOrder.id).trim() !== '' ? String(newOrder.id).trim() : `ORD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 100)}`;
+                // تجهيز داتا الأوردر بشكل آمن ونظيف
+                const finalOrderId = newOrder.id && String(newOrder.id).trim() !== '' ? String(newOrder.id).trim() : `ORD-${Date.now().toString().slice(-6)}`;
                 const finalDate = newOrder.date && String(newOrder.date).trim() !== '' ? newOrder.date : new Date().toISOString().split('T')[0];
                 
                 const orderPayload = { 
                     id: finalOrderId, 
-                    customer: newOrder.customer || '',
-                    address: newOrder.address || '',
-                    phone: newOrder.phone || '',
+                    customer: newOrder.customer,
+                    address: newOrder.address,
+                    phone: newOrder.phone,
                     page: newOrder.page || pages[0],
-                    item: newOrder.item || '',
+                    item: newOrder.item,
                     status: newOrder.status || 'جاري التحضير',
                     notes: newOrder.notes || '',
                     productPrice: Number(newOrder.productPrice) || 0, 
                     shippingPrice: Number(newOrder.shippingPrice) || 0,
                     trackingNumber: newOrder.trackingNumber || '',
-                    date: finalDate
+                    date: finalDate,
+                    user_id: user.id
                 };
 
                 try {
                     if (isEditing) {
                         if (originalOrderId && originalOrderId !== finalOrderId) {
-                            const { error: insertErr } = await supabase.from('orders').insert([orderPayload]);
-                            if (insertErr) throw insertErr;
-                            const { error: delError } = await supabase.from('orders').delete().eq('id', originalOrderId);
-                            if (delError) throw delError;
+                            // إذا غيرنا الـ ID بنمسح القديم ونضيف الجديد
+                            const { error: insErr } = await supabase.from('orders').insert([orderPayload]);
+                            if (insErr) throw insErr;
+                            await supabase.from('orders').delete().eq('id', originalOrderId);
                         } else {
+                            // تعديل عادي
                             const updatePayload = { ...orderPayload };
-                            delete updatePayload.id; 
-                            const { error: updateErr } = await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
-                            if (updateErr) throw updateErr;
+                            delete updatePayload.id; // لا نحدث الـ ID لعدم كسر القاعدة
+                            const { error: updErr } = await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
+                            if (updErr) throw updErr;
                         }
-                        alert("تم حفظ التعديلات بنجاح!");
+                        
+                        setOrders(prev => prev.map(o => o.id === originalOrderId ? orderPayload : o));
+                        alert("تم التعديل بنجاح!");
                         closeModal();
                     } else {
-                        const { error: insertErr } = await supabase.from('orders').insert([orderPayload]);
-                        if (insertErr) throw insertErr;
+                        // إضافة جديدة
+                        const { error: insErr } = await supabase.from('orders').insert([orderPayload]);
+                        if (insErr) throw insErr;
                         
+                        setOrders(prev => [orderPayload, ...prev]);
                         closeModal();
-                        // إظهار نافذة رسالة العميل للواتساب بدلاً من مجرد التنبيه العادي
-                        setSuccessOrderMessage(orderPayload); 
+                        setSuccessOrderMessage(orderPayload); // إظهار نافذة الواتساب
                     }
-                    
-                    fetchOrders(true); 
                 } catch (error) { 
-                    console.error("Save error: ", error); 
-                    alert(`فشل الحفظ: ${error.message || JSON.stringify(error)}\n\nتأكد أن رقم الطلب غير مكرر.`); 
+                    console.error("Save error:", error); 
+                    alert(`لم نتمكن من حفظ الطلب. السبب: ${error.message}`); 
                 }
             };
 
             const handleStatusChange = async (id, newStatus) => {
                 if (!user) return;
-                const previousOrders = [...ordersRef.current];
-                
-                setOrders(prev => {
-                    const updated = prev.map(o => o.id === id ? { ...o, status: newStatus } : o);
-                    ordersRef.current = updated;
-                    return updated;
-                });
+                const previousOrders = [...orders];
+                setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
                 if(viewOrder && viewOrder.id === id) setViewOrder({...viewOrder, status: newStatus});
 
                 try {
@@ -713,63 +421,49 @@
                     if(error) throw error;
                 } catch (error) { 
                     alert("خطأ في التحديث: " + error.message);
-                    ordersRef.current = previousOrders; setOrders(previousOrders);
+                    setOrders(previousOrders);
                 }
             };
 
             const handleDeleteOrder = async (id) => {
                 if (!user) return;
-                if (!window.confirm(`هل أنت متأكد من مسح الطلب رقم (${id})؟ لا يمكن التراجع.`)) return;
+                if (!window.confirm(`هل أنت متأكد من مسح الطلب (${id}) نهائياً؟`)) return;
                 
                 const exactId = String(id); 
-                const previousOrders = [...ordersRef.current];
-                
-                setOrders(prev => {
-                    const updated = prev.filter(o => o.id !== exactId);
-                    ordersRef.current = updated;
-                    return updated;
-                });
-                setSelectedOrders(prev => prev.filter(orderId => orderId !== exactId));
+                const previousOrders = [...orders];
+                setOrders(prev => prev.filter(o => o.id !== exactId));
 
                 try {
                     const { error } = await supabase.from('orders').delete().eq('id', exactId);
                     if(error) throw error;
                 } catch (error) { 
-                    alert(`حدث خطأ أثناء المسح: ${error.message}`);
-                    ordersRef.current = previousOrders; setOrders(previousOrders);
+                    alert(`فشل المسح: ${error.message}`);
+                    setOrders(previousOrders);
                 }
             };
 
             const handleDeleteMultipleOrders = async () => {
                 if (!user || selectedOrders.length === 0) return;
-                if (!window.confirm(`هل أنت متأكد من مسح ${selectedOrders.length} طلب؟`)) return;
+                if (!window.confirm(`هل أنت متأكد من مسح ${selectedOrders.length} طلبات نهائياً؟`)) return;
                 
                 setIsDeletingMultiple(true);
-                const previousOrders = [...ordersRef.current];
+                const previousOrders = [...orders];
                 const idsToDelete = [...selectedOrders];
                 
-                setOrders(prev => {
-                    const updated = prev.filter(o => !idsToDelete.includes(o.id));
-                    ordersRef.current = updated;
-                    return updated;
-                });
+                setOrders(prev => prev.filter(o => !idsToDelete.includes(o.id)));
                 setSelectedOrders([]); 
 
                 try {
                     const { error } = await supabase.from('orders').delete().in('id', idsToDelete);
                     if (error) throw error;
                 } catch (error) { 
-                    alert(`خطأ في المسح: ${error.message}`); 
-                    ordersRef.current = previousOrders; setOrders(previousOrders);
+                    alert(`فشل المسح: ${error.message}`); 
+                    setOrders(previousOrders);
                 } finally { 
                     setIsDeletingMultiple(false); 
                 }
             };
 
-            const navigateToFilteredOrders = (page, status) => { 
-                setFilterPage(page); setFilterStatus(status); setCurrentTab('orders'); 
-            };
-            
             const openAddModal = () => { 
                 setNewOrder({ ...initialOrderState, page: userRole?.role === 'agent' ? userRole.assigned_page : pages[0] }); 
                 setIsEditing(false); setOriginalOrderId(null); setIsAddModalOpen(true); 
@@ -786,7 +480,7 @@
             const openViewModal = (order) => { 
                 setViewOrder(order); 
                 setQuickTracking(order.trackingNumber || ''); 
-                setQuickStatus(order.status || 'جاري التحضير'); // تعيين الحالة الحالية للنافذة
+                setQuickStatus(order.status || 'جاري التحضير');
                 setIsViewModalOpen(true); 
             };
             
@@ -805,47 +499,31 @@
                      if(error) throw error;
                      
                      setViewOrder({...viewOrder, trackingNumber: quickTracking, status: quickStatus});
-                     
-                     setOrders(prev => {
-                         const updated = prev.map(o => o.id === viewOrder.id ? { ...o, trackingNumber: quickTracking, status: quickStatus } : o);
-                         ordersRef.current = updated;
-                         return updated;
-                     });
-                     
-                     alert("تم تحديث الحالة ورقم البوليصة بنجاح!");
+                     setOrders(prev => prev.map(o => o.id === viewOrder.id ? { ...o, trackingNumber: quickTracking, status: quickStatus } : o));
+                     alert("تم الحفظ بنجاح!");
                  } catch (error) { 
-                     alert("حدث خطأ أثناء الحفظ: " + (error.message || "تأكد من الصلاحيات")); 
+                     alert("فشل الحفظ: " + error.message); 
                  }
             };
 
+            // --- دوال مساعدة إضافية ---
             const copyToClipboard = (text, type) => {
-                const el = document.createElement('textarea');
-                el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+                const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
                 setCopiedType(type); setTimeout(() => setCopiedType(''), 2000);
             };
 
-            const generateCustomerMessage = () => {
-                if(!viewOrder) return "";
-                const total = Number(viewOrder.productPrice || 0) + Number(viewOrder.shippingPrice || 0);
-                return `أهلاً بك يا فندم في ${viewOrder.page} 🌸\n\nملخص طلبك:\n------------------\nرقم الطلب: ${viewOrder.id}\nالمنتج: ${viewOrder.item}\nالإجمالي المطلوب: ${total} ج.م (شامل الشحن)\nالعنوان: ${viewOrder.address}\n\nيتم تجهيز طلبك الآن، وفي حالة وجود أي استفسار يسعدنا تواصلك معنا.`;
-            };
-
-            const generateShippingData = () => {
-                if(!viewOrder) return "";
-                const total = Number(viewOrder.productPrice || 0) + Number(viewOrder.shippingPrice || 0);
-                return `الاسم: ${viewOrder.customer}\nالموبايل: ${viewOrder.phone}\nالعنوان: ${viewOrder.address}\nالمنتج: ${viewOrder.item}\nالمبلغ المطلوب: ${total}\nالملاحظات: ${viewOrder.notes || 'لا يوجد'}\nالصفحة: ${viewOrder.page}`;
-            };
+            const navigateToFilteredOrders = (page, status) => { setFilterPage(page); setFilterStatus(status); setCurrentTab('orders'); };
+            const handleSelectAll = (e) => { e.target.checked ? setSelectedOrders(displayedOrders.map(o => o.id)) : setSelectedOrders([]); };
+            const handleSelectOrder = (id) => { selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); };
 
             const handleCalcBtn = (btn) => {
                 if (btn === 'C') { setCalcExp(''); setNewOrder({ ...newOrder, productPrice: '' }); } 
-                else if (btn === '=') {
-                    try { const result = new Function('return ' + calcExp)(); setCalcExp(String(result)); setNewOrder({ ...newOrder, productPrice: result }); setShowCalc(false); } 
-                    catch (e) { setCalcExp('خطأ'); }
-                } else { setCalcExp((prev) => (prev === 'خطأ' ? btn : prev + btn)); }
+                else if (btn === '=') { try { const result = new Function('return ' + calcExp)(); setCalcExp(String(result)); setNewOrder({ ...newOrder, productPrice: result }); setShowCalc(false); } catch (e) { setCalcExp('خطأ'); } } 
+                else { setCalcExp((prev) => (prev === 'خطأ' ? btn : prev + btn)); }
             };
             const calcButtons = ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', 'C', '0', '=', '+'];
 
-            const getThemeClasses = (p) => (p === 'عايدة' || p === 'عايدة ويب' ? { btnPrimary: 'bg-pink-600 hover:bg-pink-700 text-white shadow-lg shadow-pink-200', textPrimary: 'text-pink-600', border: 'border-pink-200', bgLight: 'bg-pink-50', ringFocus: 'focus:ring-pink-500' } : { btnPrimary: 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-200', textPrimary: 'text-purple-600', border: 'border-purple-200', bgLight: 'bg-purple-50', ringFocus: 'focus:ring-purple-500' });
+            const getThemeClasses = (p) => (p === 'عايدة' || p === 'عايدة ويب' ? { btnPrimary: 'bg-pink-600 hover:bg-pink-700 text-white shadow-md shadow-pink-200', textPrimary: 'text-pink-600', border: 'border-pink-200', bgLight: 'bg-pink-50', ringFocus: 'focus:ring-pink-500' } : { btnPrimary: 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-200', textPrimary: 'text-purple-600', border: 'border-purple-200', bgLight: 'bg-purple-50', ringFocus: 'focus:ring-purple-500' });
             
             const getRowStatusColor = (status) => {
                 switch(status) {
@@ -877,15 +555,102 @@
                     case 'خارجي': return 'text-teal-800 border-teal-300 bg-white/60';
                     default: return 'text-slate-800 border-slate-300 bg-white/60';
                 }
-            }
+            };
+
+            // دوال الإكسيل المعقدة مبسطة هنا
+            const exportSelectedToCSV = () => {
+                if (selectedOrders.length === 0) return;
+                const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
+                const headers = ['رقم الطلب', 'اسم العميل', 'رقم الموبايل', 'العنوان', 'الصفحة', 'المنتج/الوصف', 'حالة الطلب', 'سعر المنتج', 'سعر الشحن', 'رقم البوليصة', 'تاريخ الطلب', 'الملاحظات'];
+                const rows = toExport.map(o => [`"${String(o.id || '')}"`, `"${String(o.customer || '').replace(/"/g, '""')}"`, `"${String(o.phone || '').replace(/"/g, '""')}"`, `"${String(o.address || '').replace(/"/g, '""')}"`, `"${String(o.page || '').replace(/"/g, '""')}"`, `"${String(o.item || '').replace(/"/g, '""')}"`, `"${String(o.status || '')}"`, Number(o.productPrice) || 0, Number(o.shippingPrice) || 0, `"${String(o.trackingNumber || '').replace(/"/g, '""')}"`, `"${String(o.date || '')}"`, `"${String(o.notes || '').replace(/"/g, '""')}"`].join(','));
+                const content = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+                const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `طلبات_محددة_${new Date().toISOString().split('T')[0]}.csv`; link.click();
+            };
+
+            const parseCSV = (text) => {
+                const result = []; let row = []; let inQuotes = false; let currentVal = '';
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    if (inQuotes) { if (char === '"') { if (text[i+1] === '"') { currentVal += '"'; i++; } else { inQuotes = false; } } else { currentVal += char; } } 
+                    else { if (char === '"') { inQuotes = true; } else if (char === ',') { row.push(currentVal.trim()); currentVal = ''; } else if (char === '\n' || char === '\r') { row.push(currentVal.trim()); result.push(row); row = []; currentVal = ''; if (char === '\r' && text[i+1] === '\n') i++; } else { currentVal += char; } }
+                }
+                if (currentVal || row.length) { row.push(currentVal.trim()); result.push(row); }
+                return result.filter(r => r.some(cell => cell && cell.trim() !== '')); 
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => { const text = event.target.result; const parsed = parseCSV(text); if (parsed.length > 0) { setCsvHeaders(parsed[0]); setCsvData(parsed.slice(1)); } };
+                reader.readAsText(file, 'UTF-8'); 
+            };
+
+            const startImport = async () => {
+                if (!user) return;
+                setIsImporting(true); setImportProgress(0); setImportStatusText("جاري معالجة الشيت...");
+
+                try {
+                    let validRecordsCount = 0;
+                    const uniqueRowsMap = new Map();
+
+                    for (let i = 0; i < csvData.length; i++) {
+                        const row = csvData[i];
+                        const getVal = (sysField) => { const colName = columnMapping[sysField]; if (!colName) return ''; const colIdx = csvHeaders.indexOf(colName); return colIdx !== -1 && row[colIdx] ? String(row[colIdx]).trim() : ''; };
+
+                        let rawId = getVal('id'); let orderId = rawId !== '' ? rawId : `ORD-IMP-${Date.now()}-${i}`;
+                        orderId = String(orderId).replace(/[\/\\?%*:|"<>#\s]/g, '-').trim();
+
+                        const priceRaw = getVal('productPrice') || '0'; const shipRaw = getVal('shippingPrice') || '0';
+                        const cleanProductPrice = parseFloat(String(priceRaw).replace(/[^\d.-]/g, '')) || 0;
+                        const cleanShippingPrice = parseFloat(String(shipRaw).replace(/[^\d.-]/g, '')) || 0;
+                        
+                        let importedStatus = getVal('status');
+                        if(!orderStatuses.includes(importedStatus)) importedStatus = 'جاري التحضير';
+                        
+                        let rawDate = getVal('date'); let finalDate = new Date().toISOString().split('T')[0];
+                        if (rawDate && String(rawDate).trim() !== '') {
+                            let cleanDateStr = String(rawDate).replace(/\//g, '-').replace(/\./g, '-');
+                            let parsedDate = new Date(cleanDateStr);
+                            if (!isNaN(parsedDate.getTime())) finalDate = parsedDate.toISOString().split('T')[0];
+                        }
+
+                        const orderData = {
+                            id: orderId, customer: getVal('customer') || 'غير محدد', phone: getVal('phone') || '',
+                            address: getVal('address') || '', notes: getVal('notes') || '', page: importTargetPage, 
+                            item: getVal('item') || 'مستورد من إكسيل', productPrice: cleanProductPrice,
+                            shippingPrice: cleanShippingPrice, trackingNumber: getVal('trackingNumber') || '',
+                            status: importedStatus, date: finalDate, user_id: user.id
+                        };
+                        uniqueRowsMap.set(orderId, orderData);
+                    }
+                    
+                    const uniqueDataToInsert = Array.from(uniqueRowsMap.values());
+                    validRecordsCount = uniqueDataToInsert.length;
+                    setImportStatusText(`جاري رفع ${validRecordsCount} طلب...`);
+
+                    const chunkSize = 200; 
+                    for (let i = 0; i < uniqueDataToInsert.length; i += chunkSize) {
+                        const chunk = uniqueDataToInsert.slice(i, i + chunkSize);
+                        const { error } = await supabase.from('orders').upsert(chunk, { onConflict: 'id' });
+                        if (error) throw error;
+                        setImportProgress(Math.round(((i + chunk.length) / uniqueDataToInsert.length) * 100));
+                    }
+
+                    setImportStatusText("تم الرفع بنجاح!");
+                    fetchOrdersData(); 
+                    setIsImporting(false); setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]);
+                    alert(`تم استيراد ${validRecordsCount} أوردر بنجاح!`);
+                } catch (err) {
+                    alert(`فشل الرفع: ${err.message}`); 
+                    setIsImporting(false);
+                }
+            };
+
 
             // ==========================================
             // 8. واجهة المستخدم (Rendering)
             // ==========================================
-
-            if (!isSupabaseConfigured) {
-                return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="bg-white p-8 rounded-3xl shadow-xl text-center"><h2 className="text-2xl font-black mb-4">إعداد قاعدة البيانات</h2><p>يرجى إدخال بيانات Supabase في الكود.</p></div></div>;
-            }
 
             if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>;
 
@@ -921,8 +686,7 @@
                         <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-100 text-center">
                             <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
                             <h2 className="text-xl font-black text-slate-800 mb-4">جاري التحقق من الصلاحيات...</h2>
-                            <p className="text-slate-600 font-bold mb-6 text-sm">يرجى الانتظار قليلاً. إذا استمرت هذه الشاشة، فقد تحتاج إلى أن يحدد المدير صلاحيتك.</p>
-                            <button onClick={handleLogout} className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold">تحديث وإصلاح الجلسة (خروج)</button>
+                            <button onClick={handleLogout} className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold">تسجيل خروج إجباري</button>
                         </div>
                     </div>
                  );
@@ -931,7 +695,7 @@
             const currentTheme = getThemeClasses(newOrder.page);
 
             return (
-                <div className="flex h-screen overflow-hidden bg-[#f0f4f8]">
+                <div className="flex h-screen overflow-hidden bg-[#f8fafc]">
                     {/* القائمة الجانبية */}
                     <aside className={`fixed inset-y-0 right-0 z-50 w-64 bg-slate-900 text-white transition-transform transform ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0 md:relative shadow-2xl flex flex-col`}>
                         <div className="flex items-center justify-between p-6 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-700/50">
@@ -972,7 +736,7 @@
 
                         <div className="flex-1 overflow-auto p-4 md:p-8 relative">
                             {/* مؤشر التحميل الأولي فقط لمنع الإزعاج أثناء التنقل */}
-                            {loadingDB && initialLoad && (
+                            {loadingDB && (
                                 <div className="absolute inset-0 bg-white/60 z-10 flex flex-col items-center justify-center backdrop-blur-sm"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>
                             )}
 
@@ -1145,7 +909,7 @@
                                     <p className="text-sm font-bold text-slate-700">رسالة العميل (جاهزة للنسخ والإرسال):</p>
                                     <textarea 
                                         readOnly 
-                                        className="w-full h-48 p-4 bg-white border border-slate-200 rounded-xl outline-none resize-none font-semibold text-slate-800 shadow-inner"
+                                        className="w-full h-48 p-4 bg-white border border-slate-200 rounded-xl outline-none resize-none font-semibold text-slate-800 shadow-inner leading-relaxed"
                                         value={`أهلاً بك يا فندم في ${successOrderMessage.page} 🌸\n\nملخص طلبك:\n------------------\nرقم الطلب: ${successOrderMessage.id}\nالمنتج: ${successOrderMessage.item}\nالإجمالي المطلوب: ${Number(successOrderMessage.productPrice || 0) + Number(successOrderMessage.shippingPrice || 0)} ج.م (شامل الشحن)\nالعنوان: ${successOrderMessage.address}\n\nيتم تجهيز طلبك الآن، وفي حالة وجود أي استفسار يسعدنا تواصلك معنا.`}
                                     />
                                     <div className="flex gap-3 mt-2">
@@ -1229,12 +993,12 @@
                                 <form onSubmit={handleAddOrEditOrder} className={`p-6 space-y-4 overflow-y-auto ${currentTheme.bgLight}`}>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-white shadow-md">
                                         <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">رقم الطلب</label><input type="text" disabled={isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status)} placeholder="يولد تلقائياً إذا تُرك فارغاً" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''} ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.id} onChange={e => setNewOrder({...newOrder, id: e.target.value})} />{isEditing && ['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) && (<p className="text-xs text-indigo-600 mt-1 font-bold">يمكنك تعديل رقم الطلب في هذه الحالة.</p>)}</div>
-                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">اسم العميل <span className="text-red-500">*</span></label><input type="text" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.customer} onChange={e => setNewOrder({...newOrder, customer: e.target.value})} /></div>
-                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">العنوان التفصيلي <span className="text-red-500">*</span></label><input type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
-                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">رقم الموبايل <span className="text-red-500">*</span></label><input type="text" dir="ltr" maxLength="11" placeholder="مثال: 01012345678" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-right transition-shadow font-bold tracking-wider ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => { const val = e.target.value.replace(/\D/g, ''); if(val.length <= 11) setNewOrder({...newOrder, phone: val}); }} /></div>
+                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">اسم العميل <span className="text-red-500">*</span></label><input required type="text" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.customer} onChange={e => setNewOrder({...newOrder, customer: e.target.value})} /></div>
+                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">العنوان التفصيلي <span className="text-red-500">*</span></label><input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
+                                        <div><label className="block text-sm font-black text-slate-700 mb-1.5">رقم الموبايل <span className="text-red-500">*</span></label><input required type="text" dir="ltr" maxLength="11" placeholder="مثال: 01012345678" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-right transition-shadow font-bold tracking-wider ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => { const val = e.target.value.replace(/\D/g, ''); if(val.length <= 11) setNewOrder({...newOrder, phone: val}); }} /></div>
                                         <div><label className="block text-sm font-black text-slate-700 mb-1.5">الصفحة (المصدر)</label><select className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2 ${userRole.role === 'agent' ? 'opacity-70 cursor-not-allowed' : ''}`} value={newOrder.page} onChange={e => setNewOrder({...newOrder, page: e.target.value})} disabled={userRole.role === 'agent'}>{pages.map(page => <option key={page} value={page}>{page}</option>)}</select></div>
                                         <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">الملحوظات</label><textarea rows="2" placeholder="أي ملحوظات إضافية بخصوص الطلب..." className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none resize-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.notes || ''} onChange={e => setNewOrder({...newOrder, notes: e.target.value})}></textarea></div>
-                                        <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">المنتج / الوصف <span className="text-red-500">*</span></label><textarea rows="2" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none resize-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
+                                        <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">المنتج / الوصف <span className="text-red-500">*</span></label><textarea required rows="2" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none resize-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
                                         <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">حالة الطلب</label><select className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.status} onChange={e => setNewOrder({...newOrder, status: e.target.value})}>{orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}</select></div>
                                         <div><label className="block text-sm font-black text-slate-700 mb-1.5">سعر الشحن (ج.م) <span className="text-red-500">*</span></label><input type="number" min="0" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-black text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.shippingPrice} onChange={e => setNewOrder({...newOrder, shippingPrice: e.target.value})} /></div>
                                         <div className="relative"><label className="block text-sm font-black text-slate-700 mb-1.5">سعر المنتج (ج.م) <span className="text-red-500">*</span></label><div className="relative"><input type="number" min="0" className={`w-full px-4 py-2.5 pl-12 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-black text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} /><button type="button" onClick={() => setShowCalc(!showCalc)} className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors bg-white shadow-sm border border-slate-100 ${currentTheme.textPrimary} hover:bg-slate-50`}><IconCalc /></button></div>{showCalc && (<div dir="ltr" className="absolute z-10 bottom-full left-0 mb-3 bg-white border border-slate-200 shadow-2xl rounded-2xl p-4 w-56 animate-in zoom-in-95"><div className="mb-3 p-3 bg-slate-100 text-right font-mono text-xl rounded-xl border border-slate-200 min-h-[50px] break-all font-bold shadow-inner text-slate-800">{calcExp || '0'}</div><div className="grid grid-cols-4 gap-2">{calcButtons.map(btn => (<button key={btn} type="button" onClick={() => handleCalcBtn(btn)} className={`p-3 text-sm font-black rounded-xl flex items-center justify-center transition-all ${btn === '=' ? `${currentTheme.btnPrimary} col-span-2 shadow-md` : btn === 'C' ? 'bg-red-100 text-red-600 hover:bg-red-200' : ['+','-','*','/'].includes(btn) ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'}`}>{btn}</button>))}</div></div>)}</div>
