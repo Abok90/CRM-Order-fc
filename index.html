@@ -385,6 +385,12 @@
                 setCurrentPage(1);
             };
 
+            const navigateToFilteredOrders = (page, status) => { 
+                setFilterPage(page); 
+                setFilterStatus(status); 
+                setCurrentTab('orders'); 
+            };
+
             const handleLogin = async (e) => {
                 e.preventDefault(); setAuthLoading(true); setAuthError('');
                 try {
