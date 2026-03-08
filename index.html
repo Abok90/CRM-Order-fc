@@ -50,6 +50,13 @@
         }
         .custom-checkbox:checked { background-color: #4f46e5; border-color: #4f46e5; }
         .custom-checkbox:checked::before { transform: scale(1); }
+        
+        .copy-animation { animation: pulse-copy 0.5s ease-out; }
+        @keyframes pulse-copy {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); background-color: #dcfce7; color: #166534; border-color: #86efac; }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body class="text-slate-800 antialiased">
@@ -128,6 +135,7 @@
             
             // -- البيانات --
             const [orders, setOrders] = useState([]);
+            const ordersRef = useRef([]); // لحفظ نسخة سريعة من البيانات
             const [usersList, setUsersList] = useState([]);
             
             // -- الفلاتر --
@@ -140,6 +148,8 @@
             const [statsDateTo, setStatsDateTo] = useState('');
             const [selectedOrders, setSelectedOrders] = useState([]);
             const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
+            const [searchResults, setSearchResults] = useState([]); 
+            const [isSearchingDb, setIsSearchingDb] = useState(false); 
 
             // -- الصفحات والاستيراد --
             const [ordersPerPage, setOrdersPerPage] = useState(100);
@@ -182,44 +192,41 @@
                             setImportTargetPage(data.assigned_page);
                         }
                     } else {
-                        // محاولة إنشاء دور مبدئي
                         const { data: newRole } = await supabase.from('user_roles').insert([{ id: userId, name: 'المدير', role: 'admin' }]).select().maybeSingle();
                         setUserRole(newRole || { id: userId, name: 'المدير', role: 'admin' });
                     }
                 } catch (error) { 
-                    setUserRole({ id: userId, name: 'مدير (افتراضي)', role: 'admin' }); 
+                    setUserRole({ id: userId, name: 'المدير (افتراضي)', role: 'admin' }); 
                 } finally { 
                     setAuthLoading(false); 
                 }
             };
 
-            const fetchOrders = useCallback(async (isSilent = false) => {
+            const fetchOrdersData = useCallback(async () => {
                 if (!user) return;
-                if (!isSilent) setLoadingDB(true);
-                
+                setLoadingDB(true);
                 try {
-                    const { data, error } = await supabase
-                        .from('orders')
-                        .select('*')
-                        .order('created_at', { ascending: false })
-                        .limit(2000); 
-                        
-                    if (error) {
-                        console.error("Database fetch error:", error);
-                    } else {
-                        // تنظيف البيانات
-                        const safeOrders = (data || []).map(o => ({
+                    const { data, error } = await supabase.from('orders').select('*').limit(2000); 
+                    if (error) throw error;
+                    if (data) {
+                        const sortedData = data.sort((a, b) => {
+                            const timeA = new Date(a.created_at || a.createdAt || a.date || 0).getTime() || 0;
+                            const timeB = new Date(b.created_at || b.createdAt || b.date || 0).getTime() || 0;
+                            return timeB - timeA;
+                        });
+                        const safeOrders = sortedData.map(o => ({
                             ...o,
                             productPrice: Number(o.productPrice) || 0,
                             shippingPrice: Number(o.shippingPrice) || 0
                         }));
                         setOrders(safeOrders);
+                        ordersRef.current = safeOrders;
                     }
                 } catch (error) { 
                     console.error("Fetch orders error:", error);
                 } finally { 
-                    setLoadingDB(false); 
-                    setInitialLoad(false); 
+                    setLoadingDB(false);
+                    setInitialLoad(false);
                 }
             }, [user]);
 
@@ -230,23 +237,31 @@
                 } catch (error) {}
             };
 
+            const searchDatabase = async (searchText) => {
+                if (!user || String(searchText).trim() === '') { setSearchResults([]); return; }
+                setIsSearchingDb(true);
+                try {
+                    const { data, error } = await supabase.from('orders').select('*')
+                        .or(`customer.ilike.%${searchText}%,phone.ilike.%${searchText}%,id.ilike.%${searchText}%,"trackingNumber".ilike.%${searchText}%`)
+                        .limit(1000); 
+                    if (error) throw error;
+                    setSearchResults(data || []);
+                } catch (err) { 
+                    console.error("Error searching:", err); 
+                } finally { 
+                    setIsSearchingDb(false); 
+                }
+            };
+
             // ==========================================
             // 5. الـ useEffects الأساسية
             // ==========================================
 
-            // تهيئة الدخول عند تحميل التطبيق
             useEffect(() => {
-                if (!SUPABASE_URL.startsWith('http')) {
-                    setAuthLoading(false);
-                    return;
-                }
-
                 let mounted = true;
-
-                const initAuth = async () => {
+                const initSession = async () => {
                     try {
-                        const { data: { session }, error } = await supabase.auth.getSession();
-                        if (error) throw error;
+                        const { data: { session } } = await supabase.auth.getSession();
                         if (mounted) {
                             if (session?.user) {
                                 setUser(session.user);
@@ -259,73 +274,65 @@
                         if (mounted) setAuthLoading(false);
                     }
                 };
+                initSession();
 
-                initAuth();
-
-                const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-                    if (!mounted || _event === 'INITIAL_SESSION') return;
-                    const currentUser = session?.user || null;
-                    setUser(currentUser);
-                    if (currentUser) {
-                        await fetchUserRole(currentUser.id);
-                    } else { 
-                        // تسجيل خروج نظيف
-                        setUserRole(null); 
-                        setOrders([]); 
-                        setAuthLoading(false);
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                    if (mounted) {
+                        if (session?.user) {
+                            setUser(session.user);
+                            fetchUserRole(session.user.id);
+                        } else {
+                            setUser(null);
+                            setUserRole(null);
+                            setOrders([]);
+                            setAuthLoading(false);
+                        }
                     }
                 });
-                
+
                 return () => {
                     mounted = false;
                     subscription?.unsubscribe();
                 };
-            }, []); 
+            }, []);
 
-            // جلب البيانات عندما يتوفر المستخدم
             useEffect(() => {
                 if (user && userRole) {
-                    fetchOrders();
+                    fetchOrdersData();
                     if (userRole.role === 'admin') fetchUsersList();
-
-                    // إعداد المراقبة الحية (Realtime) بأمان
-                    const sub = supabase.channel('orders-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-                        setOrders(prev => {
-                            let updated = [...prev];
-                            const cleanPayload = payload.new ? {
-                                ...payload.new,
-                                productPrice: Number(payload.new.productPrice) || 0,
-                                shippingPrice: Number(payload.new.shippingPrice) || 0
-                            } : null;
-
-                            if (payload.eventType === 'INSERT' && cleanPayload) { 
-                                updated = [cleanPayload, ...updated.filter(o => o.id !== cleanPayload.id)]; 
-                            }
-                            else if (payload.eventType === 'UPDATE' && cleanPayload) {
-                                updated = updated.map(o => o.id === cleanPayload.id ? cleanPayload : o);
-                            }
-                            else if (payload.eventType === 'DELETE') {
-                                updated = updated.filter(o => o.id !== payload.old.id);
-                            }
-                            
-                            return updated.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-                        });
-                    }).subscribe();
-
-                    return () => supabase.removeChannel(sub);
                 }
-            }, [user, userRole, fetchOrders]);
+            }, [user, userRole, fetchOrdersData]);
 
             useEffect(() => {
                 setCurrentPage(1);
             }, [searchQuery, filterStatus, filterPage, dateFrom, dateTo]);
 
+            useEffect(() => {
+                const delayDebounceFn = setTimeout(() => {
+                    if (searchQuery.length > 2) searchDatabase(searchQuery);
+                    else setSearchResults([]); 
+                }, 800); 
+                return () => clearTimeout(delayDebounceFn);
+            }, [searchQuery]);
+
             // ==========================================
             // 6. تجهيز الفلاتر (useMemos)
             // ==========================================
 
+            const allVisibleOrders = useMemo(() => {
+                if (searchResults.length === 0) return orders;
+                const combined = [...orders, ...searchResults];
+                const unique = new Map();
+                combined.forEach(o => unique.set(o.id, o));
+                return Array.from(unique.values()).sort((a, b) => {
+                    const timeA = new Date(a.created_at || a.createdAt || a.date || 0).getTime() || 0;
+                    const timeB = new Date(b.created_at || b.createdAt || b.date || 0).getTime() || 0;
+                    return timeB - timeA;
+                });
+            }, [orders, searchResults]);
+
             const filteredOrders = useMemo(() => {
-                return orders.filter(order => {
+                return allVisibleOrders.filter(order => {
                     const search = String(searchQuery).toLowerCase();
                     const matchesSearch = String(order.customer || '').toLowerCase().includes(search) || 
                                           String(order.phone || '').toLowerCase().includes(search) || 
@@ -340,7 +347,7 @@
 
                     return matchesSearch && matchesStatus && matchesPage && matchesRole && matchesDateFrom && matchesDateTo;
                 });
-            }, [orders, searchQuery, filterStatus, filterPage, userRole, dateFrom, dateTo]);
+            }, [allVisibleOrders, searchQuery, filterStatus, filterPage, userRole, dateFrom, dateTo]);
 
             const displayedOrders = useMemo(() => {
                 if (ordersPerPage === 'All') return filteredOrders;
@@ -366,8 +373,17 @@
             }, [filteredOrders]);
 
             // ==========================================
-            // 7. دوال التحكم (Action Handlers)
+            // 7. دوال التحكم والإضافة (Action Handlers)
             // ==========================================
+
+            const resetFilters = () => { 
+                setSearchQuery(''); 
+                setFilterStatus('الكل'); 
+                setFilterPage(userRole?.role === 'agent' ? userRole.assigned_page : 'الكل'); 
+                setDateFrom(''); 
+                setDateTo(''); 
+                setCurrentPage(1);
+            };
 
             const handleLogin = async (e) => {
                 e.preventDefault(); setAuthLoading(true); setAuthError('');
@@ -380,16 +396,13 @@
             const handleLogout = async () => { 
                 setAuthLoading(true);
                 try { await supabase.auth.signOut(); } catch(e) {}
-                // تفريغ فوري للبيانات لعدم الحاجة لعمل Reload للمتصفح (يمنع تعليق كروم)
-                setUser(null); 
-                setUserRole(null); 
-                setOrders([]); 
-                setAuthLoading(false);
+                localStorage.clear(); 
+                sessionStorage.clear();
+                window.location.replace(window.location.pathname); 
             };
 
-            // دالة الإضافة والتعديل الأساسية
             const handleAddOrEditOrder = async (e) => {
-                e.preventDefault(); // يمنع المتصفح من عمل Reload
+                e.preventDefault(); 
                 if (!user) return;
 
                 if (!isEditing && userRole?.role === 'agent' && userRole?.assigned_page !== newOrder.page) {
@@ -397,7 +410,11 @@
                     return;
                 }
 
-                // تجهيز بيانات الطلب (مع الحفاظ على الأسماء مطابقة لجدول الـ SQL الجديد)
+                if (!newOrder.customer || String(newOrder.customer).trim() === '') return alert("يرجى إدخال اسم العميل.");
+                if (!newOrder.phone || String(newOrder.phone).trim() === '') return alert("يرجى إدخال رقم الهاتف.");
+                if (!newOrder.address || String(newOrder.address).trim() === '') return alert("يرجى إدخال العنوان.");
+                if (!newOrder.item || String(newOrder.item).trim() === '') return alert("يرجى إدخال تفاصيل المنتج.");
+
                 const finalOrderId = newOrder.id && String(newOrder.id).trim() !== '' ? String(newOrder.id).trim() : `ORD-${Date.now().toString().slice(-6)}`;
                 const finalDate = newOrder.date && String(newOrder.date).trim() !== '' ? newOrder.date : new Date().toISOString().split('T')[0];
                 
@@ -420,29 +437,28 @@
                 try {
                     if (isEditing) {
                         if (originalOrderId !== finalOrderId) {
-                            // إذا تغير الـ ID، أضف الجديد وامسح القديم
-                            await supabase.from('orders').insert([orderPayload]);
+                            const { error: insErr } = await supabase.from('orders').insert([orderPayload]);
+                            if (insErr) throw insErr;
                             await supabase.from('orders').delete().eq('id', originalOrderId);
                         } else {
-                            // تعديل طبيعي
                             const updatePayload = { ...orderPayload };
                             delete updatePayload.id; 
-                            await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
+                            const { error: updErr } = await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
+                            if (updErr) throw updErr;
                         }
                         alert("تم التعديل بنجاح!");
                         closeModal();
                     } else {
-                        // إضافة جديدة
-                        const { error } = await supabase.from('orders').insert([orderPayload]);
-                        if (error) throw error;
+                        const { error: insErr } = await supabase.from('orders').insert([orderPayload]);
+                        if (insErr) throw insErr;
                         
                         closeModal();
-                        // بعد الإضافة بنجاح، اعرض نافذة رسالة الواتساب
                         setSuccessOrderMessage(orderPayload); 
                     }
-                    fetchOrders(true);
+                    fetchOrdersData(); 
                 } catch (error) { 
-                    alert(`فشل الحفظ!\nالسبب: ${error.message}\nتأكد من عدم تكرار رقم الطلب.`); 
+                    console.error("Save error:", error); 
+                    alert(`فشل الحفظ: ${error.message}\nتأكد أن رقم الطلب غير مكرر.`); 
                 }
             };
 
@@ -511,7 +527,7 @@
                     const { error } = await supabase.from('orders').delete().in('id', idsToDelete);
                     if (error) throw error;
                 } catch (error) { 
-                    alert(`فشل المسح: ${error.message}`); 
+                    alert(`فشل المسح الجماعي: ${error.message}`); 
                     setOrders(previousOrders);
                 } finally { 
                     setIsDeletingMultiple(false); 
@@ -519,7 +535,7 @@
             };
 
             // ==========================================
-            // 8. النوافذ المنبثقة والإضافات
+            // 8. النوافذ المنبثقة والمساعدات (CSV)
             // ==========================================
             
             const openAddModal = () => { setNewOrder({ ...initialOrderState, page: userRole?.role === 'agent' ? userRole.assigned_page : pages[0] }); setIsEditing(false); setOriginalOrderId(null); setIsAddModalOpen(true); };
@@ -532,6 +548,99 @@
                 const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
                 setCopiedType(type); setTimeout(() => setCopiedType(''), 2000);
             };
+
+            const exportSelectedToCSV = () => {
+                if (selectedOrders.length === 0) return;
+                const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
+                const headers = ['رقم الطلب', 'اسم العميل', 'رقم الموبايل', 'العنوان', 'الصفحة', 'المنتج/الوصف', 'حالة الطلب', 'سعر المنتج', 'سعر الشحن', 'رقم البوليصة', 'تاريخ الطلب', 'الملاحظات'];
+                const rows = toExport.map(o => [`"${String(o.id || '')}"`, `"${String(o.customer || '').replace(/"/g, '""')}"`, `"${String(o.phone || '').replace(/"/g, '""')}"`, `"${String(o.address || '').replace(/"/g, '""')}"`, `"${String(o.page || '').replace(/"/g, '""')}"`, `"${String(o.item || '').replace(/"/g, '""')}"`, `"${String(o.status || '')}"`, Number(o.productPrice) || 0, Number(o.shippingPrice) || 0, `"${String(o.trackingNumber || '').replace(/"/g, '""')}"`, `"${String(o.date || '')}"`, `"${String(o.notes || '').replace(/"/g, '""')}"`].join(','));
+                const content = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+                const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `طلبات_محددة_${new Date().toISOString().split('T')[0]}.csv`; link.click();
+            };
+
+            const parseCSV = (text) => {
+                const result = []; let row = []; let inQuotes = false; let currentVal = '';
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    if (inQuotes) { if (char === '"') { if (text[i+1] === '"') { currentVal += '"'; i++; } else { inQuotes = false; } } else { currentVal += char; } } 
+                    else { if (char === '"') { inQuotes = true; } else if (char === ',') { row.push(currentVal.trim()); currentVal = ''; } else if (char === '\n' || char === '\r') { row.push(currentVal.trim()); result.push(row); row = []; currentVal = ''; if (char === '\r' && text[i+1] === '\n') i++; } else { currentVal += char; } }
+                }
+                if (currentVal || row.length) { row.push(currentVal.trim()); result.push(row); }
+                return result.filter(r => r.some(cell => cell && cell.trim() !== '')); 
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => { const text = event.target.result; const parsed = parseCSV(text); if (parsed.length > 0) { setCsvHeaders(parsed[0]); setCsvData(parsed.slice(1)); } };
+                reader.readAsText(file, 'UTF-8'); 
+            };
+
+            const startImport = async () => {
+                if (!user) return;
+                setIsImporting(true); setImportProgress(0); setImportStatusText("جاري التنظيف والمعالجة...");
+
+                try {
+                    let validRecordsCount = 0;
+                    const uniqueRowsMap = new Map();
+
+                    for (let i = 0; i < csvData.length; i++) {
+                        const row = csvData[i];
+                        const getVal = (sysField) => { const colName = columnMapping[sysField]; if (!colName) return ''; const colIdx = csvHeaders.indexOf(colName); return colIdx !== -1 && row[colIdx] ? String(row[colIdx]).trim() : ''; };
+
+                        let rawId = getVal('id'); let orderId = rawId !== '' ? rawId : `ORD-IMP-${Date.now()}-${i}`;
+                        orderId = String(orderId).replace(/[\/\\?%*:|"<>#\s]/g, '-').trim();
+
+                        const priceRaw = getVal('productPrice') || '0'; const shipRaw = getVal('shippingPrice') || '0';
+                        const cleanProductPrice = parseFloat(String(priceRaw).replace(/[^\d.-]/g, '')) || 0;
+                        const cleanShippingPrice = parseFloat(String(shipRaw).replace(/[^\d.-]/g, '')) || 0;
+                        
+                        let importedStatus = getVal('status');
+                        if(!orderStatuses.includes(importedStatus)) importedStatus = 'جاري التحضير';
+                        
+                        let rawDate = getVal('date'); let finalDate = new Date().toISOString().split('T')[0];
+                        if (rawDate && String(rawDate).trim() !== '') {
+                            let cleanDateStr = String(rawDate).replace(/\//g, '-').replace(/\./g, '-');
+                            let parsedDate = new Date(cleanDateStr);
+                            if (!isNaN(parsedDate.getTime())) finalDate = parsedDate.toISOString().split('T')[0];
+                        }
+
+                        const orderData = {
+                            id: orderId, customer: getVal('customer') || 'غير محدد', phone: getVal('phone') || '',
+                            address: getVal('address') || '', notes: getVal('notes') || '', page: importTargetPage, 
+                            item: getVal('item') || 'مستورد من إكسيل', productPrice: cleanProductPrice,
+                            shippingPrice: cleanShippingPrice, trackingNumber: getVal('trackingNumber') || '',
+                            status: importedStatus, date: finalDate, user_id: user.id
+                        };
+                        uniqueRowsMap.set(orderId, orderData);
+                    }
+                    
+                    const uniqueDataToInsert = Array.from(uniqueRowsMap.values());
+                    validRecordsCount = uniqueDataToInsert.length;
+
+                    setImportStatusText(`جاري رفع ${validRecordsCount} طلب للسيرفر...`);
+
+                    const chunkSize = 200; 
+                    for (let i = 0; i < uniqueDataToInsert.length; i += chunkSize) {
+                        const chunk = uniqueDataToInsert.slice(i, i + chunkSize);
+                        const { error } = await supabase.from('orders').upsert(chunk, { onConflict: 'id' });
+                        if (error) throw error;
+                        setImportProgress(Math.round(((i + chunk.length) / uniqueDataToInsert.length) * 100));
+                    }
+
+                    setImportStatusText("تم الرفع بنجاح!");
+                    fetchOrdersData(); 
+                    setIsImporting(false); setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]);
+                    alert(`تم استيراد ${validRecordsCount} أوردر بنجاح!`);
+                } catch (err) {
+                    alert(`فشل الرفع: ${err.message}`); 
+                    setIsImporting(false);
+                }
+            };
+
+            const handleSelectAll = (e) => { e.target.checked ? setSelectedOrders(displayedOrders.map(o => o.id)) : setSelectedOrders([]); };
+            const handleSelectOrder = (id) => { selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); };
 
             const handleCalcBtn = (btn) => {
                 if (btn === 'C') { setCalcExp(''); setNewOrder({ ...newOrder, productPrice: '' }); } 
@@ -917,8 +1026,6 @@
                             <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-4 ${currentTheme.border}`}>
                                 <div className={`px-6 py-5 border-b flex justify-between items-center shrink-0 ${currentTheme.bgLight}`}><div className="flex items-center gap-3"><div className={`p-2 rounded-lg bg-white shadow-sm ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit /> : <IconPlus />}</div><h2 className={`text-xl font-black ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2></div><button onClick={closeModal} className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={20} /></button></div>
                                 
-                                {/* تم إرجاع onSubmit ليقوم بالتحقق الأصلي (Native Validation) للحقول المطلوبة.
-                                */}
                                 <form onSubmit={handleAddOrEditOrder} className={`p-6 space-y-4 overflow-y-auto flex-1 ${currentTheme.bgLight}`}>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-white shadow-md">
                                         <div className="md:col-span-2"><label className="block text-sm font-black text-slate-700 mb-1.5">رقم الطلب</label><input type="text" disabled={isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status)} placeholder="يولد تلقائياً إذا تُرك فارغاً" className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-shadow font-bold ${isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''} ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.id} onChange={e => setNewOrder({...newOrder, id: e.target.value})} />{isEditing && ['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) && (<p className="text-xs text-indigo-600 mt-1 font-bold">يمكنك تعديل رقم الطلب في هذه الحالة.</p>)}</div>
