@@ -52,6 +52,7 @@
         .custom-checkbox:checked { background-color: #4f46e5; border-color: #4f46e5; }
         .custom-checkbox:checked::before { transform: scale(1); }
         
+        /* تصميم مدخلات الإكسيل الداخلي */
         .excel-input {
             width: 100%; min-width: 90px; padding: 8px;
             border: 1px solid transparent; background: transparent;
@@ -109,17 +110,17 @@
         const IconEdit = ({size=14}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
         const IconTrash = ({size=14}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
         const IconTruck = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="15" height="10" x="3" y="8" rx="2"/><path d="M18 8h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><circle cx="7" cy="20" r="2"/><circle cx="17" cy="20" r="2"/></svg>;
-        const IconFilter = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>;
+        const IconFilter = ({size=18}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>;
         const IconCalendar = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
         const IconUpload = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>;
         const IconEye = ({size=14}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
-        const IconCopy = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>;
+        const IconCopy = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>;
         const IconLogOut = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
         const IconUsers = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>;
         const IconDownload = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
         const IconTable = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="3" x2="21" y1="15" y2="15"/><line x1="9" x2="9" y1="9" y2="21"/><line x1="15" x2="15" y1="9" y2="21"/></svg>;
         const IconActivity = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
-        const IconBell = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>;
+        const IconBell = ({size=18}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>;
 
         // ==========================================
         // 3. المكون الرئيسي (App)
@@ -165,7 +166,7 @@
             const [toasts, setToasts] = useState([]);
             const [activityLogs, setActivityLogs] = useState([]);
             
-            // -- الفلاتر --
+            // -- الفلاتر الرئيسية للطلبات --
             const [searchQuery, setSearchQuery] = useState('');
             const [filterStatus, setFilterStatus] = useState('الكل');
             const [filterPage, setFilterPage] = useState('الكل');
@@ -177,6 +178,14 @@
             const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
             const [searchResults, setSearchResults] = useState([]); 
             const [isSearchingDb, setIsSearchingDb] = useState(false); 
+
+            // -- فلاتر سجل النشاطات (Logs) --
+            const [logSearchQuery, setLogSearchQuery] = useState('');
+            const [logFilterUser, setLogFilterUser] = useState('الكل');
+            const [logDateFrom, setLogDateFrom] = useState('');
+            const [logDateTo, setLogDateTo] = useState('');
+            const [logsPerPage, setLogsPerPage] = useState(50);
+            const [logCurrentPage, setLogCurrentPage] = useState(1);
 
             // -- الصفحات والاستيراد --
             const [ordersPerPage, setOrdersPerPage] = useState(100);
@@ -237,7 +246,7 @@
                         const isFirstUser = count === 0;
                         const role = isFirstUser ? 'admin' : 'agent';
                         const name = isFirstUser ? 'المدير' : (userEmail ? userEmail.split('@')[0] : 'موظف جديد');
-                        const isApproved = isFirstUser; // المدير مفعل، الموظف ينتظر الموافقة
+                        const isApproved = isFirstUser; 
                         
                         const newRoleData = { id: userId, name, role, is_approved: isApproved };
                         const { data: newRole, error: insertError } = await supabase.from('user_roles').insert([newRoleData]).select().maybeSingle();
@@ -294,7 +303,7 @@
             const fetchActivityLogs = async () => {
                 if(userRole?.role !== 'admin') return;
                 try {
-                    const { data, error } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(500);
+                    const { data, error } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(2000);
                     if (!error && data) setActivityLogs(data);
                 } catch(e) { console.error("Logs error:", e); }
             };
@@ -315,7 +324,7 @@
                 }
             };
 
-            // دالة تسجيل النشاطات والإشعارات
+            // دالة تسجيل النشاطات والإشعارات الذكية
             const logActivity = async (actionDesc, relatedOrderId) => {
                 if (!userRole) return;
                 try {
@@ -408,8 +417,12 @@
                 return () => clearTimeout(delayDebounceFn);
             }, [searchQuery]);
 
+            useEffect(() => {
+                setLogCurrentPage(1);
+            }, [logSearchQuery, logFilterUser, logDateFrom, logDateTo, logsPerPage]);
+
             // ==========================================
-            // 6. تجهيز الفلاتر (useMemos)
+            // 6. تجهيز الفلاتر وتجميع السجلات (useMemos)
             // ==========================================
 
             const allVisibleOrders = useMemo(() => {
@@ -465,19 +478,44 @@
                 };
             }, [filteredOrders]);
 
-            // تجميع سجلات النشاط بالأيام للمدير
-            const groupedLogs = useMemo(() => {
-                return activityLogs.reduce((acc, log) => {
+            // --- فلاتر وتجميع سجلات النشاط بالأيام ---
+            const filteredLogs = useMemo(() => {
+                return activityLogs.filter(log => {
+                    const search = logSearchQuery.toLowerCase();
+                    const matchesSearch = (log.user_name || '').toLowerCase().includes(search) ||
+                                          (log.action || '').toLowerCase().includes(search) ||
+                                          (log.order_id || '').toLowerCase().includes(search);
+
+                    const matchesUser = logFilterUser === 'الكل' || log.user_name === logFilterUser;
+
+                    const logDate = new Date(log.created_at).toISOString().split('T')[0];
+                    const matchesDateFrom = !logDateFrom || logDate >= logDateFrom;
+                    const matchesDateTo = !logDateTo || logDate <= logDateTo;
+
+                    return matchesSearch && matchesUser && matchesDateFrom && matchesDateTo;
+                });
+            }, [activityLogs, logSearchQuery, logFilterUser, logDateFrom, logDateTo]);
+
+            const displayedLogs = useMemo(() => {
+                if (logsPerPage === 'All') return filteredLogs;
+                const start = (logCurrentPage - 1) * logsPerPage;
+                return filteredLogs.slice(start, start + logsPerPage);
+            }, [filteredLogs, logCurrentPage, logsPerPage]);
+
+            const logTotalPages = logsPerPage === 'All' ? 1 : Math.ceil(filteredLogs.length / logsPerPage);
+
+            const groupedDisplayedLogs = useMemo(() => {
+                return displayedLogs.reduce((acc, log) => {
                     const dateObj = new Date(log.created_at);
                     const dateStr = dateObj.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                     if (!acc[dateStr]) acc[dateStr] = [];
                     acc[dateStr].push(log);
                     return acc;
                 }, {});
-            }, [activityLogs]);
+            }, [displayedLogs]);
 
             // ==========================================
-            // 7. دوال التحكم والإضافة (Action Handlers)
+            // 7. دوال واجهة المستخدم والأكشن (UI Handlers)
             // ==========================================
 
             const resetFilters = () => { 
@@ -488,8 +526,24 @@
                 setCurrentPage(1);
             };
 
+            const resetLogFilters = () => {
+                setLogSearchQuery('');
+                setLogFilterUser('الكل');
+                setLogDateFrom('');
+                setLogDateTo('');
+                setLogCurrentPage(1);
+            };
+
             const navigateToFilteredOrders = (page, status) => { 
                 setFilterPage(page); setFilterStatus(status); setCurrentTab('orders'); 
+            };
+
+            const handleSelectAll = (e) => { 
+                e.target.checked ? setSelectedOrders(displayedOrders.map(o => o.id)) : setSelectedOrders([]); 
+            };
+            
+            const handleSelectOrder = (id) => { 
+                selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); 
             };
 
             const handleLogin = async (e) => {
@@ -540,7 +594,6 @@
                     if (!editReason || editReason.trim() === '') {
                         return alert("يرجى كتابة سبب التعديل الخاص بك في الخانة الحمراء لكي يتم حفظ الأوردر.");
                     }
-                    // إضافة السبب مع الوقت والتاريخ
                     const timeNow = new Date().toLocaleString('ar-EG');
                     finalNotes = (finalNotes ? finalNotes + '\n' : '') + `[تعديل بعد الشحن - ${timeNow}]: ${editReason}`;
                 }
@@ -571,7 +624,7 @@
                             delete updatePayload.id; 
                             await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
                         }
-                        logActivity('تعديل الأوردر', finalOrderId);
+                        logActivity('تعديل شامل لبيانات الأوردر', finalOrderId);
                         alert("تم التعديل بنجاح!");
                         closeModal();
                     } else {
@@ -619,6 +672,17 @@
                      return alert("عفواً، لا يمكنك التعديل السريع لطلب تم شحنه. يرجى الضغط على زر 'تعديل' لكتابة سبب التعديل.");
                  }
 
+                 // تسجيل التغيرات بدقة
+                 let changes = [];
+                 if (quickStatus !== viewOrder.status) changes.push(`الحالة إلى "${quickStatus}"`);
+                 if (quickTracking !== (viewOrder.trackingNumber || '')) changes.push(`رقم البوليصة إلى "${quickTracking}"`);
+                 
+                 if (changes.length === 0) {
+                     return alert("لم تقم بأي تعديل للحفظ!");
+                 }
+
+                 let actionDesc = `تعديل ${changes.join(' و ')}`;
+
                  try {
                      const { error } = await supabase.from('orders').update({ 
                          trackingNumber: quickTracking, 
@@ -627,7 +691,7 @@
                      
                      if(error) throw error;
                      
-                     logActivity(`تحديث سريع (حالة/بوليصة)`, viewOrder.id);
+                     logActivity(actionDesc, viewOrder.id);
                      setViewOrder({...viewOrder, trackingNumber: quickTracking, status: quickStatus});
                      setOrders(prev => prev.map(o => o.id === viewOrder.id ? { ...o, trackingNumber: quickTracking, status: quickStatus } : o));
                      alert("تم الحفظ بنجاح!");
@@ -685,7 +749,7 @@
                 const newBulk = [...bulkOrders];
                 newBulk[index] = { ...newBulk[index], [field]: value };
                 
-                // تحويل أتوماتيكي للشحن للمديرين
+                // تحويل أتوماتيكي للشحن للمديرين عند كتابة رقم البوليصة
                 if (field === 'trackingNumber' && value.trim() !== '') {
                     newBulk[index].status = 'الشحن';
                 }
@@ -741,8 +805,31 @@
             };
 
             // ==========================================
-            // 9. النوافذ المنبثقة والمساعدات (تصدير CSV)
+            // 9. النوافذ المنبثقة والمساعدات (تصدير CSV والنسخ)
             // ==========================================
+            
+            // دوال توليد الرسائل للنسخ شاملة رقم البوليصة
+            const generateCustomerMsg = (order) => {
+                if(!order) return "";
+                const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
+                let msg = `أهلاً بك يا فندم في ${order.page} 🌸\n\nملخص طلبك:\n------------------\nرقم الطلب: ${order.id}\n`;
+                if (order.trackingNumber && order.trackingNumber.trim() !== '') {
+                    msg += `رقم البوليصة: ${order.trackingNumber}\n`;
+                }
+                msg += `المنتج: ${order.item}\nالإجمالي المطلوب: ${total} ج.م (شامل الشحن)\nالعنوان: ${order.address}\n\nيتم تجهيز طلبك الآن، وفي حالة وجود أي استفسار يسعدنا تواصلك معنا.`;
+                return msg;
+            };
+
+            const generateShippingMsg = (order) => {
+                if(!order) return "";
+                const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
+                let msg = `رقم الأوردر: ${order.id}\n`;
+                if (order.trackingNumber && order.trackingNumber.trim() !== '') {
+                    msg += `رقم البوليصة: ${order.trackingNumber}\n`;
+                }
+                msg += `الاسم: ${order.customer}\nالموبايل: ${order.phone}\nالعنوان: ${order.address}\nالمنتج: ${order.item}\nالمبلغ المطلوب: ${total}\nالملاحظات: ${order.notes || 'لا يوجد'}\nالصفحة: ${order.page}`;
+                return msg;
+            };
             
             const openAddModal = () => { setEditReason(''); setNewOrder({ ...initialOrderState, page: availablePages[0] || pages[0] }); setIsEditing(false); setOriginalOrderId(null); setIsAddModalOpen(true); };
             const openEditModal = (order) => { 
@@ -872,9 +959,6 @@
                 }
             };
 
-            const handleSelectAll = (e) => { e.target.checked ? setSelectedOrders(displayedOrders.map(o => o.id)) : setSelectedOrders([]); };
-            const handleSelectOrder = (id) => { selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); };
-
             const handleCalcBtn = (btn) => {
                 if (btn === 'C') { setCalcExp(''); setNewOrder({ ...newOrder, productPrice: '' }); } 
                 else if (btn === '=') { try { const result = new Function('return ' + calcExp)(); setCalcExp(String(result)); setNewOrder({ ...newOrder, productPrice: result }); setShowCalc(false); } catch (e) { setCalcExp('خطأ'); } } 
@@ -886,14 +970,14 @@
             
             const getRowStatusColor = (status) => {
                 switch(status) {
-                    case 'جاري التحضير': return 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200';
+                    case 'جاري التحضير': return 'bg-sky-50 hover:bg-sky-100 text-sky-900 border-sky-200';
                     case 'تم': return 'bg-green-50 hover:bg-green-100 text-green-900 border-green-200';
-                    case 'الشحن': return 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200';
+                    case 'الشحن': return 'bg-orange-50 hover:bg-orange-100 text-orange-900 border-orange-200';
                     case 'مراجعة': return 'bg-yellow-50 hover:bg-yellow-100 text-yellow-900 border-yellow-200';
                     case 'استبدال': return 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-200';
-                    case 'مرتجع': return 'bg-red-50 hover:bg-red-100 text-red-900 border-red-200';
-                    case 'الغاء': return 'bg-slate-200 hover:bg-slate-300 text-slate-800 border-slate-300';
-                    case 'تاجيل': return 'bg-orange-50 hover:bg-orange-100 text-orange-900 border-orange-200';
+                    case 'مرتجع': return 'bg-rose-50 hover:bg-rose-100 text-rose-900 border-rose-200';
+                    case 'الغاء': return 'bg-red-50 hover:bg-red-100 text-red-900 border-red-200';
+                    case 'تاجيل': return 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300';
                     case 'اعادة ارسال': return 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200';
                     case 'خارجي': return 'bg-teal-50 hover:bg-teal-100 text-teal-900 border-teal-200';
                     default: return 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200';
@@ -902,14 +986,14 @@
             
             const getSelectStatusColor = (status) => {
                  switch(status) {
-                    case 'جاري التحضير': return 'text-amber-800 border-amber-300 bg-white/60';
+                    case 'جاري التحضير': return 'text-sky-800 border-sky-300 bg-white/60';
                     case 'تم': return 'text-green-800 border-green-300 bg-white/60';
-                    case 'الشحن': return 'text-blue-800 border-blue-300 bg-white/60';
+                    case 'الشحن': return 'text-orange-800 border-orange-300 bg-white/60';
                     case 'مراجعة': return 'text-yellow-800 border-yellow-300 bg-white/60';
                     case 'استبدال': return 'text-purple-800 border-purple-300 bg-white/60';
-                    case 'مرتجع': return 'text-red-800 border-red-300 bg-white/60';
-                    case 'الغاء': return 'text-slate-700 border-slate-400 bg-white/60';
-                    case 'تاجيل': return 'text-orange-800 border-orange-300 bg-white/60';
+                    case 'مرتجع': return 'text-rose-800 border-rose-300 bg-white/60';
+                    case 'الغاء': return 'text-red-800 border-red-300 bg-white/60';
+                    case 'تاجيل': return 'text-slate-700 border-slate-400 bg-white/60';
                     case 'اعادة ارسال': return 'text-indigo-800 border-indigo-300 bg-white/60';
                     case 'خارجي': return 'text-teal-800 border-teal-300 bg-white/60';
                     default: return 'text-slate-800 border-slate-300 bg-white/60';
@@ -1058,43 +1142,95 @@
 
                             {/* تبويب سجل النشاطات (للمديرين) */}
                             {currentTab === 'logs' && userRole.role === 'admin' && (
-                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
-                                    <div className="bg-amber-50 border border-amber-200 p-4 md:p-5 rounded-2xl flex justify-between items-center">
+                                <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto">
+                                    <div className="bg-amber-50 border border-amber-200 p-4 md:p-5 rounded-2xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
                                         <div>
-                                            <h2 className="font-black text-amber-900 text-base md:text-lg mb-1">مراقبة حركات النظام</h2>
-                                            <p className="text-xs md:text-sm text-amber-800 font-bold">هنا يتم تسجيل كل حركة يقوم بها أي موظف بالوقت والتاريخ.</p>
+                                            <h2 className="font-black text-amber-900 text-base md:text-xl mb-1 flex items-center gap-2"><IconActivity/> سجل نشاطات النظام</h2>
+                                            <p className="text-xs md:text-sm text-amber-800 font-bold">هنا يتم تسجيل كل الحركات التي يقوم بها الموظفون مرتبة تنازلياً.</p>
                                         </div>
-                                        <button onClick={fetchActivityLogs} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-bold text-xs md:text-sm shadow-md transition-colors">تحديث السجل 🔄</button>
+                                        <button onClick={fetchActivityLogs} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-colors w-full md:w-auto flex items-center justify-center gap-2">تحديث السجل 🔄</button>
                                     </div>
 
-                                    <div className="space-y-8">
-                                        {Object.keys(groupedLogs).length === 0 ? (
-                                            <div className="text-center text-slate-500 py-10 font-bold">لا توجد نشاطات مسجلة حتى الآن.</div>
+                                    {/* شريط الفلترة لسجل النشاطات */}
+                                    <div className="glass-panel p-3 md:p-4 rounded-2xl shadow-sm border border-white flex flex-col gap-3 md:gap-4 shrink-0">
+                                        <div className="flex items-center gap-1.5 md:gap-2"><IconFilter size={16} /> <h3 className="font-bold text-xs md:text-sm text-slate-700">تصفية وبحث السجل</h3></div>
+                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
+                                            <div className="col-span-2 relative"><div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400"><IconSearch size={14} /></div><input type="text" placeholder="بحث باسم الموظف، رقم الطلب، الحدث..." className="block w-full pl-2 pr-8 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg outline-none transition-shadow text-[11px] md:text-sm font-semibold focus:ring-2 focus:ring-amber-500" value={logSearchQuery} onChange={(e) => setLogSearchQuery(e.target.value)} /></div>
+                                            <div>
+                                                <select className="w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg outline-none text-[11px] md:text-sm font-semibold focus:ring-2 focus:ring-amber-500" value={logFilterUser} onChange={(e) => setLogFilterUser(e.target.value)}>
+                                                    <option value="الكل">كل الموظفين</option>
+                                                    {[...new Set(activityLogs.map(l => l.user_name))].filter(Boolean).map(u => <option key={u} value={u}>{u}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="flex items-center gap-1"><span className="text-[10px] text-slate-500">من</span><input type="date" className="w-full px-1 py-1.5 md:py-2 bg-white border border-slate-200 rounded-lg outline-none text-[10px] md:text-xs font-semibold focus:ring-2 focus:ring-amber-500" value={logDateFrom} onChange={(e) => setLogDateFrom(e.target.value)} /></div>
+                                            <div className="flex items-center gap-1"><span className="text-[10px] text-slate-500">إلى</span><input type="date" className="w-full px-1 py-1.5 md:py-2 bg-white border border-slate-200 rounded-lg outline-none text-[10px] md:text-xs font-semibold focus:ring-2 focus:ring-amber-500" value={logDateTo} onChange={(e) => setLogDateTo(e.target.value)} /></div>
+                                            <div className="col-span-2 md:col-span-5 flex justify-end">
+                                                <button onClick={resetLogFilters} className="py-1.5 px-4 md:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-[11px] md:text-sm transition-colors border border-slate-200">إلغاء الفلاتر</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* عرض سجل النشاطات */}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 md:p-6 flex flex-col">
+                                        {Object.keys(groupedDisplayedLogs).length === 0 ? (
+                                            <div className="text-center text-slate-500 py-10 font-bold">لا توجد نشاطات مطابقة للبحث.</div>
                                         ) : (
-                                            Object.keys(groupedLogs).map(dateStr => (
-                                                <div key={dateStr} className="relative pl-4 md:pl-0 pr-4 md:pr-6 border-r-4 border-indigo-200">
-                                                    <div className="absolute -right-3 top-0 bg-indigo-100 text-indigo-800 px-3 py-1 rounded-lg text-xs md:text-sm font-black border border-indigo-200 shadow-sm">{dateStr}</div>
-                                                    <div className="mt-8 space-y-3">
-                                                        {groupedLogs[dateStr].map(log => {
-                                                            const timeStr = new Date(log.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-                                                            return (
-                                                                <div key={log.id} className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between gap-4 hover:border-indigo-100 transition-colors">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className="bg-slate-100 p-2 rounded-full text-slate-500"><IconActivity /></div>
-                                                                        <div>
-                                                                            <p className="text-xs md:text-sm font-bold text-slate-800">
-                                                                                الموظف <span className="text-indigo-600">{log.user_name}</span> قام بـ <span className="text-amber-600">{log.action}</span>
-                                                                            </p>
-                                                                            {log.order_id && log.order_id !== 'متعدد' && <p className="text-[10px] md:text-xs text-slate-500 mt-0.5 font-mono">الطلب: {log.order_id}</p>}
+                                            <div className="space-y-8 flex-1 overflow-auto">
+                                                {Object.keys(groupedDisplayedLogs).map(dateStr => (
+                                                    <div key={dateStr} className="relative">
+                                                        <div className="sticky top-0 z-10 bg-slate-100/90 backdrop-blur-sm text-slate-700 px-4 py-2 rounded-xl text-xs md:text-sm font-black border border-slate-200 mb-4 inline-block shadow-sm">{dateStr}</div>
+                                                        <div className="space-y-3 pr-2 md:pr-4 border-r-2 border-slate-100 mr-2 md:mr-4">
+                                                            {groupedDisplayedLogs[dateStr].map(log => {
+                                                                const timeStr = new Date(log.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                                                                return (
+                                                                    <div key={log.id} className="relative bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:border-indigo-200 transition-colors mr-4 group">
+                                                                        {/* Timeline dot */}
+                                                                        <div className="absolute -right-[27px] md:-right-[33px] top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-indigo-100 border-2 border-indigo-500 group-hover:scale-125 transition-transform"></div>
+                                                                        
+                                                                        <div className="flex items-start gap-3">
+                                                                            <div className="bg-indigo-50 p-2 rounded-lg text-indigo-500 shrink-0 mt-1 sm:mt-0"><IconBell size={18} /></div>
+                                                                            <div>
+                                                                                <p className="text-xs md:text-sm font-bold text-slate-800 leading-relaxed">
+                                                                                    قام الموظف <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded mx-1">{log.user_name}</span> بـ <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{log.action}</span>
+                                                                                </p>
+                                                                                {log.order_id && log.order_id !== 'متعدد' && <p className="text-[10px] md:text-xs text-slate-500 mt-1 font-mono bg-slate-50 inline-block px-2 py-0.5 rounded border border-slate-100">رقم الطلب: {log.order_id}</p>}
+                                                                            </div>
                                                                         </div>
+                                                                        <div className="text-[10px] md:text-xs font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded shrink-0 self-start sm:self-center border border-slate-100">{timeStr}</div>
                                                                     </div>
-                                                                    <div className="text-[10px] md:text-xs font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded">{timeStr}</div>
-                                                                </div>
-                                                            )
-                                                        })}
+                                                                )
+                                                            })}
+                                                        </div>
                                                     </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Pagination Footer للمديرين */}
+                                        {Object.keys(groupedDisplayedLogs).length > 0 && (
+                                            <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap justify-between items-center gap-2">
+                                                <div className="flex items-center gap-2 md:gap-4">
+                                                    <span className="text-[10px] md:text-sm font-bold text-slate-600">نتائج البحث: {filteredLogs.length} سجل</span>
                                                 </div>
-                                            ))
+                                                <div className="flex items-center gap-2 md:gap-4 flex-wrap">
+                                                    <div className="flex items-center gap-1.5 md:gap-2">
+                                                        <label className="text-slate-500 text-[10px] md:text-xs font-bold">عرض:</label>
+                                                        <select className="bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded px-1 py-0.5 md:px-2 md:py-1 outline-none focus:ring-1 focus:ring-amber-400" value={logsPerPage} onChange={(e) => { setLogsPerPage(e.target.value === 'All' ? 'All' : Number(e.target.value)); setLogCurrentPage(1); }}>
+                                                            <option value={50}>50</option>
+                                                            <option value={100}>100</option>
+                                                            <option value={500}>500</option>
+                                                            <option value="All">الكل</option>
+                                                        </select>
+                                                    </div>
+                                                    {logsPerPage !== 'All' && logTotalPages > 1 && (
+                                                        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-1">
+                                                            <button disabled={logCurrentPage === 1} onClick={() => setLogCurrentPage(p => Math.max(1, p - 1))} className="px-2 py-1 md:px-3 md:py-1 bg-white hover:bg-slate-100 disabled:opacity-30 rounded text-[10px] md:text-xs font-bold text-slate-700 transition-colors shadow-sm">السابق</button>
+                                                            <span className="px-1 md:px-2 text-[10px] md:text-xs font-bold text-slate-600">صفحة {logCurrentPage} من {logTotalPages}</span>
+                                                            <button disabled={logCurrentPage === logTotalPages} onClick={() => setLogCurrentPage(p => Math.min(logTotalPages, p + 1))} className="px-2 py-1 md:px-3 md:py-1 bg-white hover:bg-slate-100 disabled:opacity-30 rounded text-[10px] md:text-xs font-bold text-slate-700 transition-colors shadow-sm">التالي</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -1421,15 +1557,12 @@
                                     <textarea 
                                         readOnly 
                                         className="w-full h-32 md:h-48 p-3 md:p-4 bg-white border border-slate-200 rounded-xl outline-none resize-none font-semibold text-slate-800 shadow-inner leading-relaxed text-xs md:text-sm"
-                                        value={`أهلاً بك يا فندم في ${successOrderMessage.page} 🌸\n\nملخص طلبك:\n------------------\nرقم الطلب: ${successOrderMessage.id}\nالمنتج: ${successOrderMessage.item}\nالإجمالي المطلوب: ${Number(successOrderMessage.productPrice || 0) + Number(successOrderMessage.shippingPrice || 0)} ج.م (شامل الشحن)\nالعنوان: ${successOrderMessage.address}\n\nيتم تجهيز طلبك الآن، وفي حالة وجود أي استفسار يسعدنا تواصلك معنا.`}
+                                        value={generateCustomerMsg(successOrderMessage)}
                                     />
                                     <div className="flex gap-2 md:gap-3 mt-1 md:mt-2">
                                         <button 
-                                            onClick={() => {
-                                                const msg = `أهلاً بك يا فندم في ${successOrderMessage.page} 🌸\n\nملخص طلبك:\n------------------\nرقم الطلب: ${successOrderMessage.id}\nالمنتج: ${successOrderMessage.item}\nالإجمالي المطلوب: ${Number(successOrderMessage.productPrice || 0) + Number(successOrderMessage.shippingPrice || 0)} ج.م (شامل الشحن)\nالعنوان: ${successOrderMessage.address}\n\nيتم تجهيز طلبك الآن، وفي حالة وجود أي استفسار يسعدنا تواصلك معنا.`;
-                                                copyToClipboard(msg, 'success_customer');
-                                            }} 
-                                            className={`flex-1 flex items-center justify-center gap-1.5 md:gap-2 py-2.5 md:py-3 rounded-xl font-bold text-xs md:text-sm transition-all ${copiedType === 'success_customer' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'}`}
+                                            onClick={() => copyToClipboard(generateCustomerMsg(successOrderMessage), 'success_customer')} 
+                                            className={`flex-1 flex items-center justify-center gap-1.5 md:gap-2 py-2.5 md:py-3 rounded-xl font-bold text-xs md:text-sm transition-all ${copiedType === 'success_customer' ? 'bg-green-100 text-green-700 border border-green-300 copy-animation' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'}`}
                                         >
                                             <IconCopy size={16} /> {copiedType === 'success_customer' ? 'تم النسخ بنجاح ✓' : 'نسخ للعميل (واتساب)'}
                                         </button>
@@ -1448,8 +1581,19 @@
                             <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full md:max-w-lg overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border-4 border-indigo-600">
                                 <div className="px-4 py-3 md:px-6 md:py-4 border-b bg-indigo-600 flex justify-between items-center text-white"><div className="flex items-center gap-2 md:gap-3"><IconEye /><h2 className="text-sm md:text-lg font-black">تفاصيل الطلب: {viewOrder.id}</h2></div><button onClick={closeViewModal} className="text-indigo-200 hover:text-white transition-colors"><IconX size={20} /></button></div>
                                 <div className="p-4 md:p-6 bg-slate-50/50 overflow-y-auto max-h-[80vh]">
-                                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 md:p-5 mb-4 md:mb-5 space-y-2 md:space-y-3"><div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">اسم العميل:</span><span className="text-slate-900 font-black text-sm md:text-lg">{viewOrder.customer}</span></div><div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">رقم الهاتف:</span><span className="text-indigo-700 font-black text-sm md:text-lg" dir="ltr">{viewOrder.phone}</span></div><div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">العنوان:</span><span className="text-slate-800 font-semibold text-xs md:text-base">{viewOrder.address}</span></div><div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">المنتج:</span><span className="text-slate-800 font-semibold text-xs md:text-base">{viewOrder.item}</span></div><div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">الملاحظات:</span><span className="text-red-600 font-bold text-xs md:text-base whitespace-pre-wrap">{viewOrder.notes || 'لا يوجد'}</span></div><div className="flex justify-between bg-slate-800 text-white p-2 md:p-3 rounded-lg mt-1.5 md:mt-2"><span className="font-bold text-xs md:text-base">المبلغ للتحصيل:</span><span className="font-black text-base md:text-xl">{(Number(viewOrder.productPrice) || 0) + (Number(viewOrder.shippingPrice) || 0)} ج.م</span></div></div>
-                                    <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4 md:mb-6"><button onClick={() => copyToClipboard(generateCustomerMessage(), 'customer')} className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 py-3 md:py-4 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all ${copiedType === 'customer' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400'}`}><IconCopy size={20} />{copiedType === 'customer' ? 'تم النسخ ✓' : 'نسخ للعميل'}</button><button onClick={() => copyToClipboard(generateShippingData(), 'shipping')} className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 py-3 md:py-4 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all ${copiedType === 'shipping' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-slate-800 border-slate-800 text-white hover:bg-slate-700'}`}><IconTruck size={20} />{copiedType === 'shipping' ? 'تم النسخ ✓' : 'نسخ لشركة الشحن'}</button></div>
+                                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 md:p-5 mb-4 md:mb-5 space-y-2 md:space-y-3">
+                                        <div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">اسم العميل:</span><span className="text-slate-900 font-black text-sm md:text-lg">{viewOrder.customer}</span></div>
+                                        <div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">رقم الهاتف:</span><span className="text-indigo-700 font-black text-sm md:text-lg" dir="ltr">{viewOrder.phone}</span></div>
+                                        <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">العنوان:</span><span className="text-slate-800 font-semibold text-xs md:text-base">{viewOrder.address}</span></div>
+                                        <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">المنتج:</span><span className="text-slate-800 font-semibold text-xs md:text-base">{viewOrder.item}</span></div>
+                                        <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">الملاحظات:</span><span className="text-red-600 font-bold text-xs md:text-base whitespace-pre-wrap">{viewOrder.notes || 'لا يوجد'}</span></div>
+                                        <div className="flex justify-between bg-slate-800 text-white p-2 md:p-3 rounded-lg mt-1.5 md:mt-2"><span className="font-bold text-xs md:text-base">المبلغ للتحصيل:</span><span className="font-black text-base md:text-xl">{(Number(viewOrder.productPrice) || 0) + (Number(viewOrder.shippingPrice) || 0)} ج.م</span></div>
+                                        <div className="flex justify-between bg-teal-50 border border-teal-100 p-2 md:p-3 rounded-lg mt-1.5 md:mt-2"><span className="font-bold text-teal-800 text-xs md:text-sm flex items-center gap-1"><IconTruck size={14}/> رقم البوليصة:</span><span className="font-black text-teal-900 text-xs md:text-sm">{viewOrder.trackingNumber || 'لم يتم تحديده'}</span></div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4 md:mb-6">
+                                        <button onClick={() => copyToClipboard(generateCustomerMsg(viewOrder), 'customer')} className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 py-3 md:py-4 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all ${copiedType === 'customer' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400'}`}><IconCopy size={20} />{copiedType === 'customer' ? 'تم النسخ ✓' : 'نسخ للعميل'}</button>
+                                        <button onClick={() => copyToClipboard(generateShippingMsg(viewOrder), 'shipping')} className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 py-3 md:py-4 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all ${copiedType === 'shipping' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-slate-800 border-slate-800 text-white hover:bg-slate-700'}`}><IconTruck size={20} />{copiedType === 'shipping' ? 'تم النسخ ✓' : 'نسخ لشركة الشحن'}</button>
+                                    </div>
                                     
                                     <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 md:p-4 flex flex-col gap-2">
                                         <label className="block text-xs md:text-sm font-black text-teal-800 mb-1 md:mb-2">تحديث سريع للحالة {userRole?.role === 'admin' ? 'ورقم البوليصة' : ''}:</label>
@@ -1467,7 +1611,7 @@
                                                 {userRole?.role === 'admin' && (
                                                     <input type="text" placeholder="رقم البوليصة..." className="w-full px-3 py-1.5 md:py-2 border border-teal-300 rounded-lg outline-none focus:ring-2 focus:ring-teal-500 font-bold text-xs md:text-sm text-slate-800" value={quickTracking} onChange={(e) => {
                                                         setQuickTracking(e.target.value);
-                                                        if(e.target.value.trim() !== '') setQuickStatus('الشحن'); // تحويل آلي
+                                                        if(e.target.value.trim() !== '') setQuickStatus('الشحن'); 
                                                     }} />
                                                 )}
                                                 <button onClick={saveQuickUpdate} className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg font-bold text-xs md:text-sm transition-colors shadow-sm mt-1">حفظ التحديث السريع</button>
