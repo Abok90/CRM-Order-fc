@@ -94,7 +94,7 @@
         }
 
         // ==========================================
-        // 2. مكونات الأيقونات
+        // 2. مكونات الأيقونات (أحجام ديناميكية للموبايل)
         // ==========================================
         const IconPackage = ({size=24}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
         const IconDashboard = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>;
@@ -205,9 +205,19 @@
             const [showCalc, setShowCalc] = useState(false);
             const [calcExp, setCalcExp] = useState('');
 
-            // -- الثوابت وإعدادات الإضافة المتعددة --
+            // -- الثوابت وإعدادات الإضافة المتعددة ومسميات الوظائف --
             const pages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب'];
             const orderStatuses = ['جاري التحضير', 'تم', 'الشحن', 'مراجعة', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل', 'اعادة ارسال', 'خارجي'];
+            const ROLE_NAMES = {
+                admin: 'مدير النظام',
+                owner: 'صاحب البراندات',
+                social_manager: 'مديرة السوشيال ميديا',
+                media_buyer: 'مدير الميديا باير',
+                page_manager: 'مدير البيدجات',
+                agent: 'موظفة (بنت)'
+            };
+            const SUPER_ADMIN_ROLES = ['admin', 'owner', 'social_manager', 'media_buyer'];
+            
             const initialOrderState = {
                 id: '', customer: '', address: '', phone: '', notes: '', page: pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: ''
             };
@@ -221,19 +231,22 @@
             // 4. دوال الاتصال الأساسية والصلاحيات
             // ==========================================
 
+            const isSuperAdmin = SUPER_ADMIN_ROLES.includes(userRole?.role);
+            const isPageManager = userRole?.role === 'page_manager';
+
             const availablePages = useMemo(() => {
                 if (!userRole) return [];
-                if (userRole.role === 'admin') return pages;
+                if (isSuperAdmin) return pages;
                 if (!userRole.assigned_page) return [];
                 return pages.filter(p => userRole.assigned_page.includes(p));
-            }, [userRole]);
+            }, [userRole, isSuperAdmin]);
 
             const fetchUserRole = async (userId, userEmail) => {
                 try {
                     const { data, error } = await supabase.from('user_roles').select('*').eq('id', userId).maybeSingle();
                     if (data) {
                         setUserRole(data);
-                        if (data.role === 'agent' && data.assigned_page) {
+                        if (!SUPER_ADMIN_ROLES.includes(data.role) && data.assigned_page) {
                             setFilterPage('الكل');
                             const firstPage = data.assigned_page.split(',').filter(Boolean)[0] || pages[0];
                             setNewOrder(prev => ({...prev, page: firstPage}));
@@ -241,7 +254,7 @@
                             setBulkTargetPage(firstPage);
                         }
                     } else {
-                        // لأي مستخدم جديد يتم إضافته (غير مفعل افتراضياً)
+                        // لأي مستخدم جديد يتم إضافته
                         const { count } = await supabase.from('user_roles').select('*', { count: 'exact', head: true });
                         const isFirstUser = count === 0;
                         const role = isFirstUser ? 'admin' : 'agent';
@@ -301,7 +314,7 @@
             };
 
             const fetchActivityLogs = async () => {
-                if(userRole?.role !== 'admin') return;
+                if(!isSuperAdmin && !isPageManager) return;
                 try {
                     const { data, error } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(2000);
                     if (!error && data) setActivityLogs(data);
@@ -324,7 +337,6 @@
                 }
             };
 
-            // دالة تسجيل النشاطات والإشعارات الذكية
             const logActivity = async (actionDesc, relatedOrderId) => {
                 if (!userRole) return;
                 try {
@@ -382,28 +394,26 @@
             useEffect(() => {
                 if (user && userRole && userRole.is_approved) {
                     fetchOrdersData();
-                    if (userRole.role === 'admin') {
+                    if (isSuperAdmin || isPageManager) {
                         fetchUsersList();
                         fetchActivityLogs();
                     }
                     
-                    // الاستماع للإشعارات الجديدة
                     const logSub = supabase.channel('logs-realtime').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, (payload) => {
                         const newLog = payload.new;
                         setToasts(prev => [newLog, ...prev]);
-                        // إخفاء الإشعار بعد 4 ثواني
                         setTimeout(() => {
                             setToasts(prev => prev.filter(t => t.id !== newLog.id));
                         }, 4000);
                         
-                        if(userRole.role === 'admin') {
+                        if(isSuperAdmin || isPageManager) {
                             setActivityLogs(prev => [newLog, ...prev]);
                         }
                     }).subscribe();
 
                     return () => supabase.removeChannel(logSub);
                 }
-            }, [user, userRole, fetchOrdersData]);
+            }, [user, userRole, fetchOrdersData, isSuperAdmin, isPageManager]);
 
             useEffect(() => {
                 setCurrentPage(1);
@@ -424,6 +434,21 @@
             // ==========================================
             // 6. تجهيز الفلاتر وتجميع السجلات (useMemos)
             // ==========================================
+
+            const visibleUsers = useMemo(() => {
+                if (!usersList.length) return [];
+                if (isSuperAdmin) return usersList;
+                if (isPageManager) {
+                    return usersList.filter(u => {
+                        if (u.role !== 'agent') return false;
+                        if (!u.assigned_page) return true; // Show unassigned so manager can assign them
+                        const myPages = userRole?.assigned_page ? userRole.assigned_page.split(',').filter(Boolean) : [];
+                        const theirPages = u.assigned_page.split(',').filter(Boolean);
+                        return theirPages.some(p => myPages.includes(p));
+                    });
+                }
+                return [];
+            }, [usersList, isSuperAdmin, isPageManager, userRole]);
 
             const allVisibleOrders = useMemo(() => {
                 if (searchResults.length === 0) return orders;
@@ -447,13 +472,13 @@
                                           
                     const matchesStatus = filterStatus === 'الكل' || order.status === filterStatus;
                     const matchesPage = filterPage === 'الكل' ? true : order.page === filterPage;
-                    const matchesRole = userRole?.role === 'admin' ? true : (userRole?.assigned_page && userRole.assigned_page.includes(order.page));
+                    const matchesRole = isSuperAdmin ? true : (availablePages.includes(order.page));
                     const matchesDateFrom = !dateFrom || (order.date && order.date >= dateFrom);
                     const matchesDateTo = !dateTo || (order.date && order.date <= dateTo);
 
                     return matchesSearch && matchesStatus && matchesPage && matchesRole && matchesDateFrom && matchesDateTo;
                 });
-            }, [allVisibleOrders, searchQuery, filterStatus, filterPage, userRole, dateFrom, dateTo]);
+            }, [allVisibleOrders, searchQuery, filterStatus, filterPage, isSuperAdmin, availablePages, dateFrom, dateTo]);
 
             const displayedOrders = useMemo(() => {
                 if (ordersPerPage === 'All') return filteredOrders;
@@ -582,7 +607,6 @@
                 const finalOrderId = newOrder.id && String(newOrder.id).trim() !== '' ? String(newOrder.id).trim() : `ORD-${Date.now().toString().slice(-6)}`;
                 const finalDate = newOrder.date && String(newOrder.date).trim() !== '' ? newOrder.date : new Date().toISOString().split('T')[0];
                 
-                // منطق التعديل الإجباري للموظف لو الأوردر اتشحن
                 const originalOrderData = isEditing ? orders.find(o => o.id === originalOrderId) : null;
                 const isShipped = isEditing && (originalOrderData?.status === 'الشحن' || originalOrderData?.trackingNumber);
                 
@@ -624,7 +648,13 @@
                             delete updatePayload.id; 
                             await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
                         }
-                        logActivity('تعديل شامل لبيانات الأوردر', finalOrderId);
+                        
+                        let changes = [];
+                        if(originalOrderData.status !== orderPayload.status) changes.push(`الحالة إلى "${orderPayload.status}"`);
+                        if(originalOrderData.trackingNumber !== orderPayload.trackingNumber) changes.push(`رقم البوليصة`);
+                        let actDesc = changes.length > 0 ? `تعديل (${changes.join('، ')})` : 'تعديل بيانات الأوردر';
+                        logActivity(actDesc, finalOrderId);
+                        
                         alert("تم التعديل بنجاح!");
                         closeModal();
                     } else {
@@ -672,14 +702,11 @@
                      return alert("عفواً، لا يمكنك التعديل السريع لطلب تم شحنه. يرجى الضغط على زر 'تعديل' لكتابة سبب التعديل.");
                  }
 
-                 // تسجيل التغيرات بدقة
                  let changes = [];
                  if (quickStatus !== viewOrder.status) changes.push(`الحالة إلى "${quickStatus}"`);
                  if (quickTracking !== (viewOrder.trackingNumber || '')) changes.push(`رقم البوليصة إلى "${quickTracking}"`);
                  
-                 if (changes.length === 0) {
-                     return alert("لم تقم بأي تعديل للحفظ!");
-                 }
+                 if (changes.length === 0) return alert("لم تقم بأي تعديل للحفظ!");
 
                  let actionDesc = `تعديل ${changes.join(' و ')}`;
 
@@ -742,28 +769,20 @@
             };
 
             // ==========================================
-            // 8. الإضافة المتعددة (شيت الإكسيل الداخلي)
+            // 8. الإضافة المتعددة
             // ==========================================
             
             const handleBulkChange = (index, field, value) => {
                 const newBulk = [...bulkOrders];
                 newBulk[index] = { ...newBulk[index], [field]: value };
-                
-                // تحويل أتوماتيكي للشحن للمديرين عند كتابة رقم البوليصة
-                if (field === 'trackingNumber' && value.trim() !== '') {
-                    newBulk[index].status = 'الشحن';
-                }
-                
+                if (field === 'trackingNumber' && value.trim() !== '') newBulk[index].status = 'الشحن';
                 setBulkOrders(newBulk);
             };
 
-            const addBulkRow = () => {
-                setBulkOrders([...bulkOrders, { ...emptyBulkRow }]);
-            };
+            const addBulkRow = () => setBulkOrders([...bulkOrders, { ...emptyBulkRow }]);
 
             const saveBulkOrders = async () => {
                 if (!user) return;
-                
                 const validRows = bulkOrders.filter(row => row.customer && row.customer.trim() !== '');
                 if (validRows.length === 0) return alert("يرجى إدخال اسم عميل واحد على الأقل في الجدول.");
 
@@ -773,18 +792,10 @@
                     const ordersToInsert = validRows.map((row, idx) => {
                         const finalId = row.id && row.id.trim() !== '' ? row.id.trim() : `ORD-${Date.now().toString().slice(-5)}${idx}`;
                         return {
-                            id: finalId,
-                            customer: row.customer,
-                            address: row.address,
-                            phone: row.phone,
-                            page: bulkTargetPage || availablePages[0],
-                            item: row.item,
-                            status: row.status || 'جاري التحضير',
-                            notes: row.notes,
-                            productPrice: Number(row.productPrice) || 0,
-                            shippingPrice: Number(row.shippingPrice) || 0,
-                            trackingNumber: row.trackingNumber || '',
-                            date: row.date && row.date.trim() !== '' ? row.date : today,
+                            id: finalId, customer: row.customer, address: row.address, phone: row.phone,
+                            page: bulkTargetPage || availablePages[0], item: row.item, status: row.status || 'جاري التحضير',
+                            notes: row.notes, productPrice: Number(row.productPrice) || 0, shippingPrice: Number(row.shippingPrice) || 0,
+                            trackingNumber: row.trackingNumber || '', date: row.date && row.date.trim() !== '' ? row.date : today,
                             user_id: user.id
                         };
                     });
@@ -794,28 +805,20 @@
                     
                     logActivity(`إضافة مجموعة طلبات (${ordersToInsert.length} طلب)`, 'متعدد');
                     alert(`تمت إضافة ${ordersToInsert.length} طلبات بنجاح!`);
-                    setIsBulkModalOpen(false);
-                    setBulkOrders(Array(5).fill({...emptyBulkRow}));
+                    setIsBulkModalOpen(false); setBulkOrders(Array(5).fill({...emptyBulkRow}));
                     fetchOrdersData(); 
-                } catch (err) {
-                    alert(`فشل الحفظ الجماعي: ${err.message}`);
-                } finally {
-                    setLoadingDB(false);
-                }
+                } catch (err) { alert(`فشل الحفظ الجماعي: ${err.message}`); } finally { setLoadingDB(false); }
             };
 
             // ==========================================
-            // 9. النوافذ المنبثقة والمساعدات (تصدير CSV والنسخ)
+            // 9. النوافذ المنبثقة والمساعدات
             // ==========================================
             
-            // دوال توليد الرسائل للنسخ شاملة رقم البوليصة
             const generateCustomerMsg = (order) => {
                 if(!order) return "";
                 const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
                 let msg = `أهلاً بك يا فندم في ${order.page} 🌸\n\nملخص طلبك:\n------------------\nرقم الطلب: ${order.id}\n`;
-                if (order.trackingNumber && order.trackingNumber.trim() !== '') {
-                    msg += `رقم البوليصة: ${order.trackingNumber}\n`;
-                }
+                if (order.trackingNumber && order.trackingNumber.trim() !== '') msg += `رقم البوليصة: ${order.trackingNumber}\n`;
                 msg += `المنتج: ${order.item}\nالإجمالي المطلوب: ${total} ج.م (شامل الشحن)\nالعنوان: ${order.address}\n\nيتم تجهيز طلبك الآن، وفي حالة وجود أي استفسار يسعدنا تواصلك معنا.`;
                 return msg;
             };
@@ -824,9 +827,7 @@
                 if(!order) return "";
                 const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
                 let msg = `رقم الأوردر: ${order.id}\n`;
-                if (order.trackingNumber && order.trackingNumber.trim() !== '') {
-                    msg += `رقم البوليصة: ${order.trackingNumber}\n`;
-                }
+                if (order.trackingNumber && order.trackingNumber.trim() !== '') msg += `رقم البوليصة: ${order.trackingNumber}\n`;
                 msg += `الاسم: ${order.customer}\nالموبايل: ${order.phone}\nالعنوان: ${order.address}\nالمنتج: ${order.item}\nالمبلغ المطلوب: ${total}\nالملاحظات: ${order.notes || 'لا يوجد'}\nالصفحة: ${order.page}`;
                 return msg;
             };
@@ -837,11 +838,7 @@
                 if (userRole?.role === 'agent' && isShipped && !userRole.can_edit_after_shipping) {
                     return alert("عفواً، لا تملك صلاحية تعديل هذا الطلب لأنه تم تحويله للشحن.");
                 }
-                setEditReason(''); 
-                setNewOrder(order); 
-                setIsEditing(true); 
-                setOriginalOrderId(order.id); 
-                setIsAddModalOpen(true); 
+                setEditReason(''); setNewOrder(order); setIsEditing(true); setOriginalOrderId(order.id); setIsAddModalOpen(true); 
             };
             const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); };
             const openViewModal = (order) => { setViewOrder(order); setQuickTracking(order.trackingNumber || ''); setQuickStatus(order.status || 'جاري التحضير'); setIsViewModalOpen(true); };
@@ -959,13 +956,6 @@
                 }
             };
 
-            const handleCalcBtn = (btn) => {
-                if (btn === 'C') { setCalcExp(''); setNewOrder({ ...newOrder, productPrice: '' }); } 
-                else if (btn === '=') { try { const result = new Function('return ' + calcExp)(); setCalcExp(String(result)); setNewOrder({ ...newOrder, productPrice: result }); setShowCalc(false); } catch (e) { setCalcExp('خطأ'); } } 
-                else { setCalcExp((prev) => (prev === 'خطأ' ? btn : prev + btn)); }
-            };
-            const calcButtons = ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', 'C', '0', '=', '+'];
-
             const getThemeClasses = (p) => (p === 'عايدة' || p === 'عايدة ويب' ? { btnPrimary: 'bg-pink-600 hover:bg-pink-700 text-white shadow-md shadow-pink-200', textPrimary: 'text-pink-600', border: 'border-pink-200', bgLight: 'bg-pink-50', ringFocus: 'focus:ring-pink-500' } : { btnPrimary: 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-200', textPrimary: 'text-purple-600', border: 'border-purple-200', bgLight: 'bg-purple-50', ringFocus: 'focus:ring-purple-500' });
             
             const getRowStatusColor = (status) => {
@@ -1047,7 +1037,7 @@
                 );
             }
 
-            if (userRole && !userRole.is_approved && userRole.role !== 'admin') {
+            if (userRole && !userRole.is_approved && !isSuperAdmin) {
                  return (
                     <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
                         <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-100 text-center">
@@ -1096,15 +1086,15 @@
                             <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}><IconX /></button>
                         </div>
                         <div className="p-4 bg-slate-800/50 border-b border-slate-800 flex justify-between items-center">
-                            <div className="flex flex-col overflow-hidden"><span className="text-sm font-bold text-white truncate">{userRole.name || 'مستخدم'}</span><span className="text-[10px] text-indigo-300 font-black mt-0.5">{userRole.role === 'admin' ? 'مدير النظام 👑' : `موظف: ${availablePages.join('، ') || 'بدون صفحة'}`}</span></div>
+                            <div className="flex flex-col overflow-hidden"><span className="text-sm font-bold text-white truncate">{userRole.name || 'مستخدم'}</span><span className="text-[10px] text-indigo-300 font-black mt-0.5">{ROLE_NAMES[userRole.role] || 'موظف'}</span></div>
                             <button onClick={handleLogout} className="text-red-400 hover:text-red-300 p-2 bg-slate-800 rounded-lg" title="تسجيل خروج"><IconLogOut /></button>
                         </div>
                         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
                             <button onClick={() => {setCurrentTab('dashboard'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconDashboard /></span> <span>لوحة التحكم</span></button>
                             <button onClick={() => {setCurrentTab('orders'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'orders' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconCart /></span> <span>الطلبات والمتابعة</span></button>
-                            {userRole.role === 'admin' && <button onClick={() => {setCurrentTab('pages'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'pages' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إحصائيات الصفحات</span></button>}
-                            {userRole.role === 'admin' && <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-4 border border-indigo-500/30 ${currentTab === 'users' ? 'bg-indigo-800 text-white shadow-lg shadow-indigo-900/50' : 'text-indigo-300 hover:bg-slate-800 hover:text-white'}`}><span><IconUsers /></span> <span>إدارة الموظفين</span></button>}
-                            {userRole.role === 'admin' && <button onClick={() => {setCurrentTab('logs'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-2 border border-amber-500/30 ${currentTab === 'logs' ? 'bg-amber-700 text-white shadow-lg shadow-amber-900/50' : 'text-amber-300 hover:bg-slate-800 hover:text-white'}`}><span><IconActivity /></span> <span>سجل النشاطات</span></button>}
+                            {isSuperAdmin && <button onClick={() => {setCurrentTab('pages'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'pages' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إحصائيات الصفحات</span></button>}
+                            {(isSuperAdmin || isPageManager) && <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-4 border border-indigo-500/30 ${currentTab === 'users' ? 'bg-indigo-800 text-white shadow-lg shadow-indigo-900/50' : 'text-indigo-300 hover:bg-slate-800 hover:text-white'}`}><span><IconUsers /></span> <span>إدارة الموظفين</span></button>}
+                            {(isSuperAdmin || isPageManager) && <button onClick={() => {setCurrentTab('logs'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-2 border border-amber-500/30 ${currentTab === 'logs' ? 'bg-amber-700 text-white shadow-lg shadow-amber-900/50' : 'text-amber-300 hover:bg-slate-800 hover:text-white'}`}><span><IconActivity /></span> <span>سجل النشاطات</span></button>}
                         </nav>
                     </aside>
 
@@ -1117,17 +1107,17 @@
                                 <button className="md:hidden p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors" onClick={() => setIsSidebarOpen(true)}><IconMenu /></button>
                                 <h1 className="text-lg md:text-2xl font-black text-slate-800 drop-shadow-sm">
                                     {currentTab === 'dashboard' && 'نظرة عامة'}
-                                    {currentTab === 'orders' && (userRole.role === 'admin' ? 'إدارة كل الطلبات' : `طلباتك`)}
+                                    {currentTab === 'orders' && (isSuperAdmin ? 'إدارة كل الطلبات' : `طلباتك`)}
                                     {currentTab === 'pages' && 'الإحصائيات المتقدمة'}
                                     {currentTab === 'users' && 'لوحة الإدارة'}
                                     {currentTab === 'logs' && 'سجل نشاطات الموظفين'}
                                 </h1>
                             </div>
                             <div className="flex items-center gap-1.5 md:gap-3 w-full md:w-auto">
-                                {(userRole?.role === 'admin' || userRole?.can_add_bulk) && (
+                                {(isSuperAdmin || userRole?.can_add_bulk) && (
                                     <button onClick={() => setIsBulkModalOpen(true)} className="flex-1 md:flex-none bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 px-2 py-2 md:px-4 md:py-2.5 rounded-lg flex items-center justify-center gap-1 transition-all shadow-sm font-bold text-[11px] md:text-sm"><IconTable size={16} /> <span className="hidden sm:inline">مجموعة</span></button>
                                 )}
-                                {(userRole?.role === 'admin' || userRole?.can_import_excel) && (
+                                {(isSuperAdmin || userRole?.can_import_excel) && (
                                     <button onClick={() => setIsImportModalOpen(true)} className="flex-1 md:flex-none bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-2 py-2 md:px-4 md:py-2.5 rounded-lg flex items-center justify-center gap-1 transition-all shadow-sm font-bold text-[11px] md:text-sm"><IconUpload size={16} /> <span className="hidden sm:inline">شيت</span></button>
                                 )}
                                 <button onClick={openAddModal} className="flex-1 md:flex-none bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white px-2 py-2 md:px-5 md:py-2.5 rounded-lg flex items-center justify-center gap-1 transition-all shadow-md font-bold text-[11px] md:text-sm transform hover:-translate-y-0.5"><IconPlus size={16} /> <span className="hidden sm:inline">طلب جديد</span></button>
@@ -1141,7 +1131,7 @@
                             )}
 
                             {/* تبويب سجل النشاطات (للمديرين) */}
-                            {currentTab === 'logs' && userRole.role === 'admin' && (
+                            {currentTab === 'logs' && (isSuperAdmin || isPageManager) && (
                                 <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto">
                                     <div className="bg-amber-50 border border-amber-200 p-4 md:p-5 rounded-2xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
                                         <div>
@@ -1237,13 +1227,12 @@
                             )}
 
                             {/* تبويب إدارة البنات */}
-                            {currentTab === 'users' && userRole.role === 'admin' && (
+                            {currentTab === 'users' && (isSuperAdmin || isPageManager) && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     <div className="bg-indigo-50 border border-indigo-200 p-4 md:p-5 rounded-2xl">
                                         <h2 className="font-black text-indigo-900 text-base md:text-lg mb-2">إدارة حسابات الموظفين</h2>
                                         <p className="text-xs md:text-sm text-indigo-800 font-bold mb-4 leading-relaxed">
-                                            يمكنك تحديد أكثر من صفحة لنفس الموظف، وإعطاء صلاحيات إضافية (تظهر للموظف فور تحديدها).<br/>
-                                            لإضافة موظفة جديدة: اطلبي منها "إنشاء حساب" وتسجيل الدخول مرة واحدة ليظهر اسمها هنا.
+                                            {isSuperAdmin ? 'يمكنك تحديد أكثر من صفحة وتغيير الأدوار بحرية تامة.' : 'صلاحياتك تسمح لك فقط بقبول وتحديد صلاحيات البنات المخصصات لصفحاتك.'}
                                         </p>
                                         <button onClick={fetchUsersList} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs md:text-sm shadow-md w-full md:w-auto">تحديث القائمة 🔄</button>
                                     </div>
@@ -1252,13 +1241,26 @@
                                         <table className="w-full text-right min-w-[800px]">
                                             <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/6">الآي دي (ID)</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/6">الاسم</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/4">الدور والصلاحيات الإضافية</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold">الصفحات المخصصة</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold text-center w-24">حالة الحساب</th></tr></thead>
                                             <tbody className="divide-y divide-slate-100/50">
-                                                {usersList.map(u => (
+                                                {visibleUsers.map(u => (
                                                     <tr key={u.id} className="hover:bg-slate-50 align-top">
                                                         <td className="px-3 py-3 md:px-4 md:py-4 text-[10px] md:text-xs font-mono text-slate-400 break-all">{u.id}</td>
-                                                        <td className="px-3 py-3 md:px-4 md:py-4 font-bold text-xs md:text-sm"><input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full" /></td>
                                                         <td className="px-3 py-3 md:px-4 md:py-4 font-bold text-xs md:text-sm">
-                                                            <select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(e.target.value === 'admin') await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full mb-2 outline-none focus:ring-2 focus:ring-indigo-500"><option value="agent">موظف (Agent)</option><option value="admin">مدير (Admin)</option></select>
-                                                            {u.role === 'agent' && (
+                                                            {isSuperAdmin ? (
+                                                                <input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full" />
+                                                            ) : (
+                                                                <span className="text-slate-800">{u.name}</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-3 py-3 md:px-4 md:py-4 font-bold text-xs md:text-sm">
+                                                            {isSuperAdmin ? (
+                                                                <select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(SUPER_ADMIN_ROLES.includes(e.target.value)) await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full mb-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                                                                    {Object.entries(ROLE_NAMES).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
+                                                                </select>
+                                                            ) : (
+                                                                <div className="mb-2 text-slate-700 bg-slate-100 px-2 py-1 rounded font-bold">{ROLE_NAMES[u.role]}</div>
+                                                            )}
+                                                            
+                                                            {(!SUPER_ADMIN_ROLES.includes(u.role)) && (
                                                                 <div className="flex flex-col gap-1.5 text-[10px] md:text-[11px] text-slate-700 font-semibold bg-slate-50 p-2 rounded border border-slate-200 shadow-inner">
                                                                     <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={u.can_add_bulk || false} onChange={e => togglePerm(u.id, 'can_add_bulk', e.target.checked)}/> إضافة مجموعة</label>
                                                                     <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={u.can_import_excel || false} onChange={e => togglePerm(u.id, 'can_import_excel', e.target.checked)}/> رفع شيت إكسيل</label>
@@ -1266,12 +1268,12 @@
                                                                     <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={u.can_edit_after_shipping || false} onChange={e => togglePerm(u.id, 'can_edit_after_shipping', e.target.checked)}/> السماح بالتعديل بعد الشحن</label>
                                                                 </div>
                                                             )}
-                                                            {u.role === 'admin' && <div className="text-[10px] text-slate-400 text-center">صلاحيات كاملة</div>}
+                                                            {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-slate-400 text-center mt-2">صلاحيات إدارة كاملة</div>}
                                                         </td>
                                                         <td className="px-3 py-3 md:px-4 md:py-4 font-bold text-xs md:text-sm">
-                                                            {u.role === 'admin' ? <span className="text-slate-400 text-xs mt-2 inline-block">مفتوح لكل الصفحات</span> : (
+                                                            {SUPER_ADMIN_ROLES.includes(u.role) ? <span className="text-slate-400 text-xs mt-2 inline-block">مفتوح لكل الصفحات</span> : (
                                                                 <div className="flex flex-wrap gap-1.5">
-                                                                    {pages.map(p => {
+                                                                    {availablePages.map(p => {
                                                                         const isChecked = u.assigned_page && u.assigned_page.includes(p);
                                                                         return (
                                                                             <label key={p} className={`flex items-center gap-1.5 cursor-pointer px-2 py-1.5 rounded border transition-colors ${isChecked ? 'bg-indigo-50 border-indigo-300 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
@@ -1301,10 +1303,10 @@
                                                         <td className="px-3 py-3 md:px-4 md:py-4 text-center align-middle">
                                                             <label className="flex flex-col items-center gap-1 cursor-pointer">
                                                                 <div className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${u.is_approved ? 'bg-green-500' : 'bg-slate-300'}`}>
-                                                                    <input type="checkbox" className="sr-only" checked={u.is_approved || false} onChange={e => togglePerm(u.id, 'is_approved', e.target.checked)} disabled={u.role === 'admin'} />
+                                                                    <input type="checkbox" className="sr-only" checked={u.is_approved || false} onChange={e => togglePerm(u.id, 'is_approved', e.target.checked)} disabled={SUPER_ADMIN_ROLES.includes(u.role)} />
                                                                     <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${u.is_approved ? 'translate-x-1' : '-translate-x-6'}`}/>
                                                                 </div>
-                                                                <span className={`text-[10px] font-bold ${u.is_approved ? 'text-green-600' : 'text-slate-400'}`}>{u.is_approved ? 'مفعل' : 'معلق'}</span>
+                                                                <span className={`text-[10px] font-bold ${u.is_approved ? 'text-green-600' : 'text-amber-500'}`}>{u.is_approved ? 'مفعل' : 'معلق'}</span>
                                                             </label>
                                                         </td>
                                                     </tr>
@@ -1326,6 +1328,7 @@
                                     </div>
 
                                     {/* إحصائيات الصفحات القابلة للنقر */}
+                                    {isSuperAdmin && (
                                     <div>
                                         <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 md:mb-4 flex items-center gap-2">متابعة الحالات السريعة <span className="text-[10px] md:text-sm font-bold text-slate-500">(انقر على أي حالة لعرض طلباتها)</span></h2>
                                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
@@ -1351,6 +1354,7 @@
                                             })}
                                         </div>
                                     </div>
+                                    )}
                                 </div>
                             )}
 
@@ -1365,11 +1369,11 @@
                                                     <button onClick={exportSelectedToCSV} className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-lg font-bold text-[10px] md:text-sm shadow-md transition-colors"><IconDownload size={14} /> إكسيل</button>
                                                     
                                                     {/* زر شيت الشحن يظهر للمدير أو من لديه الصلاحية */}
-                                                    {(userRole.role === 'admin' || userRole.can_export_shipping) && (
+                                                    {(isSuperAdmin || userRole.can_export_shipping) && (
                                                         <button onClick={exportShippingCSV} className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-lg font-bold text-[10px] md:text-sm shadow-md transition-colors"><IconTruck size={14} /> شيت شحن</button>
                                                     )}
                                                     
-                                                    {userRole.role === 'admin' && (
+                                                    {isSuperAdmin && (
                                                         <button onClick={handleDeleteMultipleOrders} disabled={isDeletingMultiple} className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-lg font-bold text-[10px] md:text-sm shadow-md transition-colors disabled:opacity-50"><IconTrash size={14} /> مسح</button>
                                                     )}
                                                 </div>
@@ -1378,7 +1382,7 @@
                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
                                             <div className="col-span-2 relative"><div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400"><IconSearch size={14} /></div><input type="text" placeholder="بحث بالاسم، هاتف، طلب..." className="block w-full pl-2 pr-8 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow text-[11px] md:text-sm font-semibold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
                                             <div><select className="w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-[11px] md:text-sm font-semibold" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="الكل">جميع الحالات</option>{orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                                            <div><select className={`w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-[11px] md:text-sm font-semibold ${userRole.role === 'agent' && availablePages.length === 1 ? 'opacity-70 bg-slate-100 cursor-not-allowed' : ''}`} value={filterPage} onChange={(e) => setFilterPage(e.target.value)} disabled={userRole.role === 'agent' && availablePages.length === 1}><option value="الكل">{userRole.role === 'admin' ? 'جميع الصفحات' : 'كل صفحاتك'}</option>{availablePages.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
+                                            <div><select className={`w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-[11px] md:text-sm font-semibold ${userRole.role === 'agent' && availablePages.length === 1 ? 'opacity-70 bg-slate-100 cursor-not-allowed' : ''}`} value={filterPage} onChange={(e) => setFilterPage(e.target.value)} disabled={userRole.role === 'agent' && availablePages.length === 1}><option value="الكل">{isSuperAdmin ? 'جميع الصفحات' : 'كل صفحاتك'}</option>{availablePages.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
                                             <div className="col-span-2 md:col-span-1"><button onClick={resetFilters} className="w-full py-1.5 md:py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg md:rounded-xl font-bold text-[11px] md:text-sm transition-colors border border-slate-200">إلغاء الفلاتر</button></div>
                                         </div>
                                     </div>
@@ -1425,7 +1429,7 @@
                                                                 <div className="flex flex-row md:flex-col gap-1 md:gap-1.5 flex-wrap">
                                                                     <button onClick={() => openViewModal(order)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconEye /> <span className="hidden md:inline">عرض</span></button>
                                                                     <button onClick={() => openEditModal(order)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-white/70 hover:bg-white text-slate-800 border border-slate-300/50 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconEdit /> <span className="hidden md:inline">تعديل</span></button>
-                                                                    {userRole.role === 'admin' && (<button onClick={() => handleDeleteOrder(order.id)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-red-100 hover:bg-red-600 hover:text-white text-red-700 border border-red-200 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconTrash /> <span className="hidden md:inline">مسح</span></button>)}
+                                                                    {isSuperAdmin && (<button onClick={() => handleDeleteOrder(order.id)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-red-100 hover:bg-red-600 hover:text-white text-red-700 border border-red-200 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconTrash /> <span className="hidden md:inline">مسح</span></button>)}
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -1442,8 +1446,8 @@
                                 </div>
                             )}
 
-                            {/* التبويب الثالث: إحصائيات الصفحات (يظهر للمدير فقط) */}
-                            {currentTab === 'pages' && userRole.role === 'admin' && (
+                            {/* التبويب الثالث: إحصائيات الصفحات (للمديرين فقط) */}
+                            {currentTab === 'pages' && isSuperAdmin && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     <div className="glass-panel p-4 md:p-5 rounded-2xl shadow-sm border border-white flex flex-col md:flex-row items-center gap-3 md:gap-4 justify-between"><div className="flex items-center gap-2 font-bold text-sm md:text-base text-slate-700"><IconCalendar /> <span>تحديد فترة الإحصائيات:</span></div><div className="flex items-center gap-2 md:gap-3 w-full md:w-auto flex-wrap"><div className="flex items-center gap-2 flex-1 md:flex-none"><label className="text-xs md:text-sm text-slate-500">من:</label><input type="date" className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-xs md:text-sm font-bold w-full" value={statsDateFrom} onChange={e => setStatsDateFrom(e.target.value)} /></div><div className="flex items-center gap-2 flex-1 md:flex-none"><label className="text-xs md:text-sm text-slate-500">إلى:</label><input type="date" className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-xs md:text-sm font-bold w-full" value={statsDateTo} onChange={e => setStatsDateTo(e.target.value)} /></div>{(statsDateFrom || statsDateTo) && (<button onClick={() => { setStatsDateFrom(''); setStatsDateTo(''); }} className="w-full md:w-auto px-4 py-1.5 md:py-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs md:text-sm rounded-lg border border-red-200 transition-colors">إلغاء الفلتر ✖</button>)}</div></div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">{pages.map((page, idx) => {
@@ -1494,7 +1498,7 @@
                                                     <th className="px-2 py-2 md:py-3 font-bold min-w-[130px]">الاسم <span className="text-red-400">*</span></th>
                                                     <th className="px-2 py-2 md:py-3 font-bold min-w-[150px]">العنوان</th>
                                                     <th className="px-2 py-2 md:py-3 font-bold min-w-[130px]">الصنف</th>
-                                                    {userRole?.role === 'admin' && <th className="px-2 py-2 md:py-3 font-bold min-w-[100px]">رقم البوليصه</th>}
+                                                    {isSuperAdmin && <th className="px-2 py-2 md:py-3 font-bold min-w-[100px]">رقم البوليصه</th>}
                                                     <th className="px-2 py-2 md:py-3 font-bold min-w-[120px]">الملحوظات</th>
                                                     <th className="px-2 py-2 md:py-3 font-bold min-w-[100px]">رقم الموبايل</th>
                                                     <th className="px-2 py-2 md:py-3 font-bold min-w-[100px]">حالة المنتج</th>
@@ -1511,7 +1515,7 @@
                                                         <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs font-bold text-slate-800" placeholder="اسم العميل..." value={row.customer} onChange={(e) => handleBulkChange(index, 'customer', e.target.value)} /></td>
                                                         <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs text-slate-700" placeholder="العنوان..." value={row.address} onChange={(e) => handleBulkChange(index, 'address', e.target.value)} /></td>
                                                         <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs text-slate-700" placeholder="وصف الصنف..." value={row.item} onChange={(e) => handleBulkChange(index, 'item', e.target.value)} /></td>
-                                                        {userRole?.role === 'admin' && (
+                                                        {isSuperAdmin && (
                                                             <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs text-slate-700" placeholder="إضافة بوليصة" value={row.trackingNumber} onChange={(e) => handleBulkChange(index, 'trackingNumber', e.target.value)} /></td>
                                                         )}
                                                         <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs text-slate-700" value={row.notes} onChange={(e) => handleBulkChange(index, 'notes', e.target.value)} /></td>
@@ -1596,7 +1600,7 @@
                                     </div>
                                     
                                     <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 md:p-4 flex flex-col gap-2">
-                                        <label className="block text-xs md:text-sm font-black text-teal-800 mb-1 md:mb-2">تحديث سريع للحالة {userRole?.role === 'admin' ? 'ورقم البوليصة' : ''}:</label>
+                                        <label className="block text-xs md:text-sm font-black text-teal-800 mb-1 md:mb-2">تحديث سريع للحالة {isSuperAdmin ? 'ورقم البوليصة' : ''}:</label>
                                         {(userRole?.role === 'agent' && (viewOrder?.status === 'الشحن' || viewOrder?.trackingNumber)) ? (
                                             <div className="text-xs md:text-sm text-red-600 font-bold bg-red-50 p-2 rounded">عفواً، لا يمكن تعديل طلب تم شحنه من هنا. يرجى استخدام زر التعديل لكتابة سبب لتعديلك.</div>
                                         ) : (
@@ -1608,10 +1612,10 @@
                                                 >
                                                     {orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
-                                                {userRole?.role === 'admin' && (
+                                                {isSuperAdmin && (
                                                     <input type="text" placeholder="رقم البوليصة..." className="w-full px-3 py-1.5 md:py-2 border border-teal-300 rounded-lg outline-none focus:ring-2 focus:ring-teal-500 font-bold text-xs md:text-sm text-slate-800" value={quickTracking} onChange={(e) => {
                                                         setQuickTracking(e.target.value);
-                                                        if(e.target.value.trim() !== '') setQuickStatus('الشحن'); 
+                                                        if(e.target.value.trim() !== '') setQuickStatus('الشحن'); // تحويل آلي
                                                     }} />
                                                 )}
                                                 <button onClick={saveQuickUpdate} className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg font-bold text-xs md:text-sm transition-colors shadow-sm mt-1">حفظ التحديث السريع</button>
@@ -1668,7 +1672,7 @@
                                         <div className="md:col-span-2 pt-2 border-t border-slate-200"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1 flex items-center gap-1 md:gap-2"><IconCalendar /> 10. تاريخ الطلب</label><input type="date" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.date || ''} onChange={e => setNewOrder({...newOrder, date: e.target.value})} /><p className="text-[9px] md:text-xs font-bold text-slate-400 mt-1">يُترك فارغاً ليتم تسجيل تاريخ اليوم تلقائياً.</p></div>
                                         
                                         {/* خانة رقم البوليصة مخفية عن الموظف العادي وتظهر للمدير فقط */}
-                                        {userRole?.role === 'admin' && (
+                                        {isSuperAdmin && (
                                             <div className="md:col-span-2 pt-3 md:pt-4 mt-2 border-t-2 border-dashed border-slate-200">
                                                 <label className="block text-[11px] md:text-sm font-black text-teal-700 mb-1.5 md:mb-2 flex items-center gap-1 md:gap-2"><IconTruck /> 11. رقم بوليصة الشحن (تتبع الأوردر)</label>
                                                 <input type="text" placeholder="يُكتب هنا رقم البوليصة لتتبع الأوردر..." className={`w-full px-3 py-2 md:px-4 md:py-3 border-2 border-teal-200 bg-teal-50/50 rounded-lg md:rounded-xl outline-none transition-shadow font-bold text-xs md:text-sm text-teal-900 focus:ring-2 focus:ring-teal-500`} value={newOrder.trackingNumber || ''} onChange={e => {
