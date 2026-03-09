@@ -52,7 +52,6 @@
         .custom-checkbox:checked { background-color: #4f46e5; border-color: #4f46e5; }
         .custom-checkbox:checked::before { transform: scale(1); }
         
-        /* تصميم مدخلات الإكسيل الداخلي */
         .excel-input {
             width: 100%; min-width: 90px; padding: 8px;
             border: 1px solid transparent; background: transparent;
@@ -66,6 +65,13 @@
             50% { transform: scale(1.03); background-color: #dcfce7; color: #166534; border-color: #86efac; }
             100% { transform: scale(1); }
         }
+        
+        /* تأثير دخول الإشعارات */
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-enter { animation: slideDown 0.3s ease-out forwards; }
     </style>
 </head>
 <body class="text-slate-800 antialiased overflow-x-hidden">
@@ -96,7 +102,7 @@
         const IconPlus = ({size=18}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
         const IconSearch = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
         const IconCheck = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
-        const IconClock = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+        const IconClock = ({size=24}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
         const IconMenu = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg>;
         const IconX = ({size=20}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
         const IconCalc = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>;
@@ -112,6 +118,8 @@
         const IconUsers = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>;
         const IconDownload = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
         const IconTable = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="3" x2="21" y1="15" y2="15"/><line x1="9" x2="9" y1="9" y2="21"/><line x1="15" x2="15" y1="9" y2="21"/></svg>;
+        const IconActivity = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
+        const IconBell = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>;
 
         // ==========================================
         // 3. المكون الرئيسي (App)
@@ -152,6 +160,10 @@
             const [orders, setOrders] = useState([]);
             const ordersRef = useRef([]); 
             const [usersList, setUsersList] = useState([]);
+            
+            // -- الإشعارات وسجل النشاطات --
+            const [toasts, setToasts] = useState([]);
+            const [activityLogs, setActivityLogs] = useState([]);
             
             // -- الفلاتر --
             const [searchQuery, setSearchQuery] = useState('');
@@ -220,23 +232,19 @@
                             setBulkTargetPage(firstPage);
                         }
                     } else {
-                        // لو أول مستخدم يبقا مدير، غير كده موظف
+                        // لأي مستخدم جديد يتم إضافته (غير مفعل افتراضياً)
                         const { count } = await supabase.from('user_roles').select('*', { count: 'exact', head: true });
                         const isFirstUser = count === 0;
                         const role = isFirstUser ? 'admin' : 'agent';
                         const name = isFirstUser ? 'المدير' : (userEmail ? userEmail.split('@')[0] : 'موظف جديد');
+                        const isApproved = isFirstUser; // المدير مفعل، الموظف ينتظر الموافقة
                         
-                        const newRoleData = { id: userId, name, role };
+                        const newRoleData = { id: userId, name, role, is_approved: isApproved };
                         const { data: newRole, error: insertError } = await supabase.from('user_roles').insert([newRoleData]).select().maybeSingle();
-                        
-                        if (insertError) {
-                            setUserRole({ id: userId, name: 'مدير طوارئ', role: 'admin' });
-                        } else {
-                            setUserRole(newRole || newRoleData);
-                        }
+                        setUserRole(newRole || newRoleData);
                     }
                 } catch (error) { 
-                    setUserRole({ id: userId, name: 'مدير طوارئ', role: 'admin' }); 
+                    setUserRole({ id: userId, name: 'مدير طوارئ', role: 'admin', is_approved: true }); 
                 } finally { 
                     setAuthLoading(false); 
                 }
@@ -283,6 +291,14 @@
                 } catch (error) {}
             };
 
+            const fetchActivityLogs = async () => {
+                if(userRole?.role !== 'admin') return;
+                try {
+                    const { data, error } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(500);
+                    if (!error && data) setActivityLogs(data);
+                } catch(e) { console.error("Logs error:", e); }
+            };
+
             const searchDatabase = async (searchText) => {
                 if (!user || String(searchText).trim() === '') { setSearchResults([]); return; }
                 setIsSearchingDb(true);
@@ -297,6 +313,18 @@
                 } finally { 
                     setIsSearchingDb(false); 
                 }
+            };
+
+            // دالة تسجيل النشاطات والإشعارات
+            const logActivity = async (actionDesc, relatedOrderId) => {
+                if (!userRole) return;
+                try {
+                    await supabase.from('activity_logs').insert([{
+                        user_name: userRole.name,
+                        action: actionDesc,
+                        order_id: relatedOrderId
+                    }]);
+                } catch(e) { console.error("Failed to log activity:", e); }
             };
 
             // ==========================================
@@ -343,9 +371,28 @@
             }, []);
 
             useEffect(() => {
-                if (user && userRole) {
+                if (user && userRole && userRole.is_approved) {
                     fetchOrdersData();
-                    if (userRole.role === 'admin') fetchUsersList();
+                    if (userRole.role === 'admin') {
+                        fetchUsersList();
+                        fetchActivityLogs();
+                    }
+                    
+                    // الاستماع للإشعارات الجديدة
+                    const logSub = supabase.channel('logs-realtime').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, (payload) => {
+                        const newLog = payload.new;
+                        setToasts(prev => [newLog, ...prev]);
+                        // إخفاء الإشعار بعد 4 ثواني
+                        setTimeout(() => {
+                            setToasts(prev => prev.filter(t => t.id !== newLog.id));
+                        }, 4000);
+                        
+                        if(userRole.role === 'admin') {
+                            setActivityLogs(prev => [newLog, ...prev]);
+                        }
+                    }).subscribe();
+
+                    return () => supabase.removeChannel(logSub);
                 }
             }, [user, userRole, fetchOrdersData]);
 
@@ -418,6 +465,17 @@
                 };
             }, [filteredOrders]);
 
+            // تجميع سجلات النشاط بالأيام للمدير
+            const groupedLogs = useMemo(() => {
+                return activityLogs.reduce((acc, log) => {
+                    const dateObj = new Date(log.created_at);
+                    const dateStr = dateObj.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                    if (!acc[dateStr]) acc[dateStr] = [];
+                    acc[dateStr].push(log);
+                    return acc;
+                }, {});
+            }, [activityLogs]);
+
             // ==========================================
             // 7. دوال التحكم والإضافة (Action Handlers)
             // ==========================================
@@ -425,7 +483,9 @@
             const resetFilters = () => { 
                 setSearchQuery(''); setFilterStatus('الكل'); 
                 setFilterPage('الكل'); 
-                setDateFrom(''); setDateTo(''); setCurrentPage(1);
+                setDateFrom(''); setDateTo(''); 
+                setSearchResults([]);
+                setCurrentPage(1);
             };
 
             const navigateToFilteredOrders = (page, status) => { 
@@ -480,6 +540,7 @@
                     if (!editReason || editReason.trim() === '') {
                         return alert("يرجى كتابة سبب التعديل الخاص بك في الخانة الحمراء لكي يتم حفظ الأوردر.");
                     }
+                    // إضافة السبب مع الوقت والتاريخ
                     const timeNow = new Date().toLocaleString('ar-EG');
                     finalNotes = (finalNotes ? finalNotes + '\n' : '') + `[تعديل بعد الشحن - ${timeNow}]: ${editReason}`;
                 }
@@ -510,12 +571,14 @@
                             delete updatePayload.id; 
                             await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
                         }
+                        logActivity('تعديل الأوردر', finalOrderId);
                         alert("تم التعديل بنجاح!");
                         closeModal();
                     } else {
                         const { error } = await supabase.from('orders').insert([orderPayload]);
                         if (error) throw error;
                         
+                        logActivity('إضافة أوردر جديد', finalOrderId);
                         closeModal();
                         setSuccessOrderMessage(orderPayload); 
                     }
@@ -527,6 +590,13 @@
 
             const handleStatusChange = async (id, newStatus) => {
                 if (!user) return;
+                
+                const orderToUpdate = orders.find(o => o.id === id);
+                const isShipped = orderToUpdate?.status === 'الشحن' || orderToUpdate?.trackingNumber;
+                if (userRole?.role === 'agent' && isShipped) {
+                    return alert("عفواً، لا يمكنك تغيير حالة طلب تم شحنه من هنا. يرجى الضغط على زر 'تعديل' لكتابة سبب التعديل أولاً.");
+                }
+
                 const previousOrders = [...orders];
                 setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
                 if(viewOrder && viewOrder.id === id) setViewOrder({...viewOrder, status: newStatus});
@@ -534,6 +604,7 @@
                 try {
                     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', id);
                     if(error) throw error;
+                    logActivity(`تغيير حالة الأوردر إلى "${newStatus}"`, id);
                 } catch (error) { 
                     alert("خطأ في التحديث: " + error.message);
                     setOrders(previousOrders);
@@ -542,6 +613,12 @@
 
             const saveQuickUpdate = async () => {
                  if (!user || !viewOrder) return;
+                 
+                 const isShipped = viewOrder.status === 'الشحن' || viewOrder.trackingNumber;
+                 if (userRole?.role === 'agent' && isShipped) {
+                     return alert("عفواً، لا يمكنك التعديل السريع لطلب تم شحنه. يرجى الضغط على زر 'تعديل' لكتابة سبب التعديل.");
+                 }
+
                  try {
                      const { error } = await supabase.from('orders').update({ 
                          trackingNumber: quickTracking, 
@@ -550,6 +627,7 @@
                      
                      if(error) throw error;
                      
+                     logActivity(`تحديث سريع (حالة/بوليصة)`, viewOrder.id);
                      setViewOrder({...viewOrder, trackingNumber: quickTracking, status: quickStatus});
                      setOrders(prev => prev.map(o => o.id === viewOrder.id ? { ...o, trackingNumber: quickTracking, status: quickStatus } : o));
                      alert("تم الحفظ بنجاح!");
@@ -569,6 +647,7 @@
                 try {
                     const { error } = await supabase.from('orders').delete().eq('id', exactId);
                     if(error) throw error;
+                    logActivity(`مسح الأوردر نهائياً`, exactId);
                 } catch (error) { 
                     alert(`فشل المسح: ${error.message}`);
                     setOrders(previousOrders);
@@ -589,6 +668,7 @@
                 try {
                     const { error } = await supabase.from('orders').delete().in('id', idsToDelete);
                     if (error) throw error;
+                    logActivity(`مسح ${idsToDelete.length} طلبات معاً`, 'متعدد');
                 } catch (error) { 
                     alert(`فشل المسح الجماعي: ${error.message}`); 
                     setOrders(previousOrders);
@@ -648,6 +728,7 @@
                     const { error } = await supabase.from('orders').insert(ordersToInsert);
                     if (error) throw error;
                     
+                    logActivity(`إضافة مجموعة طلبات (${ordersToInsert.length} طلب)`, 'متعدد');
                     alert(`تمت إضافة ${ordersToInsert.length} طلبات بنجاح!`);
                     setIsBulkModalOpen(false);
                     setBulkOrders(Array(5).fill({...emptyBulkRow}));
@@ -707,6 +788,7 @@
                 const content = '\uFEFF' + [headers.join(','), ...rows].join('\n');
                 const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `شيت_شحن_${new Date().toISOString().split('T')[0]}.csv`; link.click();
+                logActivity(`تنزيل شيت شحن (${toExport.length} طلب)`, 'متعدد');
             };
 
             const parseCSV = (text) => {
@@ -779,6 +861,7 @@
                         setImportProgress(Math.round(((i + chunk.length) / uniqueDataToInsert.length) * 100));
                     }
 
+                    logActivity(`رفع شيت إكسيل (${validRecordsCount} طلب)`, 'متعدد');
                     setImportStatusText("تم الرفع بنجاح!");
                     fetchOrdersData(); 
                     setIsImporting(false); setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]);
@@ -880,6 +963,21 @@
                 );
             }
 
+            if (userRole && !userRole.is_approved && userRole.role !== 'admin') {
+                 return (
+                    <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
+                        <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-100 text-center">
+                            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <IconClock size={32} />
+                            </div>
+                            <h2 className="text-xl md:text-2xl font-black text-slate-800 mb-2">حسابك قيد المراجعة</h2>
+                            <p className="text-slate-600 font-bold mb-6 text-sm">تم تسجيل حسابك بنجاح. يرجى الانتظار حتى يقوم المدير بتفعيل حسابك وتحديد صلاحياتك.</p>
+                            <button onClick={handleLogout} className="bg-slate-800 text-white px-6 py-2.5 rounded-xl font-bold w-full text-sm">تسجيل الخروج</button>
+                        </div>
+                    </div>
+                 );
+            }
+
             if (!userRole) {
                  return (
                     <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
@@ -896,6 +994,17 @@
 
             return (
                 <div className="flex h-screen overflow-hidden bg-[#f8fafc]">
+                    
+                    {/* نظام الإشعارات المنبثقة (Toasts) */}
+                    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none w-11/12 md:w-auto max-w-md">
+                        {toasts.map((t, idx) => (
+                            <div key={t.id || idx} className="toast-enter bg-slate-800 text-white px-4 py-3 rounded-xl shadow-2xl text-xs md:text-sm flex items-center gap-3 border border-slate-700">
+                                <span className="bg-indigo-500 p-1.5 rounded-full"><IconBell /></span>
+                                <span className="font-semibold leading-relaxed">الموظف <b className="text-indigo-300">{t.user_name}</b> قام بـ <b className="text-amber-300">{t.action}</b> {t.order_id !== 'متعدد' ? `(طلب: ${t.order_id})` : ''}</span>
+                            </div>
+                        ))}
+                    </div>
+
                     {/* القائمة الجانبية */}
                     <aside className={`fixed inset-y-0 right-0 z-50 w-64 bg-slate-900 text-white transition-transform transform ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0 md:relative shadow-2xl flex flex-col`}>
                         <div className="flex items-center justify-between p-6 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-700/50">
@@ -903,7 +1012,7 @@
                             <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}><IconX /></button>
                         </div>
                         <div className="p-4 bg-slate-800/50 border-b border-slate-800 flex justify-between items-center">
-                            <div className="flex flex-col overflow-hidden"><span className="text-sm font-bold text-white truncate">{userRole.name || 'مستخدم'}</span><span className="text-[10px] text-indigo-300 font-black mt-0.5">{userRole.role === 'admin' ? 'مدير النظام 👑' : `موظف`}</span></div>
+                            <div className="flex flex-col overflow-hidden"><span className="text-sm font-bold text-white truncate">{userRole.name || 'مستخدم'}</span><span className="text-[10px] text-indigo-300 font-black mt-0.5">{userRole.role === 'admin' ? 'مدير النظام 👑' : `موظف: ${availablePages.join('، ') || 'بدون صفحة'}`}</span></div>
                             <button onClick={handleLogout} className="text-red-400 hover:text-red-300 p-2 bg-slate-800 rounded-lg" title="تسجيل خروج"><IconLogOut /></button>
                         </div>
                         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
@@ -911,6 +1020,7 @@
                             <button onClick={() => {setCurrentTab('orders'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'orders' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconCart /></span> <span>الطلبات والمتابعة</span></button>
                             {userRole.role === 'admin' && <button onClick={() => {setCurrentTab('pages'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'pages' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إحصائيات الصفحات</span></button>}
                             {userRole.role === 'admin' && <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-4 border border-indigo-500/30 ${currentTab === 'users' ? 'bg-indigo-800 text-white shadow-lg shadow-indigo-900/50' : 'text-indigo-300 hover:bg-slate-800 hover:text-white'}`}><span><IconUsers /></span> <span>إدارة الموظفين</span></button>}
+                            {userRole.role === 'admin' && <button onClick={() => {setCurrentTab('logs'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-2 border border-amber-500/30 ${currentTab === 'logs' ? 'bg-amber-700 text-white shadow-lg shadow-amber-900/50' : 'text-amber-300 hover:bg-slate-800 hover:text-white'}`}><span><IconActivity /></span> <span>سجل النشاطات</span></button>}
                         </nav>
                     </aside>
 
@@ -926,6 +1036,7 @@
                                     {currentTab === 'orders' && (userRole.role === 'admin' ? 'إدارة كل الطلبات' : `طلباتك`)}
                                     {currentTab === 'pages' && 'الإحصائيات المتقدمة'}
                                     {currentTab === 'users' && 'لوحة الإدارة'}
+                                    {currentTab === 'logs' && 'سجل نشاطات الموظفين'}
                                 </h1>
                             </div>
                             <div className="flex items-center gap-1.5 md:gap-3 w-full md:w-auto">
@@ -945,6 +1056,50 @@
                                 <div className="absolute inset-0 bg-white/60 z-10 flex flex-col items-center justify-center backdrop-blur-sm"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>
                             )}
 
+                            {/* تبويب سجل النشاطات (للمديرين) */}
+                            {currentTab === 'logs' && userRole.role === 'admin' && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
+                                    <div className="bg-amber-50 border border-amber-200 p-4 md:p-5 rounded-2xl flex justify-between items-center">
+                                        <div>
+                                            <h2 className="font-black text-amber-900 text-base md:text-lg mb-1">مراقبة حركات النظام</h2>
+                                            <p className="text-xs md:text-sm text-amber-800 font-bold">هنا يتم تسجيل كل حركة يقوم بها أي موظف بالوقت والتاريخ.</p>
+                                        </div>
+                                        <button onClick={fetchActivityLogs} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-bold text-xs md:text-sm shadow-md transition-colors">تحديث السجل 🔄</button>
+                                    </div>
+
+                                    <div className="space-y-8">
+                                        {Object.keys(groupedLogs).length === 0 ? (
+                                            <div className="text-center text-slate-500 py-10 font-bold">لا توجد نشاطات مسجلة حتى الآن.</div>
+                                        ) : (
+                                            Object.keys(groupedLogs).map(dateStr => (
+                                                <div key={dateStr} className="relative pl-4 md:pl-0 pr-4 md:pr-6 border-r-4 border-indigo-200">
+                                                    <div className="absolute -right-3 top-0 bg-indigo-100 text-indigo-800 px-3 py-1 rounded-lg text-xs md:text-sm font-black border border-indigo-200 shadow-sm">{dateStr}</div>
+                                                    <div className="mt-8 space-y-3">
+                                                        {groupedLogs[dateStr].map(log => {
+                                                            const timeStr = new Date(log.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                                                            return (
+                                                                <div key={log.id} className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between gap-4 hover:border-indigo-100 transition-colors">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="bg-slate-100 p-2 rounded-full text-slate-500"><IconActivity /></div>
+                                                                        <div>
+                                                                            <p className="text-xs md:text-sm font-bold text-slate-800">
+                                                                                الموظف <span className="text-indigo-600">{log.user_name}</span> قام بـ <span className="text-amber-600">{log.action}</span>
+                                                                            </p>
+                                                                            {log.order_id && log.order_id !== 'متعدد' && <p className="text-[10px] md:text-xs text-slate-500 mt-0.5 font-mono">الطلب: {log.order_id}</p>}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-[10px] md:text-xs font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded">{timeStr}</div>
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* تبويب إدارة البنات */}
                             {currentTab === 'users' && userRole.role === 'admin' && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -959,14 +1114,14 @@
 
                                     <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-x-auto">
                                         <table className="w-full text-right min-w-[800px]">
-                                            <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/6">الآي دي (ID)</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/6">الاسم</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/4">الدور والصلاحيات الإضافية</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold">الصفحات المخصصة</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold text-center w-24">الحالة</th></tr></thead>
+                                            <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/6">الآي دي (ID)</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/6">الاسم</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/4">الدور والصلاحيات الإضافية</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold">الصفحات المخصصة</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold text-center w-24">حالة الحساب</th></tr></thead>
                                             <tbody className="divide-y divide-slate-100/50">
                                                 {usersList.map(u => (
                                                     <tr key={u.id} className="hover:bg-slate-50 align-top">
                                                         <td className="px-3 py-3 md:px-4 md:py-4 text-[10px] md:text-xs font-mono text-slate-400 break-all">{u.id}</td>
-                                                        <td className="px-3 py-3 md:px-4 md:py-4 font-bold text-xs md:text-sm"><input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); }} className="border p-1.5 rounded text-xs md:text-sm w-full" /></td>
+                                                        <td className="px-3 py-3 md:px-4 md:py-4 font-bold text-xs md:text-sm"><input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full" /></td>
                                                         <td className="px-3 py-3 md:px-4 md:py-4 font-bold text-xs md:text-sm">
-                                                            <select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(e.target.value === 'admin') await supabase.from('user_roles').update({assigned_page: null}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full mb-2"><option value="agent">موظف (Agent)</option><option value="admin">مدير (Admin)</option></select>
+                                                            <select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(e.target.value === 'admin') await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full mb-2 outline-none focus:ring-2 focus:ring-indigo-500"><option value="agent">موظف (Agent)</option><option value="admin">مدير (Admin)</option></select>
                                                             {u.role === 'agent' && (
                                                                 <div className="flex flex-col gap-1.5 text-[10px] md:text-[11px] text-slate-700 font-semibold bg-slate-50 p-2 rounded border border-slate-200 shadow-inner">
                                                                     <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={u.can_add_bulk || false} onChange={e => togglePerm(u.id, 'can_add_bulk', e.target.checked)}/> إضافة مجموعة</label>
@@ -1007,7 +1162,15 @@
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td className="px-3 py-3 md:px-4 md:py-4 text-center"><span className="text-green-600 font-bold text-[10px] md:text-xs bg-green-50 px-2 py-1 rounded">مفعل ✓</span></td>
+                                                        <td className="px-3 py-3 md:px-4 md:py-4 text-center align-middle">
+                                                            <label className="flex flex-col items-center gap-1 cursor-pointer">
+                                                                <div className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${u.is_approved ? 'bg-green-500' : 'bg-slate-300'}`}>
+                                                                    <input type="checkbox" className="sr-only" checked={u.is_approved || false} onChange={e => togglePerm(u.id, 'is_approved', e.target.checked)} disabled={u.role === 'admin'} />
+                                                                    <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${u.is_approved ? 'translate-x-1' : '-translate-x-6'}`}/>
+                                                                </div>
+                                                                <span className={`text-[10px] font-bold ${u.is_approved ? 'text-green-600' : 'text-slate-400'}`}>{u.is_approved ? 'مفعل' : 'معلق'}</span>
+                                                            </label>
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -1279,7 +1442,7 @@
                         </div>
                     )}
 
-                    {/* نافذة العرض والمشاركة */}
+                    {/* نافذة العرض السريع والمشاركة */}
                     {isViewModalOpen && viewOrder && (
                         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[70] flex items-end md:items-center justify-center md:p-4">
                             <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full md:max-w-lg overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border-4 border-indigo-600">
