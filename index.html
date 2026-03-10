@@ -228,6 +228,7 @@
             const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
             const [searchResults, setSearchResults] = useState([]); 
             const [isSearchingDb, setIsSearchingDb] = useState(false); 
+            const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
 
             // -- فلاتر سجل النشاطات (Logs) --
             const [logSearchQuery, setLogSearchQuery] = useState('');
@@ -259,7 +260,7 @@
             const [productSearchStr, setProductSearchStr] = useState('');
             const [showProductSuggestions, setShowProductSuggestions] = useState(false);
             const [selectedProductDetails, setSelectedProductDetails] = useState(null);
-            const [duplicateWarning, setDuplicateWarning] = useState(null);
+            const [duplicateWarnings, setDuplicateWarnings] = useState([]);
             const [editingProduct, setEditingProduct] = useState({ id: null, name: '', price: '', colors: '', sizes: '', image: '' });
 
             // -- الثوابت وإعدادات الإضافة المتعددة ومسميات الوظائف --
@@ -490,7 +491,7 @@
 
             useEffect(() => {
                 setCurrentPage(1);
-            }, [searchQuery, filterStatus, filterPage, dateFrom, dateTo]);
+            }, [searchQuery, filterStatus, filterPage, dateFrom, dateTo, showDuplicatesOnly]);
 
             useEffect(() => {
                 const delayDebounceFn = setTimeout(() => {
@@ -507,16 +508,24 @@
             // كشف تكرار رقم التليفون
             useEffect(() => {
                 if (newOrder.phone && newOrder.phone.length >= 10) {
-                    const found = orders.find(o => o.phone === newOrder.phone && o.id !== newOrder.id);
-                    setDuplicateWarning(found || null);
+                    const found = orders.filter(o => o.phone === newOrder.phone && o.id !== newOrder.id);
+                    setDuplicateWarnings(found);
                 } else {
-                    setDuplicateWarning(null);
+                    setDuplicateWarnings([]);
                 }
             }, [newOrder.phone, orders, newOrder.id]);
 
             // ==========================================
-            // 6. تجهيز الفلاتر (useMemos)
+            // 6. تجهيز الفلاتر والمجاميع (useMemos)
             // ==========================================
+
+            const phoneCounts = useMemo(() => {
+                const counts = {};
+                orders.forEach(o => {
+                    if (o.phone) counts[o.phone] = (counts[o.phone] || 0) + 1;
+                });
+                return counts;
+            }, [orders]);
 
             const visibleUsers = useMemo(() => {
                 if (!usersList.length) return [];
@@ -558,10 +567,11 @@
                     const matchesRole = isSuperAdmin ? true : (availablePages.includes(order.page));
                     const matchesDateFrom = !dateFrom || (order.date && order.date >= dateFrom);
                     const matchesDateTo = !dateTo || (order.date && order.date <= dateTo);
+                    const matchesDuplicates = showDuplicatesOnly ? phoneCounts[order.phone] > 1 : true;
 
-                    return matchesSearch && matchesStatus && matchesPage && matchesRole && matchesDateFrom && matchesDateTo;
+                    return matchesSearch && matchesStatus && matchesPage && matchesRole && matchesDateFrom && matchesDateTo && matchesDuplicates;
                 });
-            }, [allVisibleOrders, searchQuery, filterStatus, filterPage, isSuperAdmin, availablePages, dateFrom, dateTo]);
+            }, [allVisibleOrders, searchQuery, filterStatus, filterPage, isSuperAdmin, availablePages, dateFrom, dateTo, showDuplicatesOnly, phoneCounts]);
 
             const displayedOrders = useMemo(() => {
                 if (ordersPerPage === 'All') return filteredOrders;
@@ -622,19 +632,28 @@
             }, [displayedLogs]);
 
             // ==========================================
-            // 7. دوال واجهة المستخدم والمنتجات
+            // 7. دوال واجهة المستخدم والحساب الذكي
             // ==========================================
 
-            const handleCalcBtn = (btn) => {
-                if (btn === 'C') { setCalcExp(''); setNewOrder({ ...newOrder, productPrice: '' }); } 
-                else if (btn === '=') { try { const result = new Function('return ' + calcExp)(); setCalcExp(String(result)); setNewOrder({ ...newOrder, productPrice: result }); setShowCalc(false); } catch (e) { setCalcExp('خطأ'); } } 
-                else { setCalcExp((prev) => (prev === 'خطأ' ? btn : prev + btn)); }
+            const handleMathOnBlur = (field, value) => {
+                try {
+                    if (value && typeof value === 'string') {
+                        const sanitizedVal = value.replace(/[^0-9+\-*/.]/g, '');
+                        if (sanitizedVal) {
+                            const evalResult = new Function('return ' + sanitizedVal)();
+                            if (!isNaN(evalResult) && isFinite(evalResult)) {
+                                setNewOrder(prev => ({...prev, [field]: evalResult}));
+                            }
+                        }
+                    }
+                } catch(err) {}
             };
 
             const resetFilters = () => { 
                 setSearchQuery(''); setFilterStatus('الكل'); 
                 setFilterPage('الكل'); 
                 setDateFrom(''); setDateTo(''); 
+                setShowDuplicatesOnly(false);
                 setSearchResults([]);
                 setCurrentPage(1);
             };
@@ -656,7 +675,6 @@
                 selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); 
             };
 
-            // التعامل مع صورة المنتج
             const handleProductImage = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -1014,7 +1032,7 @@
                 setOriginalOrderId(order.id); 
                 setIsAddModalOpen(true); 
             };
-            const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); };
+            const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); setDuplicateWarnings([]); };
             const openViewModal = (order) => { setViewOrder(order); setQuickTracking(order.trackingNumber || ''); setQuickStatus(order.status || 'جاري التحضير'); setIsViewModalOpen(true); };
             const closeViewModal = () => { setIsViewModalOpen(false); setViewOrder(null); setCopiedType(''); setQuickTracking(''); };
 
@@ -1477,19 +1495,19 @@
 
                                     <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-x-auto">
                                         <table className="w-full text-right dynamic-table min-w-[800px]">
-                                            <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/6">الآي دي (ID)</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/6">الاسم</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/4">الدور والصلاحيات الإضافية</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold">الصفحات المخصصة</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold text-center w-24">حالة الحساب</th></tr></thead>
+                                            <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="font-bold w-1/6">الآي دي (ID)</th><th className="font-bold w-1/6">الاسم</th><th className="font-bold w-1/4">الدور والصلاحيات الإضافية</th><th className="font-bold">الصفحات المخصصة</th><th className="font-bold text-center w-24">حالة الحساب</th></tr></thead>
                                             <tbody className="divide-y divide-slate-100/50">
                                                 {visibleUsers.map(u => (
                                                     <tr key={u.id} className="hover:bg-slate-50 align-top">
-                                                        <td className="px-3 py-3 md:px-4 md:py-4 text-[10px] md:text-xs font-mono text-slate-400 break-all">{u.id}</td>
-                                                        <td className="px-3 py-3 md:px-4 md:py-4 font-bold text-xs md:text-sm">
+                                                        <td className="text-[10px] md:text-xs font-mono text-slate-400 break-all">{u.id}</td>
+                                                        <td className="font-bold text-xs md:text-sm">
                                                             {isSuperAdmin ? (
                                                                 <input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full" />
                                                             ) : (
                                                                 <span className="text-slate-800">{u.name}</span>
                                                             )}
                                                         </td>
-                                                        <td className="px-3 py-3 md:px-4 md:py-4 font-bold text-xs md:text-sm">
+                                                        <td className="font-bold text-xs md:text-sm">
                                                             {isSuperAdmin ? (
                                                                 <select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(SUPER_ADMIN_ROLES.includes(e.target.value)) await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full mb-2 outline-none focus:ring-2 focus:ring-indigo-500">
                                                                     {Object.entries(ROLE_NAMES).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
@@ -1508,7 +1526,7 @@
                                                             )}
                                                             {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-slate-400 text-center mt-2">صلاحيات إدارة كاملة</div>}
                                                         </td>
-                                                        <td className="px-3 py-3 md:px-4 md:py-4 font-bold text-xs md:text-sm">
+                                                        <td className="font-bold text-xs md:text-sm">
                                                             {SUPER_ADMIN_ROLES.includes(u.role) ? <span className="text-slate-400 text-xs mt-2 inline-block">مفتوح لكل الصفحات</span> : (
                                                                 <div className="flex flex-wrap gap-1.5">
                                                                     {availablePages.map(p => {
@@ -1538,7 +1556,7 @@
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td className="px-3 py-3 md:px-4 md:py-4 text-center align-middle">
+                                                        <td className="text-center align-middle">
                                                             <label className="flex flex-col items-center gap-1 cursor-pointer">
                                                                 <div className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${u.is_approved ? 'bg-green-500' : 'bg-slate-300'}`}>
                                                                     <input type="checkbox" className="sr-only" checked={u.is_approved || false} onChange={e => togglePerm(u.id, 'is_approved', e.target.checked)} disabled={SUPER_ADMIN_ROLES.includes(u.role)} />
@@ -1621,7 +1639,10 @@
                                             <div className="col-span-2 relative"><div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400"><IconSearch size={14} /></div><input type="text" placeholder="بحث بالاسم، هاتف، طلب..." className="block w-full pl-2 pr-8 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow text-[11px] md:text-sm font-semibold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
                                             <div><select className="w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-[11px] md:text-sm font-semibold" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="الكل">جميع الحالات</option>{orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
                                             <div><select className={`w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-[11px] md:text-sm font-semibold ${userRole.role === 'agent' && availablePages.length === 1 ? 'opacity-70 bg-slate-100 cursor-not-allowed' : ''}`} value={filterPage} onChange={(e) => setFilterPage(e.target.value)} disabled={userRole.role === 'agent' && availablePages.length === 1}><option value="الكل">{isSuperAdmin ? 'جميع الصفحات' : 'كل صفحاتك'}</option>{availablePages.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
-                                            <div className="col-span-2 md:col-span-1"><button onClick={resetFilters} className="w-full py-1.5 md:py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg md:rounded-xl font-bold text-[11px] md:text-sm transition-colors border border-slate-200">إلغاء الفلاتر</button></div>
+                                            <div className="col-span-2 md:col-span-1 flex gap-2">
+                                                <button onClick={resetFilters} className="flex-1 py-1.5 md:py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg md:rounded-xl font-bold text-[11px] md:text-sm transition-colors border border-slate-200">إلغاء الفلتر</button>
+                                                <button onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)} className={`flex-1 py-1.5 md:py-2.5 rounded-lg md:rounded-xl font-bold text-[11px] md:text-sm transition-colors border ${showDuplicatesOnly ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-white hover:bg-amber-50 border-slate-200 text-slate-700'}`}>المكرر ⚠️</button>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1646,15 +1667,19 @@
                                                     {displayedOrders.length > 0 ? displayedOrders.map(order => {
                                                         const isShipped = order.status === 'الشحن' || order.trackingNumber;
                                                         const agentCannotQuickEdit = userRole?.role === 'agent' && isShipped; 
+                                                        const isDuplicate = phoneCounts[order.phone] > 1;
 
                                                         return (
                                                         <tr key={order.id} className={`transition-colors border-b border-white/20 ${selectedOrders.includes(order.id) ? 'bg-indigo-50 border-indigo-200' : getRowStatusColor(order.status)}`}>
                                                             <td className="align-top text-center"><input type="checkbox" className="custom-checkbox mx-auto mt-1" checked={selectedOrders.includes(order.id)} onChange={() => handleSelectOrder(order.id)} /></td>
                                                             <td className="align-top"><div className="font-black text-[11px] md:text-sm break-all">{order.id}</div></td>
                                                             <td className="align-top whitespace-normal break-words"><div className="font-bold text-xs md:text-sm">{order.customer}</div><div className="text-[10px] md:text-[11px] font-medium mt-1 leading-tight opacity-80" title={order.address}>{order.address}</div></td>
-                                                            <td className="align-top"><div className="text-[10px] md:text-xs font-bold opacity-90" dir="ltr">{order.phone}</div></td>
+                                                            <td className="align-top">
+                                                                <div className="text-[10px] md:text-xs font-bold opacity-90" dir="ltr">{order.phone}</div>
+                                                                {isDuplicate && <div className="text-[8px] md:text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black mt-1 inline-block border border-red-200">مكرر ({phoneCounts[order.phone]} مرات)</div>}
+                                                            </td>
                                                             <td className="hidden md:table-cell align-top whitespace-normal break-words whitespace-pre-wrap leading-tight text-[11px] font-medium opacity-80">{order.notes || '-'}</td>
-                                                            <td className="align-top whitespace-normal break-words"><span className={`px-1.5 py-0.5 border rounded text-[8px] md:text-[9px] font-black mb-1 inline-block shadow-sm bg-white/60`}>{order.page}</span><div className="text-[10px] md:text-xs font-bold mt-1 leading-snug line-clamp-3" title={order.item}>{order.item}</div></td>
+                                                            <td className="align-top whitespace-normal break-words"><span className={`px-1.5 py-0.5 border rounded text-[8px] md:text-[9px] font-black mb-1 inline-block shadow-sm bg-white/60`}>{order.page}</span><div className="text-[10px] md:text-xs font-bold mt-1 leading-snug line-clamp-3 whitespace-pre-wrap">{order.item}</div></td>
                                                             <td className="align-top text-center">
                                                                 <select value={order.status} onChange={(e) => handleStatusChange(order.id, e.target.value)} disabled={agentCannotQuickEdit} className={`text-[10px] md:text-xs rounded-lg w-full px-1 py-1 md:px-2 md:py-1.5 outline-none focus:ring-2 focus:ring-black/20 font-bold ${agentCannotQuickEdit ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} border shadow-sm ${getSelectStatusColor(order.status)}`}>
                                                                     {orderStatuses.map(status => <option key={status} value={status} className="text-slate-800 bg-white">{status}</option>)}
@@ -1702,34 +1727,6 @@
                             )}
                         </div>
                     </main>
-
-                    {/* نافذة إعدادات الواجهة */}
-                    {isSettingsOpen && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm border-t-4 border-indigo-600 animate-in zoom-in-95">
-                                <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-indigo-900"><IconSettings/> تخصيص العرض للعين</h3>
-                                <div className="space-y-5">
-                                    <div>
-                                        <label className="block text-sm font-bold mb-2 text-slate-700">حجم خط الجداول:</label>
-                                        <div className="flex gap-2">
-                                            {['12px', '14px', '16px'].map(sz => (
-                                                <button key={sz} onClick={() => setUiSettings({...uiSettings, fontSize: sz})} className={`flex-1 py-2 rounded-lg border font-bold text-sm transition-colors shadow-sm ${uiSettings.fontSize === sz ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}>{sz === '12px' ? 'صغير' : sz === '14px' ? 'متوسط' : 'كبير'}</button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold mb-2 text-slate-700">توسعة مسافات الجداول:</label>
-                                        <div className="flex gap-2">
-                                            {['4px', '8px', '12px'].map(pd => (
-                                                <button key={pd} onClick={() => setUiSettings({...uiSettings, padding: pd})} className={`flex-1 py-2 rounded-lg border font-bold text-sm transition-colors shadow-sm ${uiSettings.padding === pd ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}>{pd === '4px' ? 'ضيق' : pd === '8px' ? 'عادي' : 'مريح'}</button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                                <button onClick={() => setIsSettingsOpen(false)} className="mt-8 w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl transition-colors shadow-md">حفظ وإغلاق</button>
-                            </div>
-                        </div>
-                    )}
 
                     {/* نافذة الإضافة المتعددة (الجدول السريع) */}
                     {isBulkModalOpen && (
@@ -1791,8 +1788,8 @@
                                                                 {orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                                             </select>
                                                         </td>
-                                                        <td><input type="number" min="0" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleBulkChange(index, 'shippingPrice', e.target.value)} /></td>
-                                                        <td><input type="number" min="0" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleBulkChange(index, 'productPrice', e.target.value)} /></td>
+                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleBulkChange(index, 'shippingPrice', e.target.value)} onBlur={(e) => { try { const res = new Function('return ' + e.target.value.replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'shippingPrice', res); } catch(err){} }} /></td>
+                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleBulkChange(index, 'productPrice', e.target.value)} onBlur={(e) => { try { const res = new Function('return ' + e.target.value.replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'productPrice', res); } catch(err){} }} /></td>
                                                         <td><input type="date" className="excel-input text-slate-700" value={row.date} onChange={(e) => handleBulkChange(index, 'date', e.target.value)} title="يترك فارغاً لتسجيل تاريخ اليوم" /></td>
                                                     </tr>
                                                 ))}
@@ -1881,7 +1878,7 @@
                                                 {isSuperAdmin && (
                                                     <input type="text" placeholder="رقم البوليصة..." className="w-full px-3 py-1.5 md:py-2 border border-teal-300 rounded-lg outline-none focus:ring-2 focus:ring-teal-500 font-bold text-xs md:text-sm text-slate-800" value={quickTracking} onChange={(e) => {
                                                         setQuickTracking(e.target.value);
-                                                        if(e.target.value.trim() !== '') setQuickStatus('الشحن'); // تحويل آلي
+                                                        if(e.target.value.trim() !== '') setQuickStatus('الشحن'); 
                                                     }} />
                                                 )}
                                                 <button onClick={saveQuickUpdate} className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg font-bold text-xs md:text-sm transition-colors shadow-sm mt-1">حفظ التحديث السريع</button>
@@ -1897,7 +1894,7 @@
                     {isImportModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[60] flex items-end md:items-center justify-center md:p-4">
                             <div className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full md:max-w-3xl h-[85vh] md:max-h-[95vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border border-slate-200">
-                                <div className="px-4 py-3 md:px-6 md:py-5 border-b bg-slate-50 flex justify-between items-center"><div className="flex items-center gap-2 md:gap-3"><div className="p-1.5 md:p-2.5 rounded-xl bg-indigo-100 text-indigo-700"><IconUpload /></div><div><h2 className="text-sm md:text-xl font-black text-slate-800">استيراد طلبات سابقة</h2><p className="text-[10px] md:text-xs text-slate-500 font-bold mt-0.5 md:mt-1">ارفع الشيت، حدد الصفحة، واربط الأعمدة</p></div></div><button onClick={closeImportModal} disabled={isImporting} className="p-1.5 md:p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm disabled:opacity-50"><IconX size={20} /></button></div>
+                                <div className="px-4 py-3 md:px-6 md:py-5 border-b bg-slate-50 flex justify-between items-center"><div className="flex items-center gap-2 md:gap-3"><div className="p-1.5 md:p-2.5 rounded-xl bg-indigo-100 text-indigo-700"><IconUpload /></div><div><h2 className="text-sm md:text-xl font-black text-slate-800">استيراد طلبات سابقة</h2><p className="text-[10px] md:text-xs text-slate-500 font-bold mt-0.5 md:mt-1">ارفع الشيت، حدد الصفحة، واربط الأعمدة</p></div></div><button onClick={() => setIsImportModalOpen(false)} disabled={isImporting} className="p-1.5 md:p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm disabled:opacity-50"><IconX size={20} /></button></div>
                                 <div className="p-4 md:p-6 overflow-y-auto flex-1 bg-white">
                                     {csvHeaders.length === 0 ? (
                                         <div className="border-2 border-dashed border-indigo-200 rounded-2xl bg-indigo-50/50 p-6 md:p-8 text-center"><IconUpload size={48} className="mx-auto text-indigo-400 mb-3 md:mb-4" /><h3 className="text-sm md:text-lg font-black text-indigo-900 mb-1.5 md:mb-2">اختر ملف CSV من جهازك</h3><p className="text-[10px] md:text-sm text-indigo-600/80 mb-4 md:mb-6">قم بتحميل ملفك من Google Sheets بصيغة (.csv)</p><input type="file" accept=".csv" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="csv-upload" /><label htmlFor="csv-upload" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 md:px-6 md:py-3 rounded-xl text-sm font-bold cursor-pointer inline-flex transition-colors shadow-md">اختيار الملف</label></div>
@@ -1911,7 +1908,7 @@
                                         </div>
                                     )}
                                 </div>
-                                {csvHeaders.length > 0 && !isImporting && (<div className="px-4 py-3 md:px-6 md:py-4 border-t bg-slate-50 flex justify-end gap-2 md:gap-3"><button onClick={closeImportModal} className="px-4 py-2 md:px-6 md:py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 text-xs md:text-sm hover:bg-slate-100 transition-colors">إلغاء</button><button onClick={startImport} className="px-6 py-2 md:px-8 md:py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-xs md:text-sm font-black shadow-lg shadow-indigo-200 hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:-translate-y-0.5">تأكيد الرفع</button></div>)}
+                                {csvHeaders.length > 0 && !isImporting && (<div className="px-4 py-3 md:px-6 md:py-4 border-t bg-slate-50 flex justify-end gap-2 md:gap-3"><button onClick={() => setIsImportModalOpen(false)} className="px-4 py-2 md:px-6 md:py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 text-xs md:text-sm hover:bg-slate-100 transition-colors">إلغاء</button><button onClick={startImport} className="px-6 py-2 md:px-8 md:py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-xs md:text-sm font-black shadow-lg shadow-indigo-200 hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:-translate-y-0.5">تأكيد الرفع</button></div>)}
                             </div>
                         </div>
                     )}
@@ -1925,9 +1922,12 @@
                                 <form onSubmit={handleAddOrEditOrder} className={`p-4 md:p-6 space-y-3 md:space-y-4 overflow-y-auto flex-1 ${currentTheme.bgLight}`}>
                                     
                                     {/* شريط التحذير من التكرار */}
-                                    {duplicateWarning && !isEditing && (
-                                        <div className="bg-amber-100 border-r-4 border-amber-500 p-3 rounded-lg shadow-sm text-amber-900 font-black text-[11px] md:text-sm flex items-center gap-2 animate-in fade-in">
-                                            <span className="text-lg md:text-xl">🚨</span> انتبه: هذا الرقم مسجل مسبقاً في الطلب رقم ({duplicateWarning.id}) وحالته: {duplicateWarning.status}
+                                    {duplicateWarnings.length > 0 && !isEditing && (
+                                        <div className="bg-amber-100 border-r-4 border-amber-500 p-3 rounded-lg shadow-sm text-amber-900 font-black text-[11px] md:text-sm flex flex-col gap-2 animate-in fade-in">
+                                            <div className="flex items-center gap-2 text-lg md:text-xl"><span>🚨</span> انتبه: العميل مكرر ({duplicateWarnings.length} طلبات سابقة):</div>
+                                            <ul className="list-disc pr-6 text-[10px] md:text-xs">
+                                                {duplicateWarnings.map(d => <li key={d.id}>رقم {d.id} - الحالة: {d.status}</li>)}
+                                            </ul>
                                         </div>
                                     )}
 
@@ -2032,8 +2032,14 @@
 
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">المنتج / الوصف النهائي (يمكن التعديل يدوياً) <span className="text-red-500">*</span></label><textarea required rows="3" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm leading-relaxed whitespace-pre-wrap ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">حالة الطلب</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.status} onChange={e => setNewOrder({...newOrder, status: e.target.value})}>{orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}</select></div>
-                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">إجمالي سعر المنتجات (ج.م) <span className="text-red-500">*</span></label><div className="relative"><input required type="number" min="0" className={`w-full px-3 py-2 md:px-4 md:py-2.5 pl-10 md:pl-12 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} /><button type="button" onClick={() => setShowCalc(!showCalc)} className={`absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 p-1.5 md:p-2 rounded-lg transition-colors bg-white shadow-sm border border-slate-100 ${currentTheme.textPrimary} hover:bg-slate-50`}><IconCalc /></button></div>{showCalc && (<div dir="ltr" className="absolute z-10 bottom-full left-0 mb-2 md:mb-3 bg-white border border-slate-200 shadow-2xl rounded-2xl p-3 md:p-4 w-48 md:w-56 animate-in zoom-in-95"><div className="mb-2 md:mb-3 p-2 md:p-3 bg-slate-100 text-right font-mono text-base md:text-xl rounded-xl border border-slate-200 min-h-[40px] md:min-h-[50px] break-all font-bold shadow-inner text-slate-800">{calcExp || '0'}</div><div className="grid grid-cols-4 gap-1.5 md:gap-2">{calcButtons.map(btn => (<button key={btn} type="button" onClick={() => handleCalcBtn(btn)} className={`p-2 md:p-3 text-xs md:text-sm font-black rounded-xl flex items-center justify-center transition-all ${btn === '=' ? `${currentTheme.btnPrimary} col-span-2 shadow-md` : btn === 'C' ? 'bg-red-100 text-red-600 hover:bg-red-200' : ['+','-','*','/'].includes(btn) ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'}`}>{btn}</button>))}</div></div>)}</div>
-                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر الشحن (ج.م) <span className="text-red-500">*</span></label><input required type="number" min="0" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.shippingPrice} onChange={e => setNewOrder({...newOrder, shippingPrice: e.target.value})} /></div>
+                                        <div>
+                                            <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر المنتجات (ج.م) <span className="text-red-500">*</span></label>
+                                            <input required type="text" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} onBlur={(e) => handleMathOnBlur('productPrice', e.target.value)} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر الشحن (ج.م) <span className="text-red-500">*</span></label>
+                                            <input required type="text" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.shippingPrice} onChange={e => setNewOrder({...newOrder, shippingPrice: e.target.value})} onBlur={(e) => handleMathOnBlur('shippingPrice', e.target.value)} placeholder="0" />
+                                        </div>
                                         
                                         <div className="md:col-span-2 p-3 md:p-4 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-between text-white shadow-inner"><span className="text-xs md:text-sm font-bold text-slate-300">الإجمالي النهائي المطلوب:</span><span className="font-black text-lg md:text-2xl tracking-wide">{(Number(newOrder.shippingPrice) || 0) + (Number(newOrder.productPrice) || 0)} <span className="text-[10px] md:text-sm font-normal text-slate-400">ج.م</span></span></div>
                                         
