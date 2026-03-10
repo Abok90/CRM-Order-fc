@@ -20,11 +20,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     
     <style>
+        /* المتغيرات الديناميكية للتحكم في واجهة المستخدم (حسب الإعدادات) */
+        :root {
+            --fs: 14px;
+            --row-pad: 8px;
+        }
+
         body { 
             font-family: 'Cairo', sans-serif; 
             background-color: #f0f4f8; 
             -webkit-tap-highlight-color: transparent;
         }
+        
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -94,7 +101,7 @@
         }
 
         // ==========================================
-        // 2. مكونات الأيقونات (أحجام ديناميكية للموبايل)
+        // 2. مكونات الأيقونات
         // ==========================================
         const IconPackage = ({size=24}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
         const IconDashboard = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>;
@@ -121,9 +128,31 @@
         const IconTable = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="3" x2="21" y1="15" y2="15"/><line x1="9" x2="9" y1="9" y2="21"/><line x1="15" x2="15" y1="9" y2="21"/></svg>;
         const IconActivity = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
         const IconBell = ({size=18}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>;
+        const IconSettings = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+        const IconImage = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>;
+        const IconChevronDown = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>;
+
+        // ثوابت الآلة الحاسبة
+        const calcButtons = ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', 'C', '0', '=', '+'];
 
         // ==========================================
-        // 3. المكون الرئيسي (App)
+        // 3. منتجات Fashion EG الافتراضية (10 منتجات)
+        // ==========================================
+        const initialSeedProducts = [
+            { name: 'تيشيرت صيفي بيسيك قطن 100%', price: 250, colors: 'أبيض,أسود,كحلي,رمادي', sizes: 'M,L,XL,XXL', image: '' },
+            { name: 'قميص كاجوال رجالي أوكسفورد', price: 450, colors: 'أزرق فاتح,رمادي,أبيض,زيتي', sizes: 'L,XL,XXL', image: '' },
+            { name: 'بنطلون جينز سكيني مطاط', price: 600, colors: 'أزرق فاتح,أزرق غامق,أسود', sizes: '30,32,34,36', image: '' },
+            { name: 'سويت شيرت شتوي ميلتون', price: 850, colors: 'أحمر,أسود,رمادي,مسترده', sizes: 'M,L,XL,XXL', image: '' },
+            { name: 'فستان صيفي حريمي مشجر', price: 750, colors: 'أصفر,أخضر,وردي,أزرق', sizes: 'S,M,L', image: '' },
+            { name: 'جاكيت جينز عصري', price: 900, colors: 'أزرق,أسود', sizes: 'M,L,XL', image: '' },
+            { name: 'حذاء رياضي للركض مستورد', price: 1200, colors: 'أبيض,أسود', sizes: '41,42,43,44,45', image: '' },
+            { name: 'حقيبة ظهر كاجوال للجنسين', price: 350, colors: 'أسود,بني,كحلي', sizes: 'One Size', image: '' },
+            { name: 'طقم بيجامة قطن حريمي', price: 500, colors: 'وردي,أزرق,أصفر', sizes: 'M,L,XL', image: '' },
+            { name: 'نظارة شمسية كلاسيك UV400', price: 299, colors: 'أسود,بني', sizes: 'One Size', image: '' }
+        ];
+
+        // ==========================================
+        // 4. المكون الرئيسي (App)
         // ==========================================
         function App() {
             // -- حالة المصادقة --
@@ -134,12 +163,23 @@
             const [authLoading, setAuthLoading] = useState(true);
             const [authError, setAuthError] = useState('');
 
-            // -- حالة الواجهة --
+            // -- حالة الواجهة والإعدادات (UI CSS Vars) --
             const [loadingDB, setLoadingDB] = useState(false);
             const [currentTab, setCurrentTab] = useState('dashboard');
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
             
-            // -- نوافذ (Modals) للموبايل --
+            const [uiSettings, setUiSettings] = useState(() => {
+                return JSON.parse(localStorage.getItem('crmUiSettings')) || { fontSize: '14px', padding: '8px' };
+            });
+
+            useEffect(() => {
+                localStorage.setItem('crmUiSettings', JSON.stringify(uiSettings));
+                document.documentElement.style.setProperty('--fs', uiSettings.fontSize);
+                document.documentElement.style.setProperty('--row-pad', uiSettings.padding);
+            }, [uiSettings]);
+            
+            // -- نوافذ (Modals) --
             const [isAddModalOpen, setIsAddModalOpen] = useState(false);
             const [isEditing, setIsEditing] = useState(false);
             const [originalOrderId, setOriginalOrderId] = useState(null); 
@@ -157,8 +197,9 @@
             const [quickTracking, setQuickTracking] = useState(''); 
             const [quickStatus, setQuickStatus] = useState(''); 
             
-            // -- البيانات --
+            // -- البيانات الأساسية --
             const [orders, setOrders] = useState([]);
+            const [products, setProducts] = useState([]);
             const ordersRef = useRef([]); 
             const [usersList, setUsersList] = useState([]);
             
@@ -201,9 +242,15 @@
             });
             const fileInputRef = useRef(null);
 
-            // -- الآلة الحاسبة --
+            // -- الآلة الحاسبة والإكمال التلقائي --
             const [showCalc, setShowCalc] = useState(false);
             const [calcExp, setCalcExp] = useState('');
+            
+            const [productSearchStr, setProductSearchStr] = useState('');
+            const [showProductSuggestions, setShowProductSuggestions] = useState(false);
+            const [selectedProductDetails, setSelectedProductDetails] = useState(null);
+            const [duplicateWarning, setDuplicateWarning] = useState(null);
+            const [editingProduct, setEditingProduct] = useState({ id: null, name: '', price: '', colors: '', sizes: '', image: '' });
 
             // -- الثوابت وإعدادات الإضافة المتعددة ومسميات الوظائف --
             const pages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب'];
@@ -254,7 +301,6 @@
                             setBulkTargetPage(firstPage);
                         }
                     } else {
-                        // لأي مستخدم جديد يتم إضافته
                         const { count } = await supabase.from('user_roles').select('*', { count: 'exact', head: true });
                         const isFirstUser = count === 0;
                         const role = isFirstUser ? 'admin' : 'agent';
@@ -277,6 +323,20 @@
                     await supabase.from('user_roles').update({ [field]: value }).eq('id', userId);
                     fetchUsersList();
                 } catch(e) { console.error(e); }
+            };
+
+            const fetchProducts = async () => {
+                try {
+                    const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+                    if (error) throw error;
+                    if (data && data.length === 0) {
+                        await supabase.from('products').insert(initialSeedProducts);
+                        const { data: newData } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+                        setProducts(newData || []);
+                    } else {
+                        setProducts(data || []);
+                    }
+                } catch (e) { console.error("Products fetch error:", e); }
             };
 
             const fetchOrdersData = useCallback(async () => {
@@ -394,6 +454,7 @@
             useEffect(() => {
                 if (user && userRole && userRole.is_approved) {
                     fetchOrdersData();
+                    fetchProducts();
                     if (isSuperAdmin || isPageManager) {
                         fetchUsersList();
                         fetchActivityLogs();
@@ -411,7 +472,9 @@
                         }
                     }).subscribe();
 
-                    return () => supabase.removeChannel(logSub);
+                    const prodSub = supabase.channel('products-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchProducts).subscribe();
+
+                    return () => { supabase.removeChannel(logSub); supabase.removeChannel(prodSub); };
                 }
             }, [user, userRole, fetchOrdersData, isSuperAdmin, isPageManager]);
 
@@ -431,8 +494,18 @@
                 setLogCurrentPage(1);
             }, [logSearchQuery, logFilterUser, logDateFrom, logDateTo, logsPerPage]);
 
+            // كشف تكرار رقم التليفون
+            useEffect(() => {
+                if (newOrder.phone && newOrder.phone.length >= 10) {
+                    const found = orders.find(o => o.phone === newOrder.phone && o.id !== newOrder.id);
+                    setDuplicateWarning(found || null);
+                } else {
+                    setDuplicateWarning(null);
+                }
+            }, [newOrder.phone, orders, newOrder.id]);
+
             // ==========================================
-            // 6. تجهيز الفلاتر وتجميع السجلات (useMemos)
+            // 6. تجهيز الفلاتر (useMemos)
             // ==========================================
 
             const visibleUsers = useMemo(() => {
@@ -503,7 +576,6 @@
                 };
             }, [filteredOrders]);
 
-            // --- فلاتر وتجميع سجلات النشاط بالأيام ---
             const filteredLogs = useMemo(() => {
                 return activityLogs.filter(log => {
                     const search = logSearchQuery.toLowerCase();
@@ -540,8 +612,14 @@
             }, [displayedLogs]);
 
             // ==========================================
-            // 7. دوال واجهة المستخدم والأكشن (UI Handlers)
+            // 7. دوال واجهة المستخدم والمنتجات
             // ==========================================
+
+            const handleCalcBtn = (btn) => {
+                if (btn === 'C') { setCalcExp(''); setNewOrder({ ...newOrder, productPrice: '' }); } 
+                else if (btn === '=') { try { const result = new Function('return ' + calcExp)(); setCalcExp(String(result)); setNewOrder({ ...newOrder, productPrice: result }); setShowCalc(false); } catch (e) { setCalcExp('خطأ'); } } 
+                else { setCalcExp((prev) => (prev === 'خطأ' ? btn : prev + btn)); }
+            };
 
             const resetFilters = () => { 
                 setSearchQuery(''); setFilterStatus('الكل'); 
@@ -552,11 +630,8 @@
             };
 
             const resetLogFilters = () => {
-                setLogSearchQuery('');
-                setLogFilterUser('الكل');
-                setLogDateFrom('');
-                setLogDateTo('');
-                setLogCurrentPage(1);
+                setLogSearchQuery(''); setLogFilterUser('الكل');
+                setLogDateFrom(''); setLogDateTo(''); setLogCurrentPage(1);
             };
 
             const navigateToFilteredOrders = (page, status) => { 
@@ -570,6 +645,79 @@
             const handleSelectOrder = (id) => { 
                 selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); 
             };
+
+            // التعامل مع صورة المنتج
+            const handleProductImage = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 300;
+                        const scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = img.height * scaleSize;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        setEditingProduct({ ...editingProduct, image: canvas.toDataURL('image/jpeg', 0.7) });
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const saveProduct = async (e) => {
+                e.preventDefault();
+                setLoadingDB(true);
+                try {
+                    const payload = {
+                        name: editingProduct.name, price: Number(editingProduct.price),
+                        colors: editingProduct.colors, sizes: editingProduct.sizes, image: editingProduct.image
+                    };
+                    if (editingProduct.id) {
+                        await supabase.from('products').update(payload).eq('id', editingProduct.id);
+                        alert("تم التعديل بنجاح");
+                    } else {
+                        await supabase.from('products').insert([payload]);
+                        alert("تمت الإضافة بنجاح");
+                    }
+                    setEditingProduct({ id: null, name: '', price: '', colors: '', sizes: '', image: '' });
+                } catch(e) { alert("خطأ: " + e.message); } finally { setLoadingDB(false); }
+            };
+
+            const deleteProduct = async (id) => {
+                if(!window.confirm("متأكد من حذف المنتج؟")) return;
+                await supabase.from('products').delete().eq('id', id);
+            };
+
+            const applyProductToOrder = () => {
+                if(!selectedProductDetails) return;
+                const p = selectedProductDetails.product;
+                const color = selectedProductDetails.color ? ` - اللون: ${selectedProductDetails.color}` : '';
+                const size = selectedProductDetails.size ? ` - المقاس: ${selectedProductDetails.size}` : '';
+                
+                const finalDesc = `${p.name}${color}${size}`;
+                
+                setNewOrder(prev => {
+                    const prevItem = prev.item ? prev.item + '\n' : '';
+                    const prevPrice = Number(prev.productPrice) || 0;
+                    return {
+                        ...prev,
+                        item: prevItem + `- ${finalDesc}`,
+                        productPrice: prevPrice + Number(p.price)
+                    };
+                });
+                
+                setProductSearchStr('');
+                setShowProductSuggestions(false);
+                setSelectedProductDetails(null);
+            };
+
+            // ==========================================
+            // 8. التعامل مع الطلبات والحفظ
+            // ==========================================
 
             const handleLogin = async (e) => {
                 e.preventDefault(); setAuthLoading(true); setAuthError('');
@@ -819,7 +967,7 @@
                 const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
                 let msg = `أهلاً بك يا فندم في ${order.page} 🌸\n\nملخص طلبك:\n------------------\nرقم الطلب: ${order.id}\n`;
                 if (order.trackingNumber && order.trackingNumber.trim() !== '') msg += `رقم البوليصة: ${order.trackingNumber}\n`;
-                msg += `المنتج: ${order.item}\nالإجمالي المطلوب: ${total} ج.م (شامل الشحن)\nالعنوان: ${order.address}\n\nيتم تجهيز طلبك الآن، وفي حالة وجود أي استفسار يسعدنا تواصلك معنا.`;
+                msg += `المنتج: \n${order.item}\n\nالإجمالي المطلوب: ${total} ج.م (شامل الشحن)\nالعنوان: ${order.address}\n\nيتم تجهيز طلبك الآن، وفي حالة وجود أي استفسار يسعدنا تواصلك معنا.`;
                 return msg;
             };
 
@@ -828,26 +976,37 @@
                 const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
                 let msg = `رقم الأوردر: ${order.id}\n`;
                 if (order.trackingNumber && order.trackingNumber.trim() !== '') msg += `رقم البوليصة: ${order.trackingNumber}\n`;
-                msg += `الاسم: ${order.customer}\nالموبايل: ${order.phone}\nالعنوان: ${order.address}\nالمنتج: ${order.item}\nالمبلغ المطلوب: ${total}\nالملاحظات: ${order.notes || 'لا يوجد'}\nالصفحة: ${order.page}`;
+                msg += `الاسم: ${order.customer}\nالموبايل: ${order.phone}\nالعنوان: ${order.address}\nالمنتج: \n${order.item}\n\nالمبلغ المطلوب: ${total}\nالملاحظات: ${order.notes || 'لا يوجد'}\nالصفحة: ${order.page}`;
                 return msg;
             };
             
-            const openAddModal = () => { setEditReason(''); setNewOrder({ ...initialOrderState, page: availablePages[0] || pages[0] }); setIsEditing(false); setOriginalOrderId(null); setIsAddModalOpen(true); };
+            const openAddModal = () => { 
+                setEditReason(''); 
+                setProductSearchStr(''); 
+                setSelectedProductDetails(null);
+                setShowProductSuggestions(false);
+                setNewOrder({ ...initialOrderState, page: availablePages[0] || pages[0] }); 
+                setIsEditing(false); 
+                setOriginalOrderId(null); 
+                setIsAddModalOpen(true); 
+            };
             const openEditModal = (order) => { 
                 const isShipped = order.status === 'الشحن' || order.trackingNumber;
                 if (userRole?.role === 'agent' && isShipped && !userRole.can_edit_after_shipping) {
                     return alert("عفواً، لا تملك صلاحية تعديل هذا الطلب لأنه تم تحويله للشحن.");
                 }
-                setEditReason(''); setNewOrder(order); setIsEditing(true); setOriginalOrderId(order.id); setIsAddModalOpen(true); 
+                setEditReason(''); 
+                setProductSearchStr(''); 
+                setSelectedProductDetails(null);
+                setShowProductSuggestions(false);
+                setNewOrder(order); 
+                setIsEditing(true); 
+                setOriginalOrderId(order.id); 
+                setIsAddModalOpen(true); 
             };
             const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); };
             const openViewModal = (order) => { setViewOrder(order); setQuickTracking(order.trackingNumber || ''); setQuickStatus(order.status || 'جاري التحضير'); setIsViewModalOpen(true); };
             const closeViewModal = () => { setIsViewModalOpen(false); setViewOrder(null); setCopiedType(''); setQuickTracking(''); };
-
-            const copyToClipboard = (text, type) => {
-                const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
-                setCopiedType(type); setTimeout(() => setCopiedType(''), 2000);
-            };
 
             const exportSelectedToCSV = () => {
                 if (selectedOrders.length === 0) return;
@@ -1093,6 +1252,7 @@
                             <button onClick={() => {setCurrentTab('dashboard'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconDashboard /></span> <span>لوحة التحكم</span></button>
                             <button onClick={() => {setCurrentTab('orders'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'orders' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconCart /></span> <span>الطلبات والمتابعة</span></button>
                             {isSuperAdmin && <button onClick={() => {setCurrentTab('pages'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'pages' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إحصائيات الصفحات</span></button>}
+                            {isSuperAdmin && <button onClick={() => {setCurrentTab('products'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'products' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إدارة المنتجات</span></button>}
                             {(isSuperAdmin || isPageManager) && <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-4 border border-indigo-500/30 ${currentTab === 'users' ? 'bg-indigo-800 text-white shadow-lg shadow-indigo-900/50' : 'text-indigo-300 hover:bg-slate-800 hover:text-white'}`}><span><IconUsers /></span> <span>إدارة الموظفين</span></button>}
                             {(isSuperAdmin || isPageManager) && <button onClick={() => {setCurrentTab('logs'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-2 border border-amber-500/30 ${currentTab === 'logs' ? 'bg-amber-700 text-white shadow-lg shadow-amber-900/50' : 'text-amber-300 hover:bg-slate-800 hover:text-white'}`}><span><IconActivity /></span> <span>سجل النشاطات</span></button>}
                         </nav>
@@ -1111,9 +1271,11 @@
                                     {currentTab === 'pages' && 'الإحصائيات المتقدمة'}
                                     {currentTab === 'users' && 'لوحة الإدارة'}
                                     {currentTab === 'logs' && 'سجل نشاطات الموظفين'}
+                                    {currentTab === 'products' && 'إدارة المنتجات'}
                                 </h1>
                             </div>
                             <div className="flex items-center gap-1.5 md:gap-3 w-full md:w-auto">
+                                <button onClick={() => setIsSettingsOpen(true)} className="p-2 md:p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors" title="إعدادات الواجهة"><IconSettings /></button>
                                 {(isSuperAdmin || userRole?.can_add_bulk) && (
                                     <button onClick={() => setIsBulkModalOpen(true)} className="flex-1 md:flex-none bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 px-2 py-2 md:px-4 md:py-2.5 rounded-lg flex items-center justify-center gap-1 transition-all shadow-sm font-bold text-[11px] md:text-sm"><IconTable size={16} /> <span className="hidden sm:inline">مجموعة</span></button>
                                 )}
@@ -1128,6 +1290,66 @@
                             {/* مؤشر التحميل */}
                             {loadingDB && (
                                 <div className="absolute inset-0 bg-white/60 z-10 flex flex-col items-center justify-center backdrop-blur-sm"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>
+                            )}
+
+                            {/* تبويب المنتجات (للمديرين) */}
+                            {currentTab === 'products' && isSuperAdmin && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
+                                    <div className="bg-indigo-50 border border-indigo-200 p-4 md:p-6 rounded-2xl shadow-sm">
+                                        <h2 className="font-black text-indigo-900 text-base md:text-lg mb-4 flex items-center gap-2"><IconStore/> {editingProduct.id ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد للسيستم'}</h2>
+                                        <form onSubmit={saveProduct} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                            <div className="lg:col-span-2">
+                                                <label className="block text-xs font-bold text-slate-700 mb-1">اسم المنتج</label>
+                                                <input required type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={editingProduct.name} onChange={e=>setEditingProduct({...editingProduct, name: e.target.value})} placeholder="مثال: فستان صيفي مشجر" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 mb-1">السعر (ج.م)</label>
+                                                <input required type="number" min="0" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={editingProduct.price} onChange={e=>setEditingProduct({...editingProduct, price: e.target.value})} placeholder="0" />
+                                            </div>
+                                            <div className="row-span-2 flex flex-col justify-end">
+                                                <label className="block text-xs font-bold text-slate-700 mb-1">صورة مصغرة</label>
+                                                <input type="file" accept="image/*" onChange={handleProductImage} className="w-full border border-slate-300 p-1.5 rounded-lg text-xs bg-white cursor-pointer" />
+                                                {editingProduct.image && <img src={editingProduct.image} className="h-12 w-12 object-cover rounded mt-2 shadow-sm border border-slate-200" />}
+                                            </div>
+                                            <div className="lg:col-span-2">
+                                                <label className="block text-xs font-bold text-slate-700 mb-1">الألوان المتاحة (افصل بفاصلة ,)</label>
+                                                <input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={editingProduct.colors} onChange={e=>setEditingProduct({...editingProduct, colors: e.target.value})} placeholder="أحمر,أسود,أبيض" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 mb-1">المقاسات المتاحة (افصل بفاصلة ,)</label>
+                                                <input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={editingProduct.sizes} onChange={e=>setEditingProduct({...editingProduct, sizes: e.target.value})} placeholder="M,L,XL,XXL" />
+                                            </div>
+                                            <div className="lg:col-span-4 flex gap-3 mt-2">
+                                                <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl shadow-md transition-colors">{editingProduct.id ? 'حفظ التعديلات' : 'إضافة المنتج'}</button>
+                                                {editingProduct.id && <button type="button" onClick={()=>setEditingProduct({ id: null, name: '', price: '', colors: '', sizes: '', image: '' })} className="flex-none px-6 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl transition-colors">إلغاء التعديل</button>}
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-right dynamic-table whitespace-nowrap min-w-[700px]">
+                                                <thead className="bg-slate-800 text-white"><tr><th className="w-16 text-center">الصورة</th><th>الاسم</th><th>السعر</th><th>الألوان</th><th>المقاسات</th><th className="text-center w-24">إجراءات</th></tr></thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {products.map(p => (
+                                                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                                                            <td className="text-center p-2">{p.image ? <img src={p.image} className="w-10 h-10 object-cover rounded-lg border shadow-sm mx-auto"/> : <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center mx-auto text-slate-400"><IconImage/></div>}</td>
+                                                            <td className="font-bold text-slate-800">{p.name}</td>
+                                                            <td className="font-black text-green-700">{p.price} ج.م</td>
+                                                            <td className="text-xs text-slate-500 font-medium whitespace-pre-wrap">{p.colors ? p.colors.split(',').join(' - ') : '-'}</td>
+                                                            <td className="text-xs text-slate-500 font-medium whitespace-pre-wrap">{p.sizes ? p.sizes.split(',').join(' - ') : '-'}</td>
+                                                            <td className="text-center">
+                                                                <button onClick={() => setEditingProduct(p)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors ml-1"><IconEdit/></button>
+                                                                <button onClick={() => deleteProduct(p.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><IconTrash/></button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    {products.length === 0 && <tr><td colSpan="6" className="text-center py-10 text-slate-500 font-bold">لا توجد منتجات مسجلة.</td></tr>}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
 
                             {/* تبويب سجل النشاطات (للمديرين) */}
@@ -1238,7 +1460,7 @@
                                     </div>
 
                                     <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-x-auto">
-                                        <table className="w-full text-right min-w-[800px]">
+                                        <table className="w-full text-right dynamic-table min-w-[800px]">
                                             <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/6">الآي دي (ID)</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/6">الاسم</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold w-1/4">الدور والصلاحيات الإضافية</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold">الصفحات المخصصة</th><th className="px-3 py-3 md:px-4 md:py-4 font-bold text-center w-24">حالة الحساب</th></tr></thead>
                                             <tbody className="divide-y divide-slate-100/50">
                                                 {visibleUsers.map(u => (
@@ -1389,19 +1611,19 @@
 
                                     <div className="glass-panel rounded-2xl shadow-sm border border-white flex-1 overflow-hidden flex flex-col">
                                         <div className="overflow-x-auto flex-1 w-full pb-2">
-                                            <table className="w-full text-right table-fixed min-w-[750px] md:min-w-[1000px]">
+                                            <table className="w-full text-right dynamic-table whitespace-nowrap min-w-[750px] md:min-w-[1000px]">
                                                 <thead className="bg-slate-800 text-white text-[10px] md:text-sm sticky top-0 z-10 shadow-md">
                                                     <tr>
-                                                        <th className="px-2 py-3 md:px-3 md:py-4 w-10 text-center"><input type="checkbox" className="custom-checkbox mx-auto" checked={displayedOrders.length > 0 && selectedOrders.length === displayedOrders.length} onChange={handleSelectAll} /></th>
-                                                        <th className="px-2 py-3 md:px-3 md:py-4 font-bold w-2/12 md:w-1/12">الطلب</th>
-                                                        <th className="px-2 py-3 md:px-3 md:py-4 font-bold w-3/12 md:w-2/12">الاسم / العنوان</th>
-                                                        <th className="px-2 py-3 md:px-3 md:py-4 font-bold w-2/12 md:w-1/12">الموبايل</th>
-                                                        <th className="hidden md:table-cell px-3 py-4 font-bold w-2/12">الملحوظات</th>
-                                                        <th className="px-2 py-3 md:px-3 md:py-4 font-bold w-3/12 md:w-2/12">المنتج</th>
-                                                        <th className="px-2 py-3 md:px-3 md:py-4 font-bold w-2/12 md:w-1/12 text-center">الحالة</th>
-                                                        <th className="px-2 py-3 md:px-3 md:py-4 font-bold w-2/12 md:w-1/12">المبالغ</th>
-                                                        <th className="px-2 py-3 md:px-3 md:py-4 font-bold w-3/12 md:w-2/12">التاريخ / البوليصة</th>
-                                                        <th className="px-2 py-3 md:px-3 md:py-4 font-bold w-2/12 md:w-1/12 text-center">إجراءات</th>
+                                                        <th className="w-10 text-center"><input type="checkbox" className="custom-checkbox mx-auto" checked={displayedOrders.length > 0 && selectedOrders.length === displayedOrders.length} onChange={handleSelectAll} /></th>
+                                                        <th className="font-bold w-2/12 md:w-1/12">الطلب</th>
+                                                        <th className="font-bold w-3/12 md:w-2/12">الاسم / العنوان</th>
+                                                        <th className="font-bold w-2/12 md:w-1/12">الموبايل</th>
+                                                        <th className="hidden md:table-cell font-bold w-2/12">الملحوظات</th>
+                                                        <th className="font-bold w-3/12 md:w-2/12">المنتج</th>
+                                                        <th className="font-bold w-2/12 md:w-1/12 text-center">الحالة</th>
+                                                        <th className="font-bold w-2/12 md:w-1/12">المبالغ</th>
+                                                        <th className="font-bold w-3/12 md:w-2/12">التاريخ / البوليصة</th>
+                                                        <th className="font-bold w-2/12 md:w-1/12 text-center">إجراءات</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-white/40">
@@ -1411,21 +1633,21 @@
 
                                                         return (
                                                         <tr key={order.id} className={`transition-colors border-b border-white/20 ${selectedOrders.includes(order.id) ? 'bg-indigo-50 border-indigo-200' : getRowStatusColor(order.status)}`}>
-                                                            <td className="px-2 py-2 md:px-3 md:py-3 align-top text-center"><input type="checkbox" className="custom-checkbox mx-auto mt-1" checked={selectedOrders.includes(order.id)} onChange={() => handleSelectOrder(order.id)} /></td>
-                                                            <td className="px-2 py-2 md:px-3 md:py-3 align-top"><div className="font-black text-[11px] md:text-sm break-all">{order.id}</div></td>
-                                                            <td className="px-2 py-2 md:px-3 md:py-3 align-top whitespace-normal break-words"><div className="font-bold text-xs md:text-sm">{order.customer}</div><div className="text-[10px] md:text-[11px] font-medium mt-1 leading-tight opacity-80" title={order.address}>{order.address}</div></td>
-                                                            <td className="px-2 py-2 md:px-3 md:py-3 align-top"><div className="text-[10px] md:text-xs font-bold opacity-90" dir="ltr">{order.phone}</div></td>
-                                                            <td className="hidden md:table-cell px-3 py-3 align-top whitespace-normal break-words whitespace-pre-wrap leading-tight text-[11px] font-medium opacity-80">{order.notes || '-'}</td>
-                                                            <td className="px-2 py-2 md:px-3 md:py-3 align-top whitespace-normal break-words"><span className={`px-1.5 py-0.5 border rounded text-[8px] md:text-[9px] font-black mb-1 inline-block shadow-sm bg-white/60`}>{order.page}</span><div className="text-[10px] md:text-xs font-bold mt-1 leading-snug line-clamp-3" title={order.item}>{order.item}</div></td>
-                                                            <td className="px-2 py-2 md:px-3 md:py-3 align-top text-center">
+                                                            <td className="align-top text-center"><input type="checkbox" className="custom-checkbox mx-auto mt-1" checked={selectedOrders.includes(order.id)} onChange={() => handleSelectOrder(order.id)} /></td>
+                                                            <td className="align-top"><div className="font-black text-[11px] md:text-sm break-all">{order.id}</div></td>
+                                                            <td className="align-top whitespace-normal break-words"><div className="font-bold text-xs md:text-sm">{order.customer}</div><div className="text-[10px] md:text-[11px] font-medium mt-1 leading-tight opacity-80" title={order.address}>{order.address}</div></td>
+                                                            <td className="align-top"><div className="text-[10px] md:text-xs font-bold opacity-90" dir="ltr">{order.phone}</div></td>
+                                                            <td className="hidden md:table-cell align-top whitespace-normal break-words whitespace-pre-wrap leading-tight text-[11px] font-medium opacity-80">{order.notes || '-'}</td>
+                                                            <td className="align-top whitespace-normal break-words"><span className={`px-1.5 py-0.5 border rounded text-[8px] md:text-[9px] font-black mb-1 inline-block shadow-sm bg-white/60`}>{order.page}</span><div className="text-[10px] md:text-xs font-bold mt-1 leading-snug line-clamp-3" title={order.item}>{order.item}</div></td>
+                                                            <td className="align-top text-center">
                                                                 <select value={order.status} onChange={(e) => handleStatusChange(order.id, e.target.value)} disabled={agentCannotQuickEdit} className={`text-[10px] md:text-xs rounded-lg w-full px-1 py-1 md:px-2 md:py-1.5 outline-none focus:ring-2 focus:ring-black/20 font-bold ${agentCannotQuickEdit ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} border shadow-sm ${getSelectStatusColor(order.status)}`}>
                                                                     {orderStatuses.map(status => <option key={status} value={status} className="text-slate-800 bg-white">{status}</option>)}
                                                                 </select>
                                                                 {agentCannotQuickEdit && <div className="text-[8px] mt-1 opacity-70 font-bold text-red-600">محمي (تم الشحن)</div>}
                                                             </td>
-                                                            <td className="px-2 py-2 md:px-3 md:py-3 align-top"><div className="text-[9px] md:text-[10px] opacity-80">شحن: {order.shippingPrice || 0} ج</div><div className="font-black text-[11px] md:text-sm bg-white/60 inline-block px-1.5 py-0.5 md:px-2 md:py-1 mt-1 rounded shadow-sm border border-white/40">{Number(order.productPrice || 0) + Number(order.shippingPrice || 0)} ج</div></td>
-                                                            <td className="px-2 py-2 md:px-3 md:py-3 align-top"><div className="text-[9px] md:text-[11px] font-bold flex items-center gap-1 opacity-90 mb-1.5"><IconCalendar /> {order.date}</div>{order.trackingNumber ? (<div className="text-[9px] md:text-[11px] font-black flex items-center gap-1 bg-white/50 inline-flex px-1 py-0.5 rounded shadow-sm border border-white/40"><IconTruck /> {order.trackingNumber}</div>) : (<div className="text-[10px] font-medium opacity-60">-</div>)}</td>
-                                                            <td className="px-2 py-2 md:px-3 md:py-3 align-top">
+                                                            <td className="align-top"><div className="text-[9px] md:text-[10px] opacity-80">شحن: {order.shippingPrice || 0} ج</div><div className="font-black text-[11px] md:text-sm bg-white/60 inline-block px-1.5 py-0.5 md:px-2 md:py-1 mt-1 rounded shadow-sm border border-white/40">{Number(order.productPrice || 0) + Number(order.shippingPrice || 0)} ج</div></td>
+                                                            <td className="align-top"><div className="text-[9px] md:text-[11px] font-bold flex items-center gap-1 opacity-90 mb-1.5"><IconCalendar /> {order.date}</div>{order.trackingNumber ? (<div className="text-[9px] md:text-[11px] font-black flex items-center gap-1 bg-white/50 inline-flex px-1 py-0.5 rounded shadow-sm border border-white/40"><IconTruck /> {order.trackingNumber}</div>) : (<div className="text-[10px] font-medium opacity-60">-</div>)}</td>
+                                                            <td className="align-top">
                                                                 <div className="flex flex-row md:flex-col gap-1 md:gap-1.5 flex-wrap">
                                                                     <button onClick={() => openViewModal(order)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconEye /> <span className="hidden md:inline">عرض</span></button>
                                                                     <button onClick={() => openEditModal(order)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-white/70 hover:bg-white text-slate-800 border border-slate-300/50 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconEdit /> <span className="hidden md:inline">تعديل</span></button>
@@ -1490,44 +1712,44 @@
                                 </div>
                                 <div className="flex-1 overflow-auto bg-slate-50 p-2 md:p-4">
                                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto w-full pb-3">
-                                        <table className="w-full text-right whitespace-nowrap min-w-[900px]">
+                                        <table className="w-full text-right whitespace-nowrap min-w-[900px] dynamic-table">
                                             <thead className="bg-slate-800 text-white text-[10px] md:text-xs">
                                                 <tr>
-                                                    <th className="px-2 py-2 md:py-3 font-bold w-8 text-center">#</th>
-                                                    <th className="px-2 py-2 md:py-3 font-bold min-w-[100px]">رقم الاوردر</th>
-                                                    <th className="px-2 py-2 md:py-3 font-bold min-w-[130px]">الاسم <span className="text-red-400">*</span></th>
-                                                    <th className="px-2 py-2 md:py-3 font-bold min-w-[150px]">العنوان</th>
-                                                    <th className="px-2 py-2 md:py-3 font-bold min-w-[130px]">الصنف</th>
-                                                    {isSuperAdmin && <th className="px-2 py-2 md:py-3 font-bold min-w-[100px]">رقم البوليصه</th>}
-                                                    <th className="px-2 py-2 md:py-3 font-bold min-w-[120px]">الملحوظات</th>
-                                                    <th className="px-2 py-2 md:py-3 font-bold min-w-[100px]">رقم الموبايل</th>
-                                                    <th className="px-2 py-2 md:py-3 font-bold min-w-[100px]">حالة المنتج</th>
-                                                    <th className="px-2 py-2 md:py-3 font-bold min-w-[80px]">سعر الشحن</th>
-                                                    <th className="px-2 py-2 md:py-3 font-bold min-w-[80px]">سعر الاوردر</th>
-                                                    <th className="px-2 py-2 md:py-3 font-bold min-w-[110px]">التاريخ</th>
+                                                    <th className="font-bold w-8 text-center">#</th>
+                                                    <th className="font-bold min-w-[100px]">رقم الاوردر</th>
+                                                    <th className="font-bold min-w-[130px]">الاسم <span className="text-red-400">*</span></th>
+                                                    <th className="font-bold min-w-[150px]">العنوان</th>
+                                                    <th className="font-bold min-w-[130px]">الصنف</th>
+                                                    {isSuperAdmin && <th className="font-bold min-w-[100px]">رقم البوليصه</th>}
+                                                    <th className="font-bold min-w-[120px]">الملحوظات</th>
+                                                    <th className="font-bold min-w-[100px]">رقم الموبايل</th>
+                                                    <th className="font-bold min-w-[100px]">حالة المنتج</th>
+                                                    <th className="font-bold min-w-[80px]">سعر الشحن</th>
+                                                    <th className="font-bold min-w-[80px]">سعر الاوردر</th>
+                                                    <th className="font-bold min-w-[110px]">التاريخ</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-200">
                                                 {bulkOrders.map((row, index) => (
                                                     <tr key={index} className="hover:bg-indigo-50/30 transition-colors">
-                                                        <td className="px-1 py-1 text-center text-[10px] md:text-xs font-bold text-slate-400 bg-slate-50">{index + 1}</td>
-                                                        <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs text-indigo-700 font-bold" placeholder="تلقائي" value={row.id} onChange={(e) => handleBulkChange(index, 'id', e.target.value)} /></td>
-                                                        <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs font-bold text-slate-800" placeholder="اسم العميل..." value={row.customer} onChange={(e) => handleBulkChange(index, 'customer', e.target.value)} /></td>
-                                                        <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs text-slate-700" placeholder="العنوان..." value={row.address} onChange={(e) => handleBulkChange(index, 'address', e.target.value)} /></td>
-                                                        <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs text-slate-700" placeholder="وصف الصنف..." value={row.item} onChange={(e) => handleBulkChange(index, 'item', e.target.value)} /></td>
+                                                        <td className="text-center text-[10px] md:text-xs font-bold text-slate-400 bg-slate-50">{index + 1}</td>
+                                                        <td><input type="text" className="excel-input text-indigo-700 font-bold" placeholder="تلقائي" value={row.id} onChange={(e) => handleBulkChange(index, 'id', e.target.value)} /></td>
+                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="اسم العميل..." value={row.customer} onChange={(e) => handleBulkChange(index, 'customer', e.target.value)} /></td>
+                                                        <td><input type="text" className="excel-input text-slate-700" placeholder="العنوان..." value={row.address} onChange={(e) => handleBulkChange(index, 'address', e.target.value)} /></td>
+                                                        <td><input type="text" className="excel-input text-slate-700" placeholder="وصف الصنف..." value={row.item} onChange={(e) => handleBulkChange(index, 'item', e.target.value)} /></td>
                                                         {isSuperAdmin && (
-                                                            <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs text-slate-700" placeholder="إضافة بوليصة" value={row.trackingNumber} onChange={(e) => handleBulkChange(index, 'trackingNumber', e.target.value)} /></td>
+                                                            <td><input type="text" className="excel-input text-slate-700" placeholder="إضافة بوليصة" value={row.trackingNumber} onChange={(e) => handleBulkChange(index, 'trackingNumber', e.target.value)} /></td>
                                                         )}
-                                                        <td className="px-1 py-1"><input type="text" className="excel-input text-[10px] md:text-xs text-slate-700" value={row.notes} onChange={(e) => handleBulkChange(index, 'notes', e.target.value)} /></td>
-                                                        <td className="px-1 py-1"><input type="text" dir="ltr" className="excel-input text-[10px] md:text-xs text-right font-bold text-slate-700" placeholder="010..." value={row.phone} onChange={(e) => handleBulkChange(index, 'phone', e.target.value.replace(/\D/g, ''))} /></td>
-                                                        <td className="px-1 py-1">
-                                                            <select className="excel-input text-[10px] md:text-xs font-bold text-slate-700 cursor-pointer" value={row.status} onChange={(e) => handleBulkChange(index, 'status', e.target.value)}>
+                                                        <td><input type="text" className="excel-input text-slate-700" value={row.notes} onChange={(e) => handleBulkChange(index, 'notes', e.target.value)} /></td>
+                                                        <td><input type="tel" dir="auto" lang="ar" className="excel-input text-right font-bold text-slate-700" placeholder="010..." value={row.phone} onChange={(e) => handleBulkChange(index, 'phone', e.target.value.replace(/\D/g, ''))} /></td>
+                                                        <td>
+                                                            <select className="excel-input font-bold text-slate-700 cursor-pointer" value={row.status} onChange={(e) => handleBulkChange(index, 'status', e.target.value)}>
                                                                 {orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                                             </select>
                                                         </td>
-                                                        <td className="px-1 py-1"><input type="number" min="0" className="excel-input text-[10px] md:text-xs font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleBulkChange(index, 'shippingPrice', e.target.value)} /></td>
-                                                        <td className="px-1 py-1"><input type="number" min="0" className="excel-input text-[10px] md:text-xs font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleBulkChange(index, 'productPrice', e.target.value)} /></td>
-                                                        <td className="px-1 py-1"><input type="date" className="excel-input text-[10px] md:text-xs text-slate-700" value={row.date} onChange={(e) => handleBulkChange(index, 'date', e.target.value)} title="يترك فارغاً لتسجيل تاريخ اليوم" /></td>
+                                                        <td><input type="number" min="0" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleBulkChange(index, 'shippingPrice', e.target.value)} /></td>
+                                                        <td><input type="number" min="0" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleBulkChange(index, 'productPrice', e.target.value)} /></td>
+                                                        <td><input type="date" className="excel-input text-slate-700" value={row.date} onChange={(e) => handleBulkChange(index, 'date', e.target.value)} title="يترك فارغاً لتسجيل تاريخ اليوم" /></td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -1589,7 +1811,7 @@
                                         <div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">اسم العميل:</span><span className="text-slate-900 font-black text-sm md:text-lg">{viewOrder.customer}</span></div>
                                         <div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">رقم الهاتف:</span><span className="text-indigo-700 font-black text-sm md:text-lg" dir="ltr">{viewOrder.phone}</span></div>
                                         <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">العنوان:</span><span className="text-slate-800 font-semibold text-xs md:text-base">{viewOrder.address}</span></div>
-                                        <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">المنتج:</span><span className="text-slate-800 font-semibold text-xs md:text-base">{viewOrder.item}</span></div>
+                                        <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">المنتج:</span><span className="text-slate-800 font-semibold text-xs md:text-base whitespace-pre-wrap">{viewOrder.item}</span></div>
                                         <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">الملاحظات:</span><span className="text-red-600 font-bold text-xs md:text-base whitespace-pre-wrap">{viewOrder.notes || 'لا يوجد'}</span></div>
                                         <div className="flex justify-between bg-slate-800 text-white p-2 md:p-3 rounded-lg mt-1.5 md:mt-2"><span className="font-bold text-xs md:text-base">المبلغ للتحصيل:</span><span className="font-black text-base md:text-xl">{(Number(viewOrder.productPrice) || 0) + (Number(viewOrder.shippingPrice) || 0)} ج.م</span></div>
                                         <div className="flex justify-between bg-teal-50 border border-teal-100 p-2 md:p-3 rounded-lg mt-1.5 md:mt-2"><span className="font-bold text-teal-800 text-xs md:text-sm flex items-center gap-1"><IconTruck size={14}/> رقم البوليصة:</span><span className="font-black text-teal-900 text-xs md:text-sm">{viewOrder.trackingNumber || 'لم يتم تحديده'}</span></div>
@@ -1627,29 +1849,6 @@
                         </div>
                     )}
 
-                    {/* نافذة استيراد الإكسيل */}
-                    {isImportModalOpen && (
-                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[60] flex items-end md:items-center justify-center md:p-4">
-                            <div className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full md:max-w-3xl h-[85vh] md:max-h-[95vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border border-slate-200">
-                                <div className="px-4 py-3 md:px-6 md:py-5 border-b bg-slate-50 flex justify-between items-center"><div className="flex items-center gap-2 md:gap-3"><div className="p-1.5 md:p-2.5 rounded-xl bg-indigo-100 text-indigo-700"><IconUpload /></div><div><h2 className="text-sm md:text-xl font-black text-slate-800">استيراد طلبات سابقة</h2><p className="text-[10px] md:text-xs text-slate-500 font-bold mt-0.5 md:mt-1">ارفع الشيت، حدد الصفحة، واربط الأعمدة</p></div></div><button onClick={closeImportModal} disabled={isImporting} className="p-1.5 md:p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm disabled:opacity-50"><IconX size={20} /></button></div>
-                                <div className="p-4 md:p-6 overflow-y-auto flex-1 bg-white">
-                                    {csvHeaders.length === 0 ? (
-                                        <div className="border-2 border-dashed border-indigo-200 rounded-2xl bg-indigo-50/50 p-6 md:p-8 text-center"><IconUpload size={48} className="mx-auto text-indigo-400 mb-3 md:mb-4" /><h3 className="text-sm md:text-lg font-black text-indigo-900 mb-1.5 md:mb-2">اختر ملف CSV من جهازك</h3><p className="text-[10px] md:text-sm text-indigo-600/80 mb-4 md:mb-6">قم بتحميل ملفك من Google Sheets بصيغة (.csv)</p><input type="file" accept=".csv" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="csv-upload" /><label htmlFor="csv-upload" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 md:px-6 md:py-3 rounded-xl text-sm font-bold cursor-pointer inline-flex transition-colors shadow-md">اختيار الملف</label></div>
-                                    ) : isImporting ? (
-                                        <div className="py-8 md:py-12 flex flex-col items-center justify-center text-center"><div className="w-12 h-12 md:w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4 md:mb-6"></div><h3 className="text-lg md:text-xl font-black text-slate-800 mb-1.5 md:mb-2">جاري استيراد الطلبات...</h3><p className="text-xs md:text-sm text-slate-600 font-bold mb-3 md:mb-4">{importStatusText}</p><div className="w-full max-w-xs md:max-w-md bg-slate-100 rounded-full h-3 md:h-4 overflow-hidden border border-slate-200 shadow-inner"><div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300" style={{ width: `${importProgress}%` }}></div></div><p className="mt-2 font-black text-indigo-700 text-sm">{importProgress}%</p></div>
-                                    ) : (
-                                        <div className="animate-in fade-in">
-                                            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 md:p-5 mb-4 md:mb-6 shadow-sm"><label className="block text-xs md:text-sm font-black text-indigo-900 mb-1.5 md:mb-2">1. حدد الصفحة التي تنتمي إليها طلبات هذا الشيت:</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-white border border-indigo-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs md:text-sm text-indigo-800 shadow-sm ${userRole?.role === 'agent' && availablePages.length === 1 ? 'opacity-70 bg-slate-100' : ''}`} value={importTargetPage} onChange={(e) => setImportTargetPage(e.target.value)} disabled={userRole?.role === 'agent' && availablePages.length === 1}>{availablePages.map(p => <option key={p} value={p}>{p}</option>)}</select><p className="text-[10px] md:text-xs text-indigo-600/80 mt-1.5 md:mt-2 font-bold">سيتم تعيين كل الطلبات المرفوعة من هذا الملف إلى الصفحة المحددة أعلاه.</p></div>
-                                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 md:p-4 mb-4 md:mb-6 flex items-start gap-2 md:gap-3 shadow-sm"><span className="text-amber-600 mt-0.5 text-lg">⚠️</span><div className="text-[11px] md:text-sm font-bold text-amber-800">2. وجدنا <span className="font-black text-base md:text-lg mx-1">{csvData.length}</span> طلب في الملف. لا تقلق من أي أخطاء، سيقوم "المنظف الذكي" بتصحيح التواريخ تلقائياً.</div></div>
-                                            <div className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden shadow-sm"><table className="w-full text-right text-[10px] md:text-sm"><thead className="bg-slate-800 text-white"><tr><th className="px-3 py-2 md:px-5 md:py-3 font-bold w-1/2">الخانة في السيستم</th><th className="px-3 py-2 md:px-5 md:py-3 font-bold w-1/2">تقابلها في ملفك (CSV)</th></tr></thead><tbody className="divide-y divide-slate-200 font-bold text-slate-700">{[{ key: 'id', label: 'رقم الطلب (اختياري)' }, { key: 'customer', label: 'اسم العميل' }, { key: 'phone', label: 'رقم الهاتف' }, { key: 'address', label: 'عنوان العميل' }, { key: 'notes', label: 'الملحوظات' }, { key: 'item', label: 'المنتج / الوصف' }, { key: 'productPrice', label: 'سعر المنتج' }, { key: 'shippingPrice', label: 'سعر الشحن' }, { key: 'trackingNumber', label: 'رقم البوليصة' }, { key: 'status', label: 'الحالة' }, { key: 'date', label: 'تاريخ الطلب' }].map(field => (<tr key={field.key} className="hover:bg-indigo-50/50 transition-colors"><td className="px-3 py-2 md:px-5 md:py-3">{field.label}</td><td className="px-3 py-2 md:px-5 md:py-3"><select className="w-full px-2 py-1 md:px-3 md:py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm text-[10px] md:text-sm" value={columnMapping[field.key]} onChange={(e) => setColumnMapping({...columnMapping, [field.key]: e.target.value})}><option value="">-- تخطي / غير موجود --</option>{csvHeaders.map(header => <option key={header} value={header}>{header}</option>)}</select></td></tr>))}</tbody></table></div>
-                                        </div>
-                                    )}
-                                </div>
-                                {csvHeaders.length > 0 && !isImporting && (<div className="px-4 py-3 md:px-6 md:py-4 border-t bg-slate-50 flex justify-end gap-2 md:gap-3"><button onClick={closeImportModal} className="px-4 py-2 md:px-6 md:py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 text-xs md:text-sm hover:bg-slate-100 transition-colors">إلغاء</button><button onClick={startImport} className="px-6 py-2 md:px-8 md:py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-xs md:text-sm font-black shadow-lg shadow-indigo-200 hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:-translate-y-0.5">تأكيد الرفع</button></div>)}
-                            </div>
-                        </div>
-                    )}
-
                     {/* نافذة الإضافة والتعديل الرئيسية */}
                     {isAddModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end md:items-center justify-center md:p-4">
@@ -1657,19 +1856,122 @@
                                 <div className={`px-4 py-3 md:px-6 md:py-5 border-b flex justify-between items-center shrink-0 ${currentTheme.bgLight}`}><div className="flex items-center gap-2 md:gap-3"><div className={`p-1.5 md:p-2 rounded-lg bg-white shadow-sm ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit /> : <IconPlus />}</div><h2 className={`text-sm md:text-xl font-black ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2></div><button onClick={closeModal} className="p-1.5 md:p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={20} /></button></div>
                                 
                                 <form onSubmit={handleAddOrEditOrder} className={`p-4 md:p-6 space-y-3 md:space-y-4 overflow-y-auto flex-1 ${currentTheme.bgLight}`}>
+                                    
+                                    {/* شريط التحذير من التكرار */}
+                                    {duplicateWarning && !isEditing && (
+                                        <div className="bg-amber-100 border-r-4 border-amber-500 p-3 rounded-lg shadow-sm text-amber-900 font-black text-[11px] md:text-sm flex items-center gap-2 animate-in fade-in">
+                                            <span className="text-lg md:text-xl">🚨</span> انتبه: هذا الرقم مسجل مسبقاً في الطلب رقم ({duplicateWarning.id}) وحالته: {duplicateWarning.status}
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5 bg-white/80 backdrop-blur-sm p-4 md:p-6 rounded-2xl border border-white shadow-md">
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الطلب</label><input type="text" disabled={isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status)} placeholder="يولد تلقائياً إذا تُرك فارغاً" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''} ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.id} onChange={e => setNewOrder({...newOrder, id: e.target.value})} />{isEditing && ['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) && (<p className="text-[10px] md:text-xs text-indigo-600 mt-1 font-bold">يمكنك تعديل رقم الطلب في هذه الحالة.</p>)}</div>
                                         <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">اسم العميل <span className="text-red-500">*</span></label><input required type="text" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.customer} onChange={e => setNewOrder({...newOrder, customer: e.target.value})} /></div>
-                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">العنوان التفصيلي <span className="text-red-500">*</span></label><input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
-                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الموبايل <span className="text-red-500">*</span></label><input required type="text" dir="ltr" maxLength="11" placeholder="مثال: 01012345678" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-right transition-shadow font-bold tracking-wider text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => { const val = e.target.value.replace(/\D/g, ''); if(val.length <= 11) setNewOrder({...newOrder, phone: val}); }} /></div>
+                                        
+                                        <div>
+                                            <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الموبايل <span className="text-red-500">*</span></label>
+                                            <input required type="tel" dir="auto" lang="ar" maxLength="11" placeholder="مثال: 01012345678" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-right transition-shadow font-bold tracking-wider text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => { const val = e.target.value.replace(/\D/g, ''); if(val.length <= 11) setNewOrder({...newOrder, phone: val}); }} />
+                                        </div>
+
+                                        <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">العنوان التفصيلي <span className="text-red-500">*</span></label><input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
                                         <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">الصفحة (المصدر)</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2 ${userRole?.role === 'agent' ? 'opacity-70 cursor-not-allowed' : ''}`} value={newOrder.page} onChange={e => setNewOrder({...newOrder, page: e.target.value})} disabled={userRole?.role === 'agent'}>{availablePages.map(page => <option key={page} value={page}>{page}</option>)}</select></div>
-                                        <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">الملحوظات</label><textarea rows="2" placeholder="أي ملحوظات إضافية بخصوص الطلب..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.notes || ''} onChange={e => setNewOrder({...newOrder, notes: e.target.value})}></textarea></div>
-                                        <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">المنتج / الوصف <span className="text-red-500">*</span></label><textarea required rows="2" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
+                                        
+                                        {/* نظام البحث عن المنتجات (Autocomplete Combobox) المتعدد */}
+                                        <div className="md:col-span-2 bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-200 shadow-inner relative">
+                                            <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-2 flex justify-between items-center">
+                                                <span>🛒 إضافة منتجات من المخزن</span>
+                                            </label>
+                                            
+                                            <div className="relative">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="اكتب للبحث عن منتج أو اضغط السهم لعرض الكل..." 
+                                                    className={`w-full px-3 py-2 md:px-4 md:py-2.5 pr-10 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 font-bold text-xs md:text-sm ${currentTheme.ringFocus}`}
+                                                    value={productSearchStr}
+                                                    onChange={(e) => {
+                                                        setProductSearchStr(e.target.value);
+                                                        setShowProductSuggestions(true);
+                                                        setSelectedProductDetails(null);
+                                                    }}
+                                                    onFocus={() => setShowProductSuggestions(true)}
+                                                />
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => {
+                                                        setShowProductSuggestions(!showProductSuggestions);
+                                                        setSelectedProductDetails(null);
+                                                    }}
+                                                    className="absolute left-2 top-1/2 transform -translate-y-1/2 p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 rounded-md transition-colors"
+                                                >
+                                                    <IconChevronDown />
+                                                </button>
+                                            </div>
+                                            
+                                            {/* قائمة الاقتراحات */}
+                                            {showProductSuggestions && !selectedProductDetails && (
+                                                <div className="absolute z-20 left-4 right-4 mt-1 bg-white border border-slate-200 shadow-2xl rounded-xl max-h-60 overflow-y-auto divide-y divide-slate-100">
+                                                    {products.filter(p => p.name.toLowerCase().includes(productSearchStr.toLowerCase())).map(p => (
+                                                        <div key={p.id} onClick={() => setSelectedProductDetails({ product: p, color: '', size: '' })} className="p-3 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                                                            {p.image ? <img src={p.image} className="w-10 h-10 rounded border object-cover"/> : <div className="w-10 h-10 bg-slate-100 rounded flex items-center justify-center text-slate-400"><IconPackage size={16}/></div>}
+                                                            <div>
+                                                                <div className="font-bold text-slate-800 text-xs md:text-sm">{p.name}</div>
+                                                                <div className="text-[10px] md:text-xs text-green-600 font-black mt-0.5">{p.price} ج.م</div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {products.filter(p => p.name.toLowerCase().includes(productSearchStr.toLowerCase())).length === 0 && (
+                                                        <div className="p-3 text-center text-slate-500 text-xs font-bold">لا توجد نتائج مطابقة</div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* اختيار تفاصيل المنتج (الألوان والمقاسات) للدمج */}
+                                            {selectedProductDetails && (
+                                                <div className="mt-3 p-3 bg-white rounded-xl border border-indigo-200 shadow-sm animate-in fade-in slide-in-from-top-2">
+                                                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                                                        <h4 className="font-black text-xs md:text-sm text-indigo-900">{selectedProductDetails.product.name}</h4>
+                                                        <button type="button" onClick={()=>setSelectedProductDetails(null)} className="text-[10px] md:text-xs font-bold text-red-500 hover:underline">إلغاء التحديد</button>
+                                                    </div>
+                                                    
+                                                    {selectedProductDetails.product.colors && (
+                                                        <div className="mb-3">
+                                                            <span className="block text-[10px] md:text-xs font-bold text-slate-500 mb-1.5">اختر اللون:</span>
+                                                            <div className="flex flex-wrap gap-1.5 md:gap-2">
+                                                                {selectedProductDetails.product.colors.split(',').map(c => (
+                                                                    <button type="button" key={c} onClick={()=>setSelectedProductDetails({...selectedProductDetails, color: c})} className={`px-2 py-1 md:px-3 rounded-full text-[10px] md:text-xs font-bold border transition-colors ${selectedProductDetails.color === c ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'}`}>{c}</button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {selectedProductDetails.product.sizes && (
+                                                        <div className="mb-4">
+                                                            <span className="block text-[10px] md:text-xs font-bold text-slate-500 mb-1.5">اختر المقاس:</span>
+                                                            <div className="flex flex-wrap gap-1.5 md:gap-2">
+                                                                {selectedProductDetails.product.sizes.split(',').map(s => (
+                                                                    <label key={s} className={`cursor-pointer px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[10px] md:text-xs font-black border transition-colors flex items-center justify-center min-w-[35px] md:min-w-[40px] ${selectedProductDetails.size === s ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'}`}>
+                                                                        <input type="radio" className="hidden" name="prod_size" checked={selectedProductDetails.size === s} onChange={()=>setSelectedProductDetails({...selectedProductDetails, size: s})} />
+                                                                        {s}
+                                                                    </label>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <button type="button" onClick={applyProductToOrder} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-2 rounded-lg shadow-sm transition-colors text-xs md:text-sm">إضافة للمنتجات المختارة ➕</button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">المنتج / الوصف النهائي (يمكن التعديل يدوياً) <span className="text-red-500">*</span></label><textarea required rows="3" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm leading-relaxed whitespace-pre-wrap ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">حالة الطلب</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.status} onChange={e => setNewOrder({...newOrder, status: e.target.value})}>{orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}</select></div>
+                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">إجمالي سعر المنتجات (ج.م) <span className="text-red-500">*</span></label><div className="relative"><input required type="number" min="0" className={`w-full px-3 py-2 md:px-4 md:py-2.5 pl-10 md:pl-12 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} /><button type="button" onClick={() => setShowCalc(!showCalc)} className={`absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 p-1.5 md:p-2 rounded-lg transition-colors bg-white shadow-sm border border-slate-100 ${currentTheme.textPrimary} hover:bg-slate-50`}><IconCalc /></button></div>{showCalc && (<div dir="ltr" className="absolute z-10 bottom-full left-0 mb-2 md:mb-3 bg-white border border-slate-200 shadow-2xl rounded-2xl p-3 md:p-4 w-48 md:w-56 animate-in zoom-in-95"><div className="mb-2 md:mb-3 p-2 md:p-3 bg-slate-100 text-right font-mono text-base md:text-xl rounded-xl border border-slate-200 min-h-[40px] md:min-h-[50px] break-all font-bold shadow-inner text-slate-800">{calcExp || '0'}</div><div className="grid grid-cols-4 gap-1.5 md:gap-2">{calcButtons.map(btn => (<button key={btn} type="button" onClick={() => handleCalcBtn(btn)} className={`p-2 md:p-3 text-xs md:text-sm font-black rounded-xl flex items-center justify-center transition-all ${btn === '=' ? `${currentTheme.btnPrimary} col-span-2 shadow-md` : btn === 'C' ? 'bg-red-100 text-red-600 hover:bg-red-200' : ['+','-','*','/'].includes(btn) ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'}`}>{btn}</button>))}</div></div>)}</div>
                                         <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر الشحن (ج.م) <span className="text-red-500">*</span></label><input required type="number" min="0" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.shippingPrice} onChange={e => setNewOrder({...newOrder, shippingPrice: e.target.value})} /></div>
-                                        <div className="relative"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر المنتج (ج.م) <span className="text-red-500">*</span></label><div className="relative"><input required type="number" min="0" className={`w-full px-3 py-2 md:px-4 md:py-2.5 pl-10 md:pl-12 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} /><button type="button" onClick={() => setShowCalc(!showCalc)} className={`absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 p-1.5 md:p-2 rounded-lg transition-colors bg-white shadow-sm border border-slate-100 ${currentTheme.textPrimary} hover:bg-slate-50`}><IconCalc /></button></div>{showCalc && (<div dir="ltr" className="absolute z-10 bottom-full left-0 mb-2 md:mb-3 bg-white border border-slate-200 shadow-2xl rounded-2xl p-3 md:p-4 w-48 md:w-56 animate-in zoom-in-95"><div className="mb-2 md:mb-3 p-2 md:p-3 bg-slate-100 text-right font-mono text-base md:text-xl rounded-xl border border-slate-200 min-h-[40px] md:min-h-[50px] break-all font-bold shadow-inner text-slate-800">{calcExp || '0'}</div><div className="grid grid-cols-4 gap-1.5 md:gap-2">{calcButtons.map(btn => (<button key={btn} type="button" onClick={() => handleCalcBtn(btn)} className={`p-2 md:p-3 text-xs md:text-sm font-black rounded-xl flex items-center justify-center transition-all ${btn === '=' ? `${currentTheme.btnPrimary} col-span-2 shadow-md` : btn === 'C' ? 'bg-red-100 text-red-600 hover:bg-red-200' : ['+','-','*','/'].includes(btn) ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-slate-100 shadow-sm'}`}>{btn}</button>))}</div></div>)}</div>
+                                        
                                         <div className="md:col-span-2 p-3 md:p-4 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-between text-white shadow-inner"><span className="text-xs md:text-sm font-bold text-slate-300">الإجمالي النهائي المطلوب:</span><span className="font-black text-lg md:text-2xl tracking-wide">{(Number(newOrder.shippingPrice) || 0) + (Number(newOrder.productPrice) || 0)} <span className="text-[10px] md:text-sm font-normal text-slate-400">ج.م</span></span></div>
-                                        <div className="md:col-span-2 pt-2 border-t border-slate-200"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1 flex items-center gap-1 md:gap-2"><IconCalendar /> 10. تاريخ الطلب</label><input type="date" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.date || ''} onChange={e => setNewOrder({...newOrder, date: e.target.value})} /><p className="text-[9px] md:text-xs font-bold text-slate-400 mt-1">يُترك فارغاً ليتم تسجيل تاريخ اليوم تلقائياً.</p></div>
+                                        
+                                        <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">ملاحظات إضافية (اختياري)</label><textarea rows="2" placeholder="أي ملحوظات إضافية بخصوص الطلب..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.notes || ''} onChange={e => setNewOrder({...newOrder, notes: e.target.value})}></textarea></div>
+                                        <div className="md:col-span-2 pt-2 border-t border-slate-200"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1 flex items-center gap-1 md:gap-2"><IconCalendar /> تاريخ الطلب</label><input type="date" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.date || ''} onChange={e => setNewOrder({...newOrder, date: e.target.value})} /><p className="text-[9px] md:text-xs font-bold text-slate-400 mt-1">يُترك فارغاً ليتم تسجيل تاريخ اليوم تلقائياً.</p></div>
                                         
                                         {/* خانة رقم البوليصة مخفية عن الموظف العادي وتظهر للمدير فقط */}
                                         {isSuperAdmin && (
