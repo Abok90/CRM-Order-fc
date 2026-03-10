@@ -124,7 +124,7 @@
         const IconPackage = ({size=24}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
         const IconDashboard = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>;
         const IconCart = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>;
-        const IconStore = ({size=20}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg>;
+        const IconStore = ({size=20}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg>;
         const IconPlus = ({size=18}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
         const IconSearch = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
         const IconCheck = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
@@ -180,7 +180,8 @@
 
             // -- حالة الواجهة والإعدادات (UI CSS Vars) --
             const [loadingDB, setLoadingDB] = useState(false);
-            const [isSubmitting, setIsSubmitting] = useState(false); // حالة التحميل لزر الإضافة لعدم التكرار
+            const [isSubmitting, setIsSubmitting] = useState(false); 
+            const [isQuickUpdating, setIsQuickUpdating] = useState(false); 
             const [currentTab, setCurrentTab] = useState('dashboard');
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
             const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -508,9 +509,9 @@
                 setLogCurrentPage(1);
             }, [logSearchQuery, logFilterUser, logDateFrom, logDateTo, logsPerPage]);
 
-            // كشف التكرار الآلي
+            // كشف التكرار الآلي للموبايل (11 رقم أو 8 أرقام)
             useEffect(() => {
-                if (newOrder.phone && newOrder.phone.length >= 10) {
+                if (newOrder.phone && (newOrder.phone.length === 11 || newOrder.phone.length === 8)) {
                     const found = orders.filter(o => o.phone === newOrder.phone && o.id !== newOrder.id);
                     setDuplicateWarnings(found);
                 } else {
@@ -792,7 +793,13 @@
                 }
 
                 if (!newOrder.customer || String(newOrder.customer).trim() === '') return alert("يرجى إدخال اسم العميل.");
-                if (!newOrder.phone || String(newOrder.phone).trim() === '') return alert("يرجى إدخال رقم الهاتف.");
+                
+                // التحقق الصارم من صحة رقم الموبايل (11 أو 8 أرقام فقط)
+                if (!newOrder.phone || (newOrder.phone.length !== 11 && newOrder.phone.length !== 8)) {
+                    alert("⚠️ خطأ في رقم الموبايل:\nيرجى إدخال رقم موبايل صحيح مكون من (11 رقم) أو رقم أرضي (8 أرقام) فقط حتى يتم قبول الأوردر.");
+                    return;
+                }
+                
                 if (!newOrder.address || String(newOrder.address).trim() === '') return alert("يرجى إدخال العنوان.");
                 if (!newOrder.item || String(newOrder.item).trim() === '') return alert("يرجى إدخال تفاصيل المنتج.");
 
@@ -823,7 +830,7 @@
                     customer: newOrder.customer,
                     address: newOrder.address,
                     phone: newOrder.phone,
-                    page: newOrder.page || availablePages[0] || pages[0],
+                    page: newOrder.page || (availablePages.length > 0 ? availablePages[0] : pages[0]),
                     item: newOrder.item,
                     status: newOrder.status || 'جاري التحضير',
                     notes: finalNotes,
@@ -845,10 +852,21 @@
                             await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
                         }
                         
+                        // تسجيل التغييرات التفصيلية (Smart Detailed Audit Log)
                         let changes = [];
-                        if(originalOrderData.status !== orderPayload.status) changes.push(`الحالة إلى "${orderPayload.status}"`);
-                        if(originalOrderData.trackingNumber !== orderPayload.trackingNumber) changes.push(`رقم البوليصة`);
-                        let actDesc = changes.length > 0 ? `تعديل (${changes.join('، ')})` : 'تعديل بيانات الأوردر';
+                        if(originalOrderData) {
+                            if(originalOrderData.status !== orderPayload.status) changes.push(`الحالة من [${originalOrderData.status}] إلى [${orderPayload.status}]`);
+                            if((originalOrderData.trackingNumber || '') !== (orderPayload.trackingNumber || '')) changes.push(`البوليصة إلى [${orderPayload.trackingNumber || 'فارغ'}]`);
+                            if(originalOrderData.customer !== orderPayload.customer) changes.push(`الاسم`);
+                            if(originalOrderData.phone !== orderPayload.phone) changes.push(`الموبايل`);
+                            if(originalOrderData.address !== orderPayload.address) changes.push(`العنوان`);
+                            if(originalOrderData.item !== orderPayload.item) changes.push(`المنتج`);
+                            if(Number(originalOrderData.productPrice) !== Number(orderPayload.productPrice)) changes.push(`السعر`);
+                            if(Number(originalOrderData.shippingPrice) !== Number(orderPayload.shippingPrice)) changes.push(`الشحن`);
+                            if(originalOrderData.page !== orderPayload.page) changes.push(`الصفحة`);
+                            if(editReason) changes.push(`(السبب: ${editReason})`);
+                        }
+                        let actDesc = changes.length > 0 ? `تعديل: ${changes.join(' | ')}` : 'تحديث بيانات بدون تغييرات فعلية';
                         logActivity(actDesc, finalOrderId);
                         
                         closeModal();
@@ -884,7 +902,7 @@
                 try {
                     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', id);
                     if(error) throw error;
-                    logActivity(`تغيير حالة الأوردر إلى "${newStatus}"`, id);
+                    logActivity(`تغيير الحالة السريع إلى "${newStatus}"`, id);
                 } catch (error) { 
                     alert("خطأ في التحديث: " + error.message);
                     setOrders(previousOrders);
@@ -893,6 +911,7 @@
 
             const saveQuickUpdate = async () => {
                  if (!user || !viewOrder) return;
+                 if (isQuickUpdating) return;
                  
                  const isShipped = viewOrder.status === 'الشحن' || viewOrder.trackingNumber;
                  if (userRole?.role === 'agent' && isShipped) {
@@ -905,7 +924,8 @@
                  
                  if (changes.length === 0) return alert("لم تقم بأي تعديل للحفظ!");
 
-                 let actionDesc = `تعديل ${changes.join(' و ')}`;
+                 setIsQuickUpdating(true);
+                 let actionDesc = `تعديل سريع: ${changes.join(' و ')}`;
 
                  try {
                      const { error } = await supabase.from('orders').update({ 
@@ -921,6 +941,8 @@
                      alert("تم الحفظ بنجاح!");
                  } catch (error) { 
                      alert("فشل الحفظ: " + error.message); 
+                 } finally {
+                     setIsQuickUpdating(false);
                  }
             };
 
@@ -990,6 +1012,13 @@
                 const validRows = bulkOrders.filter(row => row.customer && row.customer.trim() !== '');
                 if (validRows.length === 0) return alert("يرجى إدخال اسم عميل واحد على الأقل في الجدول.");
 
+                for (let i = 0; i < validRows.length; i++) {
+                    const row = validRows[i];
+                    if (!row.phone || (row.phone.length !== 11 && row.phone.length !== 8)) {
+                        return alert(`رقم الهاتف غير صحيح في الصف الخاص بالعميل "${row.customer}". يجب أن يكون 11 أو 8 أرقام.`);
+                    }
+                }
+
                 setIsSubmitting(true);
                 setLoadingDB(true);
                 try {
@@ -1038,15 +1067,25 @@
             };
             
             const openAddModal = () => { 
-                setEditReason(''); 
-                setProductSearchStr(''); 
-                setSelectedProductDetails(null);
-                setShowProductSuggestions(false);
-                setNewOrder({ ...initialOrderState, page: availablePages[0] || pages[0] }); 
-                setIsEditing(false); 
-                setOriginalOrderId(null); 
-                setIsAddModalOpen(true); 
+                try {
+                    setEditReason(''); 
+                    setProductSearchStr(''); 
+                    setSelectedProductDetails(null);
+                    setShowProductSuggestions(false);
+                    setNewOrder({ 
+                        id: '', customer: '', address: '', phone: '', notes: '', 
+                        page: (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0], 
+                        item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' 
+                    }); 
+                    setIsEditing(false); 
+                    setOriginalOrderId(null);
+                    setDuplicateWarnings([]);
+                    setIsAddModalOpen(true); 
+                } catch (e) {
+                    console.error("Error opening add modal:", e);
+                }
             };
+
             const openEditModal = (order) => { 
                 const isShipped = order.status === 'الشحن' || order.trackingNumber;
                 if (userRole?.role === 'agent' && isShipped && !userRole.can_edit_after_shipping) {
@@ -1061,6 +1100,7 @@
                 setOriginalOrderId(order.id); 
                 setIsAddModalOpen(true); 
             };
+            
             const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); setDuplicateWarnings([]); };
             const openViewModal = (order) => { setViewOrder(order); setQuickTracking(order.trackingNumber || ''); setQuickStatus(order.status || 'جاري التحضير'); setIsViewModalOpen(true); };
             const closeViewModal = () => { setIsViewModalOpen(false); setViewOrder(null); setCopiedType(''); setQuickTracking(''); };
@@ -1295,7 +1335,7 @@
                         {toasts.map((t, idx) => (
                             <div key={t.id || idx} className="toast-enter bg-slate-800 text-white px-4 py-3 rounded-xl shadow-2xl text-xs md:text-sm flex items-center gap-3 border border-slate-700">
                                 <span className="bg-indigo-500 p-1.5 rounded-full"><IconBell /></span>
-                                <span className="font-semibold leading-relaxed">الموظف <b className="text-indigo-300">{t.user_name}</b> قام بـ <b className="text-amber-300">{t.action}</b> {t.order_id !== 'متعدد' ? `(طلب: ${t.order_id})` : ''}</span>
+                                <span className="font-semibold leading-relaxed">الموظف <b className="text-indigo-300">{t.user_name}</b> <b className="text-amber-300">{t.action}</b> {t.order_id !== 'متعدد' ? `(طلب: ${t.order_id})` : ''}</span>
                             </div>
                         ))}
                     </div>
@@ -1466,7 +1506,7 @@
                                                                             <div className="bg-indigo-50 p-2 rounded-lg text-indigo-500 shrink-0 mt-1 sm:mt-0"><IconBell size={18} /></div>
                                                                             <div>
                                                                                 <p className="text-xs md:text-sm font-bold text-slate-800 leading-relaxed">
-                                                                                    قام الموظف <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded mx-1">{log.user_name}</span> بـ <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{log.action}</span>
+                                                                                    الموظف <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded mx-1">{log.user_name}</span> <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{log.action}</span>
                                                                                 </p>
                                                                                 {log.order_id && log.order_id !== 'متعدد' && <p className="text-[10px] md:text-xs text-slate-500 mt-1 font-mono bg-slate-50 inline-block px-2 py-0.5 rounded border border-slate-100">رقم الطلب: {log.order_id}</p>}
                                                                             </div>
@@ -1839,14 +1879,14 @@
                                                             <td><input type="text" className="excel-input text-slate-700" placeholder="إضافة بوليصة" value={row.trackingNumber} onChange={(e) => handleBulkChange(index, 'trackingNumber', e.target.value)} /></td>
                                                         )}
                                                         <td><input type="text" className="excel-input text-slate-700" value={row.notes} onChange={(e) => handleBulkChange(index, 'notes', e.target.value)} /></td>
-                                                        <td><input type="tel" dir="auto" lang="ar" className="excel-input text-right font-bold text-slate-700" placeholder="010..." value={row.phone} onChange={(e) => handleBulkPhoneChange(index, e.target.value)} /></td>
+                                                        <td><input type="tel" dir="auto" lang="ar" className={`excel-input text-right font-bold ${row.phone && row.phone.length !== 11 && row.phone.length !== 8 ? 'bg-red-50 border border-red-400 text-red-700' : 'text-slate-700'}`} placeholder="010..." value={row.phone} onChange={(e) => handleBulkPhoneChange(index, e.target.value)} title={row.phone && row.phone.length !== 11 && row.phone.length !== 8 ? "يجب أن يكون 11 أو 8 أرقام" : ""} /></td>
                                                         <td>
                                                             <select className="excel-input font-bold text-slate-700 cursor-pointer" value={row.status} onChange={(e) => handleBulkChange(index, 'status', e.target.value)}>
                                                                 {orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                                             </select>
                                                         </td>
-                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleBulkChange(index, 'shippingPrice', e.target.value)} onBlur={(e) => { try { const res = new Function('return ' + toEnglishDigits(e.target.value).replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'shippingPrice', res); } catch(err){} }} /></td>
-                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleBulkChange(index, 'productPrice', e.target.value)} onBlur={(e) => { try { const res = new Function('return ' + toEnglishDigits(e.target.value).replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'productPrice', res); } catch(err){} }} /></td>
+                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleBulkChange(index, 'shippingPrice', e.target.value)} onBlur={(e) => handleMathOnBlur('shippingPrice', e.target.value)} /></td>
+                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleBulkChange(index, 'productPrice', e.target.value)} onBlur={(e) => handleMathOnBlur('productPrice', e.target.value)} /></td>
                                                         <td><input type="date" className="excel-input text-slate-700" value={row.date} onChange={(e) => handleBulkChange(index, 'date', e.target.value)} title="يترك فارغاً لتسجيل تاريخ اليوم" /></td>
                                                     </tr>
                                                 ))}
@@ -1938,7 +1978,9 @@
                                                         if(e.target.value.trim() !== '') setQuickStatus('الشحن'); 
                                                     }} />
                                                 )}
-                                                <button onClick={saveQuickUpdate} className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg font-bold text-xs md:text-sm transition-colors shadow-sm mt-1">حفظ التحديث السريع</button>
+                                                <button disabled={isQuickUpdating} onClick={saveQuickUpdate} className={`bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg font-bold text-xs md:text-sm transition-colors shadow-sm mt-1 ${isQuickUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                                    {isQuickUpdating ? 'جاري الحفظ...' : 'حفظ التحديث السريع'}
+                                                </button>
                                             </div>
                                         )}
                                     </div>
@@ -1994,7 +2036,10 @@
                                         
                                         <div>
                                             <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الموبايل <span className="text-red-500">*</span></label>
-                                            <input required type="tel" dir="auto" lang="ar" maxLength="11" placeholder="مثال: 01012345678" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-right transition-shadow font-bold tracking-wider text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => handlePhoneChange(e.target.value, (val) => setNewOrder({...newOrder, phone: val}))} />
+                                            <input required type="tel" dir="auto" lang="ar" placeholder="مثال: 01012345678" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border ${newOrder.phone && newOrder.phone.length !== 11 && newOrder.phone.length !== 8 ? 'border-red-400 bg-red-50' : 'border-slate-200'} rounded-lg outline-none text-right transition-shadow font-bold tracking-wider text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => handlePhoneChange(e.target.value, (val) => setNewOrder({...newOrder, phone: val}))} />
+                                            {newOrder.phone && newOrder.phone.length !== 11 && newOrder.phone.length !== 8 && (
+                                                <p className="text-[10px] md:text-xs text-red-600 mt-1 font-bold">⚠️ الرقم غير صحيح (يجب أن يكون 11 أو 8 أرقام)</p>
+                                            )}
                                         </div>
 
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">العنوان التفصيلي <span className="text-red-500">*</span></label><input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
