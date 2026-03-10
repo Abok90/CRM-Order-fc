@@ -67,16 +67,22 @@
         }
         .excel-input:focus { background: #f0f9ff; border-color: #bae6fd; border-radius: 6px; }
 
-        /* التحكم في أحجام ومسافات الجداول عبر الإعدادات */
+        /* التحكم في أحجام ومسافات الجداول عبر الإعدادات بقوة !important للتغلب على كلاسات تيلويند */
         .dynamic-table th, .dynamic-table td {
             padding: var(--row-pad) !important;
         }
-        .dynamic-table th, .dynamic-table td, 
-        .dynamic-table th div, .dynamic-table td div,
-        .dynamic-table th span, .dynamic-table td span,
-        .dynamic-table td select, .dynamic-table td input, 
+        .dynamic-table,
+        .dynamic-table th, 
+        .dynamic-table td, 
+        .dynamic-table th div, 
+        .dynamic-table td div,
+        .dynamic-table th span, 
+        .dynamic-table td span,
+        .dynamic-table td select, 
+        .dynamic-table td input, 
         .dynamic-table td button {
             font-size: var(--fs) !important;
+            line-height: 1.5 !important;
         }
         
         .copy-animation { animation: pulse-copy 0.4s ease-out; }
@@ -174,6 +180,7 @@
 
             // -- حالة الواجهة والإعدادات (UI CSS Vars) --
             const [loadingDB, setLoadingDB] = useState(false);
+            const [isSubmitting, setIsSubmitting] = useState(false); // حالة التحميل لزر الإضافة لعدم التكرار
             const [currentTab, setCurrentTab] = useState('dashboard');
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
             const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -252,11 +259,7 @@
             });
             const fileInputRef = useRef(null);
 
-            // -- الآلة الحاسبة والإكمال التلقائي --
-            const [showCalc, setShowCalc] = useState(false);
-            const [calcExp, setCalcExp] = useState('');
-            const calcButtons = ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', 'C', '0', '=', '+'];
-            
+            // -- الإكمال التلقائي والبحث في المنتجات --
             const [productSearchStr, setProductSearchStr] = useState('');
             const [showProductSuggestions, setShowProductSuggestions] = useState(false);
             const [selectedProductDetails, setSelectedProductDetails] = useState(null);
@@ -505,7 +508,7 @@
                 setLogCurrentPage(1);
             }, [logSearchQuery, logFilterUser, logDateFrom, logDateTo, logsPerPage]);
 
-            // كشف تكرار رقم التليفون
+            // كشف التكرار الآلي
             useEffect(() => {
                 if (newOrder.phone && newOrder.phone.length >= 10) {
                     const found = orders.filter(o => o.phone === newOrder.phone && o.id !== newOrder.id);
@@ -632,13 +635,25 @@
             }, [displayedLogs]);
 
             // ==========================================
-            // 7. دوال واجهة المستخدم والحساب الذكي
+            // 7. دوال واجهة المستخدم والحساب الذكي وتعديل الأرقام
             // ==========================================
+
+            // دالة تحويل الأرقام العربية إلى إنجليزية
+            const toEnglishDigits = (str) => {
+                const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                return str.replace(/[٠-٩]/g, w => arabicNumbers.indexOf(w));
+            };
+
+            const handlePhoneChange = (val, updater) => {
+                let englishVal = toEnglishDigits(val).replace(/\D/g, '');
+                if(englishVal.length <= 11) updater(englishVal);
+            };
 
             const handleMathOnBlur = (field, value) => {
                 try {
                     if (value && typeof value === 'string') {
-                        const sanitizedVal = value.replace(/[^0-9+\-*/.]/g, '');
+                        let englishVal = toEnglishDigits(value);
+                        const sanitizedVal = englishVal.replace(/[^0-9+\-*/.]/g, '');
                         if (sanitizedVal) {
                             const evalResult = new Function('return ' + sanitizedVal)();
                             if (!isNaN(evalResult) && isFinite(evalResult)) {
@@ -769,6 +784,7 @@
             const handleAddOrEditOrder = async (e) => {
                 e.preventDefault(); 
                 if (!user) return;
+                if (isSubmitting) return;
 
                 if (!isEditing && userRole?.role === 'agent' && (!userRole.assigned_page || !userRole.assigned_page.includes(newOrder.page))) {
                     alert(`صلاحياتك لا تسمح بالإضافة في هذه الصفحة.`);
@@ -780,6 +796,8 @@
                 if (!newOrder.address || String(newOrder.address).trim() === '') return alert("يرجى إدخال العنوان.");
                 if (!newOrder.item || String(newOrder.item).trim() === '') return alert("يرجى إدخال تفاصيل المنتج.");
 
+                setIsSubmitting(true);
+
                 const finalOrderId = newOrder.id && String(newOrder.id).trim() !== '' ? String(newOrder.id).trim() : `ORD-${Date.now().toString().slice(-6)}`;
                 const finalDate = newOrder.date && String(newOrder.date).trim() !== '' ? newOrder.date : new Date().toISOString().split('T')[0];
                 
@@ -789,9 +807,11 @@
                 let finalNotes = newOrder.notes || '';
                 if (isEditing && userRole?.role === 'agent' && isShipped) {
                     if (!userRole.can_edit_after_shipping) {
+                        setIsSubmitting(false);
                         return alert("عفواً، لا تملك صلاحية تعديل طلب تم تحويله إلى الشحن.");
                     }
                     if (!editReason || editReason.trim() === '') {
+                        setIsSubmitting(false);
                         return alert("يرجى كتابة سبب التعديل الخاص بك في الخانة الحمراء لكي يتم حفظ الأوردر.");
                     }
                     const timeNow = new Date().toLocaleString('ar-EG');
@@ -831,7 +851,6 @@
                         let actDesc = changes.length > 0 ? `تعديل (${changes.join('، ')})` : 'تعديل بيانات الأوردر';
                         logActivity(actDesc, finalOrderId);
                         
-                        alert("تم التعديل بنجاح!");
                         closeModal();
                     } else {
                         const { error } = await supabase.from('orders').insert([orderPayload]);
@@ -843,7 +862,9 @@
                     }
                     fetchOrdersData(); 
                 } catch (error) { 
-                    alert(`فشل الحفظ!\nالسبب: ${error.message}\nتأكد من عدم تكرار رقم الطلب.`); 
+                    alert(`فشل الحفظ!\nالسبب: ${error.message}\nتأكد من عدم تكرار رقم الطلب أو تحقق من اتصالك بالإنترنت.`); 
+                } finally {
+                    setIsSubmitting(false);
                 }
             };
 
@@ -955,13 +976,21 @@
                 setBulkOrders(newBulk);
             };
 
+            const handleBulkPhoneChange = (index, val) => {
+                let englishVal = toEnglishDigits(val).replace(/\D/g, '');
+                handleBulkChange(index, 'phone', englishVal);
+            };
+
             const addBulkRow = () => setBulkOrders([...bulkOrders, { ...emptyBulkRow }]);
 
             const saveBulkOrders = async () => {
                 if (!user) return;
+                if (isSubmitting) return;
+
                 const validRows = bulkOrders.filter(row => row.customer && row.customer.trim() !== '');
                 if (validRows.length === 0) return alert("يرجى إدخال اسم عميل واحد على الأقل في الجدول.");
 
+                setIsSubmitting(true);
                 setLoadingDB(true);
                 try {
                     const today = new Date().toISOString().split('T')[0];
@@ -983,7 +1012,7 @@
                     alert(`تمت إضافة ${ordersToInsert.length} طلبات بنجاح!`);
                     setIsBulkModalOpen(false); setBulkOrders(Array(5).fill({...emptyBulkRow}));
                     fetchOrdersData(); 
-                } catch (err) { alert(`فشل الحفظ الجماعي: ${err.message}`); } finally { setLoadingDB(false); }
+                } catch (err) { alert(`فشل الحفظ الجماعي: ${err.message}`); } finally { setIsSubmitting(false); setLoadingDB(false); }
             };
 
             // ==========================================
@@ -1728,6 +1757,34 @@
                         </div>
                     </main>
 
+                    {/* نافذة إعدادات الواجهة */}
+                    {isSettingsOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm border-t-4 border-indigo-600 animate-in zoom-in-95">
+                                <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-indigo-900"><IconSettings/> تخصيص العرض للعين</h3>
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-sm font-bold mb-2 text-slate-700">حجم خط الجداول:</label>
+                                        <div className="flex gap-2">
+                                            {['12px', '14px', '16px'].map(sz => (
+                                                <button key={sz} onClick={() => setUiSettings({...uiSettings, fontSize: sz})} className={`flex-1 py-2 rounded-lg border font-bold text-sm transition-colors shadow-sm ${uiSettings.fontSize === sz ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}>{sz === '12px' ? 'صغير' : sz === '14px' ? 'متوسط' : 'كبير'}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold mb-2 text-slate-700">توسعة مسافات الجداول:</label>
+                                        <div className="flex gap-2">
+                                            {['4px', '8px', '12px'].map(pd => (
+                                                <button key={pd} onClick={() => setUiSettings({...uiSettings, padding: pd})} className={`flex-1 py-2 rounded-lg border font-bold text-sm transition-colors shadow-sm ${uiSettings.padding === pd ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}>{pd === '4px' ? 'ضيق' : pd === '8px' ? 'عادي' : 'مريح'}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={() => setIsSettingsOpen(false)} className="mt-8 w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl transition-colors shadow-md">حفظ وإغلاق</button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* نافذة الإضافة المتعددة (الجدول السريع) */}
                     {isBulkModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[60] flex items-end md:items-center justify-center md:p-4">
@@ -1782,14 +1839,14 @@
                                                             <td><input type="text" className="excel-input text-slate-700" placeholder="إضافة بوليصة" value={row.trackingNumber} onChange={(e) => handleBulkChange(index, 'trackingNumber', e.target.value)} /></td>
                                                         )}
                                                         <td><input type="text" className="excel-input text-slate-700" value={row.notes} onChange={(e) => handleBulkChange(index, 'notes', e.target.value)} /></td>
-                                                        <td><input type="tel" dir="auto" lang="ar" className="excel-input text-right font-bold text-slate-700" placeholder="010..." value={row.phone} onChange={(e) => handleBulkChange(index, 'phone', e.target.value.replace(/\D/g, ''))} /></td>
+                                                        <td><input type="tel" dir="auto" lang="ar" className="excel-input text-right font-bold text-slate-700" placeholder="010..." value={row.phone} onChange={(e) => handleBulkPhoneChange(index, e.target.value)} /></td>
                                                         <td>
                                                             <select className="excel-input font-bold text-slate-700 cursor-pointer" value={row.status} onChange={(e) => handleBulkChange(index, 'status', e.target.value)}>
                                                                 {orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                                             </select>
                                                         </td>
-                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleBulkChange(index, 'shippingPrice', e.target.value)} onBlur={(e) => { try { const res = new Function('return ' + e.target.value.replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'shippingPrice', res); } catch(err){} }} /></td>
-                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleBulkChange(index, 'productPrice', e.target.value)} onBlur={(e) => { try { const res = new Function('return ' + e.target.value.replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'productPrice', res); } catch(err){} }} /></td>
+                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleBulkChange(index, 'shippingPrice', e.target.value)} onBlur={(e) => { try { const res = new Function('return ' + toEnglishDigits(e.target.value).replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'shippingPrice', res); } catch(err){} }} /></td>
+                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleBulkChange(index, 'productPrice', e.target.value)} onBlur={(e) => { try { const res = new Function('return ' + toEnglishDigits(e.target.value).replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'productPrice', res); } catch(err){} }} /></td>
                                                         <td><input type="date" className="excel-input text-slate-700" value={row.date} onChange={(e) => handleBulkChange(index, 'date', e.target.value)} title="يترك فارغاً لتسجيل تاريخ اليوم" /></td>
                                                     </tr>
                                                 ))}
@@ -1802,7 +1859,7 @@
                                 </div>
                                 <div className="px-4 py-3 md:px-6 md:py-4 border-t bg-white flex gap-2 md:gap-3 justify-end">
                                     <button onClick={() => setIsBulkModalOpen(false)} className="px-4 md:px-6 py-2 md:py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs md:text-sm font-bold rounded-xl transition-colors">إلغاء</button>
-                                    <button onClick={saveBulkOrders} className="px-6 md:px-8 py-2 md:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs md:text-sm font-black rounded-xl shadow-md transition-transform hover:-translate-y-0.5">حفظ الأوردرات</button>
+                                    <button disabled={isSubmitting} onClick={saveBulkOrders} className={`px-6 md:px-8 py-2 md:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs md:text-sm font-black rounded-xl shadow-md transition-transform hover:-translate-y-0.5 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>{isSubmitting ? 'جاري الحفظ...' : 'حفظ الأوردرات'}</button>
                                 </div>
                             </div>
                         </div>
@@ -1937,7 +1994,7 @@
                                         
                                         <div>
                                             <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الموبايل <span className="text-red-500">*</span></label>
-                                            <input required type="tel" dir="auto" lang="ar" maxLength="11" placeholder="مثال: 01012345678" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-right transition-shadow font-bold tracking-wider text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => { const val = e.target.value.replace(/\D/g, ''); if(val.length <= 11) setNewOrder({...newOrder, phone: val}); }} />
+                                            <input required type="tel" dir="auto" lang="ar" maxLength="11" placeholder="مثال: 01012345678" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-right transition-shadow font-bold tracking-wider text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => handlePhoneChange(e.target.value, (val) => setNewOrder({...newOrder, phone: val}))} />
                                         </div>
 
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">العنوان التفصيلي <span className="text-red-500">*</span></label><input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
@@ -2034,7 +2091,7 @@
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">حالة الطلب</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.status} onChange={e => setNewOrder({...newOrder, status: e.target.value})}>{orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}</select></div>
                                         <div>
                                             <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر المنتجات (ج.م) <span className="text-red-500">*</span></label>
-                                            <input required type="text" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} onBlur={(e) => handleMathOnBlur('productPrice', e.target.value)} placeholder="0" />
+                                            <input required type="text" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} onBlur={(e) => handleMathOnBlur('productPrice', e.target.value)} placeholder="مثال: 150+150" />
                                         </div>
                                         <div>
                                             <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر الشحن (ج.م) <span className="text-red-500">*</span></label>
@@ -2068,7 +2125,9 @@
                                         )}
                                     </div>
                                     <div className="pt-3 md:pt-4 flex gap-2 md:gap-4">
-                                        <button type="submit" className={`flex-1 font-black text-sm md:text-lg py-3 md:py-4 rounded-xl transition-all shadow-md transform hover:-translate-y-1 ${currentTheme.btnPrimary}`}>{isEditing ? 'حفظ التعديلات' : 'تأكيد وإضافة'}</button>
+                                        <button type="submit" disabled={isSubmitting} className={`flex-1 font-black text-sm md:text-lg py-3 md:py-4 rounded-xl transition-all shadow-md transform hover:-translate-y-1 ${currentTheme.btnPrimary} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                            {isSubmitting ? 'جاري الحفظ...' : (isEditing ? 'حفظ التعديلات' : 'تأكيد وإضافة')}
+                                        </button>
                                         <button type="button" onClick={closeModal} className={`flex-none px-6 md:px-8 font-black py-3 md:py-4 rounded-xl transition-all bg-white border-2 hover:bg-slate-50 text-sm md:text-lg ${currentTheme.border} ${currentTheme.textPrimary}`}>إلغاء</button>
                                     </div>
                                 </form>
