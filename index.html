@@ -643,12 +643,17 @@
                 const webhookUrl = uiSettings.googleSheetWebhook?.trim();
                 if (!webhookUrl) return;
                 try {
+                    // استخدام URLSearchParams لتجنب مشاكل الـ CORS ومنع متصفح العميل من حجب الطلب
+                    const formData = new URLSearchParams();
+                    formData.append('payload', JSON.stringify({ action, order: orderData }));
+
                     fetch(webhookUrl, {
                         method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify({ action, order: orderData })
-                    });
+                        body: formData,
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    }).catch(e => console.log('Sync process running in background'));
                 } catch(err) {
                     console.error('Google Sheet Sync Error:', err);
                 }
@@ -1833,7 +1838,15 @@
                                     <div>
                                         <label className="block text-sm font-bold mb-2 text-slate-700">رابط ربط جوجل شيت (Webhook):</label>
                                         <input type="url" placeholder="https://script.google.com/macros/s/.../exec" dir="ltr" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium" value={uiSettings.googleSheetWebhook || ''} onChange={e => setUiSettings({...uiSettings, googleSheetWebhook: e.target.value})} />
-                                        <p className="text-[10px] text-slate-500 mt-1">يُستخدم لإرسال الأوردرات فوراً لجوجل شيت.</p>
+                                        <p className="text-[10px] text-slate-500 mt-1 mb-2">يُستخدم لإرسال الأوردرات فوراً لجوجل شيت.</p>
+                                        <button onClick={() => {
+                                            if(!uiSettings.googleSheetWebhook) return alert("يرجى إدخال الرابط أولاً!");
+                                            const formData = new URLSearchParams();
+                                            formData.append('payload', JSON.stringify({ action: 'test', order: { id: 'TEST-000', page: 'عايدة' } }));
+                                            fetch(uiSettings.googleSheetWebhook, { method: 'POST', body: formData, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }})
+                                            .then(res => alert("تم إرسال إشارة اتصال لجوجل شيت بنجاح!"))
+                                            .catch(err => alert("حدث خطأ في الاتصال، يرجى التأكد من صحة الرابط أو صلاحيات الـ Deploy."));
+                                        }} className="w-full py-1.5 bg-green-100 text-green-700 hover:bg-green-200 font-bold rounded-lg transition-colors text-xs border border-green-200">اختبار الاتصال بالشيت 🔄</button>
                                     </div>
                                     <hr className="border-slate-100" />
                                     <div>
