@@ -646,6 +646,7 @@
                     // استخدام text/plain لمنع حظر المتصفح لطلبات الـ CORS
                     fetch(webhookUrl, {
                         method: 'POST',
+                        mode: 'no-cors',
                         body: JSON.stringify({ action, order: orderData }),
                         headers: {
                             'Content-Type': 'text/plain;charset=utf-8'
@@ -1838,10 +1839,13 @@
                                         <p className="text-[10px] text-slate-500 mt-1 mb-2">يُستخدم لإرسال الأوردرات فوراً لجوجل شيت.</p>
                                         <button onClick={() => {
                                             if(!uiSettings.googleSheetWebhook) return alert("يرجى إدخال الرابط أولاً!");
-                                            const formData = new URLSearchParams();
-                                            formData.append('payload', JSON.stringify({ action: 'test', order: { id: 'TEST-000', page: 'عايدة' } }));
-                                            fetch(uiSettings.googleSheetWebhook, { method: 'POST', mode: 'no-cors', body: formData, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }})
-                                            .then(() => alert("تم إرسال الإشارة! يرجى مراجعة جوجل شيت للتأكد من وصول صف باسم TEST-000."))
+                                            fetch(uiSettings.googleSheetWebhook, { 
+                                                method: 'POST', 
+                                                mode: 'no-cors', 
+                                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                                                body: JSON.stringify({ action: 'test', order: { id: 'TEST-000', page: 'عايدة' } })
+                                            })
+                                            .then(() => alert("تم إرسال الإشارة! يرجى مراجعة شيت جوجل (شيت عايدة) للتأكد من وصول صف باسم TEST-000."))
                                             .catch(err => alert("حدث خطأ في الاتصال."));
                                         }} className="w-full py-1.5 bg-green-100 text-green-700 hover:bg-green-200 font-bold rounded-lg transition-colors text-xs border border-green-200">اختبار الاتصال بالشيت 🔄</button>
                                     </div>
