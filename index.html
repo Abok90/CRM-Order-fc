@@ -640,9 +640,10 @@
             // ==========================================
 
             const syncToGoogleSheet = async (action, orderData) => {
-                if (!uiSettings.googleSheetWebhook) return;
+                const webhookUrl = uiSettings.googleSheetWebhook?.trim();
+                if (!webhookUrl) return;
                 try {
-                    fetch(uiSettings.googleSheetWebhook, {
+                    fetch(webhookUrl, {
                         method: 'POST',
                         mode: 'no-cors',
                         headers: { 'Content-Type': 'text/plain' },
@@ -791,9 +792,8 @@
             const handleLogout = async () => { 
                 setAuthLoading(true);
                 try { await supabase.auth.signOut(); } catch(e) {}
-                localStorage.clear(); 
                 sessionStorage.clear();
-                window.location.replace(window.location.pathname); 
+                window.location.reload();
             };
 
             const handleAddOrEditOrder = async (e) => {
