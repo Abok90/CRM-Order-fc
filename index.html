@@ -648,13 +648,12 @@
 
                     fetch(webhookUrl, {
                         method: 'POST',
+                        mode: 'no-cors', // تم الإضافة لتخطي حظر المتصفح
                         body: formData,
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         }
-                    })
-                    .then(res => { if(!res.ok) throw new Error("Network response was not ok"); })
-                    .catch(e => console.error('Google Sheet Sync Error (Background):', e));
+                    }).catch(e => console.error('Google Sheet Sync Error (Background):', e));
                 } catch(err) {
                     console.error('Google Sheet Sync Error:', err);
                 }
@@ -1844,9 +1843,9 @@
                                             if(!uiSettings.googleSheetWebhook) return alert("يرجى إدخال الرابط أولاً!");
                                             const formData = new URLSearchParams();
                                             formData.append('payload', JSON.stringify({ action: 'test', order: { id: 'TEST-000', page: 'عايدة' } }));
-                                            fetch(uiSettings.googleSheetWebhook, { method: 'POST', body: formData, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }})
-                                            .then(res => alert("تم إرسال إشارة اتصال لجوجل شيت بنجاح!"))
-                                            .catch(err => alert("حدث خطأ في الاتصال، يرجى التأكد من صحة الرابط أو صلاحيات الـ Deploy."));
+                                            fetch(uiSettings.googleSheetWebhook, { method: 'POST', mode: 'no-cors', body: formData, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }})
+                                            .then(() => alert("تم إرسال الإشارة! يرجى مراجعة جوجل شيت للتأكد من وصول صف باسم TEST-000."))
+                                            .catch(err => alert("حدث خطأ في الاتصال."));
                                         }} className="w-full py-1.5 bg-green-100 text-green-700 hover:bg-green-200 font-bold rounded-lg transition-colors text-xs border border-green-200">اختبار الاتصال بالشيت 🔄</button>
                                     </div>
                                     <hr className="border-slate-100" />
