@@ -187,7 +187,7 @@
             const [isSettingsOpen, setIsSettingsOpen] = useState(false);
             
             const [uiSettings, setUiSettings] = useState(() => {
-                return JSON.parse(localStorage.getItem('crmUiSettings')) || { fontSize: '14px', padding: '8px' };
+                return JSON.parse(localStorage.getItem('crmUiSettings')) || { fontSize: '14px', padding: '8px', googleSheetWebhook: '' };
             });
 
             useEffect(() => {
@@ -636,8 +636,22 @@
             }, [displayedLogs]);
 
             // ==========================================
-            // 7. دوال واجهة المستخدم والحساب الذكي وتعديل الأرقام
+            // 7. دوال الإرسال لجوجل شيت والتعديل
             // ==========================================
+
+            const syncToGoogleSheet = async (action, orderData) => {
+                if (!uiSettings.googleSheetWebhook) return;
+                try {
+                    fetch(uiSettings.googleSheetWebhook, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({ action, order: orderData })
+                    });
+                } catch(err) {
+                    console.error('Google Sheet Sync Error:', err);
+                }
+            };
 
             // دالة تحويل الأرقام العربية إلى إنجليزية
             const toEnglishDigits = (str) => {
@@ -866,6 +880,7 @@
                         }
                         let actDesc = changes.length > 0 ? `تعديل: ${changes.join(' | ')}` : 'تحديث بيانات بدون تغييرات فعلية';
                         logActivity(actDesc, finalOrderId);
+                        syncToGoogleSheet('upsert', orderPayload);
                         
                         closeModal();
                     } else {
@@ -873,6 +888,7 @@
                         if (error) throw error;
                         
                         logActivity('إضافة أوردر جديد', finalOrderId);
+                        syncToGoogleSheet('upsert', orderPayload);
                         closeModal();
                         setSuccessOrderMessage(orderPayload); 
                     }
@@ -888,6 +904,8 @@
                 if (!user) return;
                 
                 const orderToUpdate = orders.find(o => o.id === id);
+                if(!orderToUpdate) return;
+
                 const isShipped = orderToUpdate?.status === 'الشحن' || orderToUpdate?.trackingNumber;
                 if (userRole?.role === 'agent' && isShipped) {
                     return alert("عفواً، لا يمكنك تغيير حالة طلب تم شحنه من هنا. يرجى الضغط على زر 'تعديل' لكتابة سبب التعديل أولاً.");
@@ -901,6 +919,9 @@
                     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', id);
                     if(error) throw error;
                     logActivity(`تغيير الحالة السريع إلى "${newStatus}"`, id);
+                    
+                    const updatedOrder = {...orderToUpdate, status: newStatus};
+                    syncToGoogleSheet('upsert', updatedOrder);
                 } catch (error) { 
                     alert("خطأ في التحديث: " + error.message);
                     setOrders(previousOrders);
@@ -934,8 +955,10 @@
                      if(error) throw error;
                      
                      logActivity(actionDesc, viewOrder.id);
-                     setViewOrder({...viewOrder, trackingNumber: quickTracking, status: quickStatus});
-                     setOrders(prev => prev.map(o => o.id === viewOrder.id ? { ...o, trackingNumber: quickTracking, status: quickStatus } : o));
+                     const updatedOrder = {...viewOrder, trackingNumber: quickTracking, status: quickStatus};
+                     setViewOrder(updatedOrder);
+                     setOrders(prev => prev.map(o => o.id === viewOrder.id ? updatedOrder : o));
+                     syncToGoogleSheet('upsert', updatedOrder);
                      alert("تم الحفظ بنجاح!");
                  } catch (error) { 
                      alert("فشل الحفظ: " + error.message); 
@@ -949,6 +972,7 @@
                 if (!window.confirm(`هل أنت متأكد من مسح الطلب (${id}) نهائياً؟`)) return;
                 
                 const exactId = String(id); 
+                const orderToDelete = orders.find(o => o.id === exactId);
                 const previousOrders = [...orders];
                 setOrders(prev => prev.filter(o => o.id !== exactId));
 
@@ -956,6 +980,7 @@
                     const { error } = await supabase.from('orders').delete().eq('id', exactId);
                     if(error) throw error;
                     logActivity(`مسح الأوردر نهائياً`, exactId);
+                    if (orderToDelete) syncToGoogleSheet('delete', orderToDelete);
                 } catch (error) { 
                     alert(`فشل المسح: ${error.message}`);
                     setOrders(previousOrders);
@@ -969,6 +994,7 @@
                 setIsDeletingMultiple(true);
                 const previousOrders = [...orders];
                 const idsToDelete = [...selectedOrders];
+                const ordersToDeleteData = orders.filter(o => idsToDelete.includes(o.id));
                 
                 setOrders(prev => prev.filter(o => !idsToDelete.includes(o.id)));
                 setSelectedOrders([]); 
@@ -977,6 +1003,7 @@
                     const { error } = await supabase.from('orders').delete().in('id', idsToDelete);
                     if (error) throw error;
                     logActivity(`مسح ${idsToDelete.length} طلبات معاً`, 'متعدد');
+                    ordersToDeleteData.forEach(o => syncToGoogleSheet('delete', o));
                 } catch (error) { 
                     alert(`فشل المسح الجماعي: ${error.message}`); 
                     setOrders(previousOrders);
@@ -1037,6 +1064,8 @@
                     
                     logActivity(`إضافة مجموعة طلبات (${ordersToInsert.length} طلب)`, 'متعدد');
                     alert(`تمت إضافة ${ordersToInsert.length} طلبات بنجاح!`);
+                    ordersToInsert.forEach(o => syncToGoogleSheet('upsert', o));
+                    
                     setIsBulkModalOpen(false); setBulkOrders(Array(5).fill({...emptyBulkRow}));
                     fetchOrdersData(); 
                 } catch (err) { alert(`فشل الحفظ الجماعي: ${err.message}`); } finally { setIsSubmitting(false); setLoadingDB(false); }
@@ -1799,8 +1828,14 @@
                     {isSettingsOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm border-t-4 border-indigo-600 animate-in zoom-in-95">
-                                <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-indigo-900"><IconSettings/> تخصيص العرض للعين</h3>
+                                <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-indigo-900"><IconSettings/> إعدادات وتخصيص العرض</h3>
                                 <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-sm font-bold mb-2 text-slate-700">رابط ربط جوجل شيت (Webhook):</label>
+                                        <input type="url" placeholder="https://script.google.com/macros/s/.../exec" dir="ltr" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium" value={uiSettings.googleSheetWebhook || ''} onChange={e => setUiSettings({...uiSettings, googleSheetWebhook: e.target.value})} />
+                                        <p className="text-[10px] text-slate-500 mt-1">يُستخدم لإرسال الأوردرات فوراً لجوجل شيت.</p>
+                                    </div>
+                                    <hr className="border-slate-100" />
                                     <div>
                                         <label className="block text-sm font-bold mb-2 text-slate-700">حجم خط الجداول:</label>
                                         <div className="flex gap-2">
