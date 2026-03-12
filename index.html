@@ -268,7 +268,7 @@
             const [editingProduct, setEditingProduct] = useState({ id: null, name: '', price: '', colors: '', sizes: '', image: '' });
 
             // -- الثوابت وإعدادات الإضافة المتعددة ومسميات الوظائف --
-            const pages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب'];
+            const pages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG'];
             const orderStatuses = ['جاري التحضير', 'تم', 'الشحن', 'مراجعة', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل', 'اعادة ارسال', 'خارجي'];
             const ROLE_NAMES = {
                 admin: 'مدير النظام',
@@ -509,7 +509,7 @@
                 setLogCurrentPage(1);
             }, [logSearchQuery, logFilterUser, logDateFrom, logDateTo, logsPerPage]);
 
-            // كشف التكرار الآلي للموبايل (11 رقم أو 8 أرقام)
+            // كشف التكرار الآلي للموبايل
             useEffect(() => {
                 if (newOrder.phone && (newOrder.phone.length === 11 || newOrder.phone.length === 8)) {
                     const found = orders.filter(o => o.phone === newOrder.phone && o.id !== newOrder.id);
@@ -794,7 +794,6 @@
 
                 if (!newOrder.customer || String(newOrder.customer).trim() === '') return alert("يرجى إدخال اسم العميل.");
                 
-                // التحقق الصارم من صحة رقم الموبايل (11 أو 8 أرقام فقط)
                 if (!newOrder.phone || (newOrder.phone.length !== 11 && newOrder.phone.length !== 8)) {
                     alert("⚠️ خطأ في رقم الموبايل:\nيرجى إدخال رقم موبايل صحيح مكون من (11 رقم) أو رقم أرضي (8 أرقام) فقط حتى يتم قبول الأوردر.");
                     return;
@@ -852,7 +851,6 @@
                             await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
                         }
                         
-                        // تسجيل التغييرات التفصيلية (Smart Detailed Audit Log)
                         let changes = [];
                         if(originalOrderData) {
                             if(originalOrderData.status !== orderPayload.status) changes.push(`الحالة من [${originalOrderData.status}] إلى [${orderPayload.status}]`);
@@ -1217,7 +1215,7 @@
                 }
             };
 
-            const getThemeClasses = (p) => (p === 'عايدة' || p === 'عايدة ويب' ? { btnPrimary: 'bg-pink-600 hover:bg-pink-700 text-white shadow-md shadow-pink-200', textPrimary: 'text-pink-600', border: 'border-pink-200', bgLight: 'bg-pink-50', ringFocus: 'focus:ring-pink-500' } : { btnPrimary: 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-200', textPrimary: 'text-purple-600', border: 'border-purple-200', bgLight: 'bg-purple-50', ringFocus: 'focus:ring-purple-500' });
+            const getThemeClasses = (p) => (p === 'عايدة' || p === 'عايدة ويب' ? { btnPrimary: 'bg-pink-600 hover:bg-pink-700 text-white shadow-md shadow-pink-200', textPrimary: 'text-pink-600', border: 'border-pink-200', bgLight: 'bg-pink-50', ringFocus: 'focus:ring-pink-500' } : p === 'Elite EG' ? { btnPrimary: 'bg-slate-800 hover:bg-slate-900 text-white shadow-md shadow-slate-300', textPrimary: 'text-slate-800', border: 'border-slate-300', bgLight: 'bg-slate-100', ringFocus: 'focus:ring-slate-600' } : { btnPrimary: 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-200', textPrimary: 'text-purple-600', border: 'border-purple-200', bgLight: 'bg-purple-50', ringFocus: 'focus:ring-purple-500' });
             
             const getRowStatusColor = (status) => {
                 switch(status) {
@@ -1885,8 +1883,8 @@
                                                                 {orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                                             </select>
                                                         </td>
-                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleBulkChange(index, 'shippingPrice', e.target.value)} onBlur={(e) => handleMathOnBlur('shippingPrice', e.target.value)} /></td>
-                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleBulkChange(index, 'productPrice', e.target.value)} onBlur={(e) => handleMathOnBlur('productPrice', e.target.value)} /></td>
+                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleBulkChange(index, 'shippingPrice', e.target.value)} onBlur={(e) => { try { const res = new Function('return ' + toEnglishDigits(e.target.value).replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'shippingPrice', res); } catch(err){} }} /></td>
+                                                        <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleBulkChange(index, 'productPrice', e.target.value)} onBlur={(e) => { try { const res = new Function('return ' + toEnglishDigits(e.target.value).replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'productPrice', res); } catch(err){} }} /></td>
                                                         <td><input type="date" className="excel-input text-slate-700" value={row.date} onChange={(e) => handleBulkChange(index, 'date', e.target.value)} title="يترك فارغاً لتسجيل تاريخ اليوم" /></td>
                                                     </tr>
                                                 ))}
