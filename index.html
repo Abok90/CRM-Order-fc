@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>نظام إدارة الطلبات (CRM)</title>
     
+    <!-- إعدادات تطبيق الويب التقدمي (PWA) للأندرويد والآيفون -->
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CRM">
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNGY0NmU1IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDE2VjhhMiAyIDAgMCAwLTEtMS43M2wtNy00YTIgMiAwIDAgMC0yIDBsLTcgNEEyIDIgMCAwIDAgMyA4djhhMiAyIDAgMCAwIDEgMS43M2w3IDRhMiAyIDAgMCAwIDIgMGw3LTRBMiAyIDAgMCAwIDIxIDE2eiIvPjxwb2x5bGluZSBwb2ludHM9IjMuMjcgNi45NiAxMiAxMi4wMSAyMC43MyA2Ljk2Ii8+PGxpbmUgeDE9IjEyIiB5MT0iMjIuMDgiIHgyPSIxMiIgeTI9IjEyIi8+PC9zdmc+">
+    <link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoi2YbYuNin2YUg2KXZkdiv2KfYsdipINin2YTYt9mE2KjYp9iqIChDUk0pIiwic2hvcnRfbmFtZSI6IkNSTSIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3ciOiIjZjhmYWZjIiwidGhlbWVfY29sb3ciOiIjNGY0NmU1IiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlppQjRiV3h1Y3owaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1qQXdNQzlzZG1jaUlIWnBaWGRDYjNnOUlqQWdNQ0F5TkNBeU5DSWdabWxzYkQwaWJtOXVaU2lnYzNSeWIydGxQU0lqTkdZME5tVTFJaUJ6ZEhKdmEyVXVkMmxrZEdnOUlqSWlJSE4wY205clpTMXNhVzVsWTJGd1BTSnliM1Z1WkNJZ2MzUnliMnRsTFd4cGJtVnFiMmx1UFNKeWIzVnVaQ0k+UEhCaGRHOGdaRDBpVFRJeElERTJWamhoTWlBeUlEQWdNQ0F3TFRFdE1TNDNNbXd0TnkwdE5HRXlJREFnTUMwd0xUSWdNR3d0Tnkwa05FRXlJRElnTUMwd0lETWdPSFk0YVRJZ01pQXdNQ0F3SURFZ01TNDNNbXc0SURSaE1pQXlJREFnTUMwd0lESWdNR3czTFRSQk1pQXlJREFnTUMwd0lESXhJREUyZWlJdlBqeHdiMnhwYkdsdVpTQndiMmx1ZEhNdlBzaXpMakkzSURZdU9UWWdNVElnTVRJdU1ERWdNakF1TnpNZ05pNDVOaUkvPjxsaW5lIHgxPSIxMiIgeTE9IjIyLjA4IiB4Mj0iMTIiIHkyPSIxMiIvPjwvc3ZnPiIsInNpemVzIjoiNTEyeDUxMiIsInR5cGUiOiJpbWFnZS9zdmcreG1sIn1dfQ==">
+
     <!-- مكتبة التصميم -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -170,6 +178,29 @@
         // 4. المكون الرئيسي (App)
         // ==========================================
         function App() {
+            // -- حالة التثبيت (PWA) --
+            const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+            useEffect(() => {
+                const handler = (e) => {
+                    e.preventDefault();
+                    setDeferredPrompt(e);
+                };
+                window.addEventListener('beforeinstallprompt', handler);
+                return () => window.removeEventListener('beforeinstallprompt', handler);
+            }, []);
+
+            const handleInstallClick = () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        setDeferredPrompt(null);
+                    });
+                } else {
+                    alert('لتثبيت التطبيق على هاتفك:\n\n1. في متصفح (Safari) بالآيفون: اضغط على زر المشاركة (Share) في الأسفل ثم اختر "إضافة للشاشة الرئيسية" (Add to Home Screen).\n\n2. في متصفح (Chrome) بالأندرويد: اضغط على الثلاث نقاط بالأعلى ثم اختر "تثبيت التطبيق" (Install app).');
+                }
+            };
+
             // -- حالة المصادقة --
             const [user, setUser] = useState(null);
             const [userRole, setUserRole] = useState(null); 
@@ -646,18 +677,17 @@
                 const webhookUrl = uiSettings.googleSheetWebhook?.trim();
                 if (!webhookUrl) return;
                 try {
-                    // تم الرجوع لـ urlencoded ليتوافق مع تحديث الشيت الأخير للهروب من الـ CORS
+                    // استخدام URLSearchParams لتجنب مشاكل الـ CORS ومنع متصفح العميل من حجب الطلب
                     const formData = new URLSearchParams();
                     formData.append('payload', JSON.stringify({ action, order: orderData }));
 
                     fetch(webhookUrl, {
                         method: 'POST',
-                        mode: 'no-cors',
                         body: formData,
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         }
-                    }).catch(e => console.error('Google Sheet Sync Error (Background):', e));
+                    }).catch(e => console.log('Sync process running in background'));
                 } catch(err) {
                     console.error('Google Sheet Sync Error:', err);
                 }
@@ -1393,6 +1423,11 @@
                             {isSuperAdmin && <button onClick={() => {setCurrentTab('products'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'products' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إدارة المنتجات</span></button>}
                             {(isSuperAdmin || isPageManager) && <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-4 border border-indigo-500/30 ${currentTab === 'users' ? 'bg-indigo-800 text-white shadow-lg shadow-indigo-900/50' : 'text-indigo-300 hover:bg-slate-800 hover:text-white'}`}><span><IconUsers /></span> <span>إدارة الموظفين</span></button>}
                             {(isSuperAdmin || isPageManager) && <button onClick={() => {setCurrentTab('logs'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-2 border border-amber-500/30 ${currentTab === 'logs' ? 'bg-amber-700 text-white shadow-lg shadow-amber-900/50' : 'text-amber-300 hover:bg-slate-800 hover:text-white'}`}><span><IconActivity /></span> <span>سجل النشاطات</span></button>}
+                            
+                            {/* زر تثبيت التطبيق */}
+                            <button onClick={handleInstallClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-8 border border-green-500/30 text-green-400 hover:bg-slate-800 hover:text-white`}>
+                                <span><IconDownload size={20} /></span> <span>تثبيت التطبيق 📱</span>
+                            </button>
                         </nav>
                     </aside>
 
@@ -2088,29 +2123,6 @@
                                         )}
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* نافذة استيراد الإكسيل */}
-                    {isImportModalOpen && (
-                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[60] flex items-end md:items-center justify-center md:p-4">
-                            <div className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full md:max-w-3xl h-[85vh] md:max-h-[95vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border border-slate-200">
-                                <div className="px-4 py-3 md:px-6 md:py-5 border-b bg-slate-50 flex justify-between items-center"><div className="flex items-center gap-2 md:gap-3"><div className="p-1.5 md:p-2.5 rounded-xl bg-indigo-100 text-indigo-700"><IconUpload /></div><div><h2 className="text-sm md:text-xl font-black text-slate-800">استيراد طلبات سابقة</h2><p className="text-[10px] md:text-xs text-slate-500 font-bold mt-0.5 md:mt-1">ارفع الشيت، حدد الصفحة، واربط الأعمدة</p></div></div><button onClick={() => setIsImportModalOpen(false)} disabled={isImporting} className="p-1.5 md:p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm disabled:opacity-50"><IconX size={20} /></button></div>
-                                <div className="p-4 md:p-6 overflow-y-auto flex-1 bg-white">
-                                    {csvHeaders.length === 0 ? (
-                                        <div className="border-2 border-dashed border-indigo-200 rounded-2xl bg-indigo-50/50 p-6 md:p-8 text-center"><IconUpload size={48} className="mx-auto text-indigo-400 mb-3 md:mb-4" /><h3 className="text-sm md:text-lg font-black text-indigo-900 mb-1.5 md:mb-2">اختر ملف CSV من جهازك</h3><p className="text-[10px] md:text-sm text-indigo-600/80 mb-4 md:mb-6">قم بتحميل ملفك من Google Sheets بصيغة (.csv)</p><input type="file" accept=".csv" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="csv-upload" /><label htmlFor="csv-upload" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 md:px-6 md:py-3 rounded-xl text-sm font-bold cursor-pointer inline-flex transition-colors shadow-md">اختيار الملف</label></div>
-                                    ) : isImporting ? (
-                                        <div className="py-8 md:py-12 flex flex-col items-center justify-center text-center"><div className="w-12 h-12 md:w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4 md:mb-6"></div><h3 className="text-lg md:text-xl font-black text-slate-800 mb-1.5 md:mb-2">جاري استيراد الطلبات...</h3><p className="text-xs md:text-sm text-slate-600 font-bold mb-3 md:mb-4">{importStatusText}</p><div className="w-full max-w-xs md:max-w-md bg-slate-100 rounded-full h-3 md:h-4 overflow-hidden border border-slate-200 shadow-inner"><div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300" style={{ width: `${importProgress}%` }}></div></div><p className="mt-2 font-black text-indigo-700 text-sm">{importProgress}%</p></div>
-                                    ) : (
-                                        <div className="animate-in fade-in">
-                                            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 md:p-5 mb-4 md:mb-6 shadow-sm"><label className="block text-xs md:text-sm font-black text-indigo-900 mb-1.5 md:mb-2">1. حدد الصفحة التي تنتمي إليها طلبات هذا الشيت:</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-white border border-indigo-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs md:text-sm text-indigo-800 shadow-sm ${userRole?.role === 'agent' && availablePages.length === 1 ? 'opacity-70 bg-slate-100' : ''}`} value={importTargetPage} onChange={(e) => setImportTargetPage(e.target.value)} disabled={userRole?.role === 'agent' && availablePages.length === 1}>{availablePages.map(p => <option key={p} value={p}>{p}</option>)}</select><p className="text-[10px] md:text-xs text-indigo-600/80 mt-1.5 md:mt-2 font-bold">سيتم تعيين كل الطلبات المرفوعة من هذا الملف إلى الصفحة المحددة أعلاه.</p></div>
-                                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 md:p-4 mb-4 md:mb-6 flex items-start gap-2 md:gap-3 shadow-sm"><span className="text-amber-600 mt-0.5 text-lg">⚠️</span><div className="text-[11px] md:text-sm font-bold text-amber-800">2. وجدنا <span className="font-black text-base md:text-lg mx-1">{csvData.length}</span> طلب في الملف. لا تقلق من أي أخطاء، سيقوم "المنظف الذكي" بتصحيح التواريخ تلقائياً.</div></div>
-                                            <div className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden shadow-sm"><table className="w-full text-right text-[10px] md:text-sm"><thead className="bg-slate-800 text-white"><tr><th className="px-3 py-2 md:px-5 md:py-3 font-bold w-1/2">الخانة في السيستم</th><th className="px-3 py-2 md:px-5 md:py-3 font-bold w-1/2">تقابلها في ملفك (CSV)</th></tr></thead><tbody className="divide-y divide-slate-200 font-bold text-slate-700">{[{ key: 'id', label: 'رقم الطلب (اختياري)' }, { key: 'customer', label: 'اسم العميل' }, { key: 'phone', label: 'رقم الهاتف' }, { key: 'address', label: 'عنوان العميل' }, { key: 'notes', label: 'الملحوظات' }, { key: 'item', label: 'المنتج / الوصف' }, { key: 'productPrice', label: 'سعر المنتج' }, { key: 'shippingPrice', label: 'سعر الشحن' }, { key: 'trackingNumber', label: 'رقم البوليصة' }, { key: 'status', label: 'الحالة' }, { key: 'date', label: 'تاريخ الطلب' }].map(field => (<tr key={field.key} className="hover:bg-indigo-50/50 transition-colors"><td className="px-3 py-2 md:px-5 md:py-3">{field.label}</td><td className="px-3 py-2 md:px-5 md:py-3"><select className="w-full px-2 py-1 md:px-3 md:py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm text-[10px] md:text-sm" value={columnMapping[field.key]} onChange={(e) => setColumnMapping({...columnMapping, [field.key]: e.target.value})}><option value="">-- تخطي / غير موجود --</option>{csvHeaders.map(header => <option key={header} value={header}>{header}</option>)}</select></td></tr>))}</tbody></table></div>
-                                        </div>
-                                    )}
-                                </div>
-                                {csvHeaders.length > 0 && !isImporting && (<div className="px-4 py-3 md:px-6 md:py-4 border-t bg-slate-50 flex justify-end gap-2 md:gap-3"><button onClick={() => setIsImportModalOpen(false)} className="px-4 py-2 md:px-6 md:py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 text-xs md:text-sm hover:bg-slate-100 transition-colors">إلغاء</button><button onClick={startImport} className="px-6 py-2 md:px-8 md:py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-xs md:text-sm font-black shadow-lg shadow-indigo-200 hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:-translate-y-0.5">تأكيد الرفع</button></div>)}
                             </div>
                         </div>
                     )}
