@@ -133,15 +133,35 @@
             for (let i = 0; i < retries; i++) {
                 try {
                     const response = await fetch(url, options);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!response.ok) {
+                        const errData = await response.json().catch(() => ({}));
+                        throw new Error(errData.error?.message || `HTTP error! status: ${response.status}`);
+                    }
                     return await response.json();
                 } catch (error) {
+                    // لا نكرر المحاولة إذا كان الخطأ في المفتاح أو الموديل (لتسريع الاستجابة بالخطأ)
+                    if (error.message.includes('API key not valid') || error.message.includes('not found') || error.message.includes('404')) {
+                        throw error;
+                    }
                     if (i === retries - 1) throw error;
                     await new Promise(res => setTimeout(res, delay));
                     delay *= 2; // Exponential backoff
                 }
             }
         };
+
+        const callGemini = async (promptText) => {
+            if (!apiKey && typeof process !== 'undefined') return "عذراً، مفتاح API الخاص بـ Gemini غير متوفر في هذه البيئة.";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: promptText }] }] };
+            const data = await fetchWithBackoff(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'لم يتمكن الذكاء الاصطناعي من معالجة الطلب.';
+        };
+
 
         // ==========================================
         // 2. مكونات الأيقونات
@@ -171,7 +191,7 @@
         const IconTable = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="3" x2="21" y1="15" y2="15"/><line x1="9" x2="9" y1="9" y2="21"/><line x1="15" x2="15" y1="9" y2="21"/></svg>;
         const IconActivity = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
         const IconBell = ({size=18}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>;
-        const IconSettings = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+        const IconSettings = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
         const IconImage = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>;
         const IconChevronDown = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>;
         const IconTrendingUp = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>;
@@ -258,27 +278,31 @@
 
             // دالة الاتصال بـ Gemini المحدثة
             const executeGeminiCall = async (promptText) => {
-                const key = uiSettings.geminiApiKey?.trim() || apiKey; // يستخدم المفتاح من الإعدادات أو المفتاح الافتراضي
-                if (!key) {
+                const customKey = uiSettings.geminiApiKey?.trim();
+                const keyToUse = customKey || apiKey;
+                
+                if (!keyToUse) {
                     alert("يرجى إدخال مفتاح Gemini API في شاشة الإعدادات أولاً (أيقونة الترس ⚙️).");
                     throw new Error("No API Key");
                 }
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`;
+
+                // إصلاح خطأ الإصدارات: المفاتيح العامة (المجلوبة من المستخدم) تدعم 1.5، والمفتاح الداخلي للبيئة يدعم 2.5
+                const modelVersion = customKey ? "gemini-1.5-flash" : "gemini-2.5-flash-preview-09-2025";
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelVersion}:generateContent?key=${keyToUse}`;
                 const payload = { contents: [{ parts: [{ text: promptText }] }] };
                 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (!response.ok) {
-                     const errData = await response.json();
-                     console.error("Gemini API Error:", errData);
-                     throw new Error(`API Error: ${response.status}`);
+                try {
+                    const data = await fetchWithBackoff(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'لم يتمكن الذكاء الاصطناعي من معالجة الطلب.';
+                } catch (error) {
+                    console.error("Gemini API Error:", error);
+                    alert("فشل الاتصال: " + error.message);
+                    throw error;
                 }
-                const data = await response.json();
-                return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'لم يتمكن الذكاء الاصطناعي من معالجة الطلب.';
             };
             
             // -- نوافذ (Modals) --
@@ -2522,118 +2546,15 @@
                                         </div>
 
                                         <div className="md:col-span-2">
-                                            <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1 flex justify-between items-center">
-                                                <span>العنوان التفصيلي <span className="text-red-500">*</span></span>
-                                                <button type="button" onClick={async () => {
-                                                    if (!newOrder.address) return alert("يرجى كتابة عنوان مبدئي أولاً ليتم ترتيبه.");
-                                                    setIsCleaningAddress(true);
-                                                    try {
-                                                        const prompt = `قم بترتيب وتنظيف العنوان التالي ليكون واضحاً لمندوب الشحن في مصر (المحافظة - المنطقة - الشارع - التفاصيل). أعد العنوان فقط بدون أي مقدمات أو شروحات إضافية: ${newOrder.address}`;
-                                                        const cleanAddress = await executeGeminiCall(prompt);
-                                                        setNewOrder({...newOrder, address: cleanAddress.replace(/\n/g, ' ').trim()});
-                                                    } catch(e) {
-                                                        if (e.message !== "No API Key") alert("فشل تنظيف العنوان.");
-                                                    } finally {
-                                                        setIsCleaningAddress(false);
-                                                    }
-                                                }} disabled={isCleaningAddress} className="text-[10px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded transition-colors disabled:opacity-50 flex items-center gap-1">
-                                                    {isCleaningAddress ? <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div> : <IconSparkles size={12} />}
-                                                    {isCleaningAddress ? "جاري الترتيب..." : "ترتيب ذكي"}
-                                                </button>
-                                            </label>
-                                            <input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} />
+                                            <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">المنتج / الوصف النهائي (يمكن التعديل يدوياً) <span className="text-red-500">*</span></label>
+                                            <textarea required rows="3" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm leading-relaxed whitespace-pre-wrap ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea>
                                         </div>
-                                        <div><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">الصفحة (المصدر)</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2 ${userRole?.role === 'agent' ? 'opacity-70 cursor-not-allowed' : ''}`} value={newOrder.page} onChange={e => setNewOrder({...newOrder, page: e.target.value})} disabled={userRole?.role === 'agent'}>{availablePages.map(page => <option key={page} value={page}>{page}</option>)}</select></div>
-                                        
-                                        {/* نظام البحث عن المنتجات (Autocomplete Combobox) المتعدد */}
-                                        <div className="md:col-span-2 bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-200 shadow-inner relative">
-                                            <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-2 flex justify-between items-center">
-                                                <span>🛒 إضافة منتجات من المخزن</span>
-                                            </label>
-                                            
-                                            <div className="relative">
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="اكتب للبحث عن منتج أو اضغط السهم لعرض الكل..." 
-                                                    className={`w-full px-3 py-2 md:px-4 md:py-2.5 pr-10 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 font-bold text-xs md:text-sm ${currentTheme.ringFocus}`}
-                                                    value={productSearchStr}
-                                                    onChange={(e) => {
-                                                        setProductSearchStr(e.target.value);
-                                                        setShowProductSuggestions(true);
-                                                        setSelectedProductDetails(null);
-                                                    }}
-                                                    onFocus={() => setShowProductSuggestions(true)}
-                                                />
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => {
-                                                        setShowProductSuggestions(!showProductSuggestions);
-                                                        setSelectedProductDetails(null);
-                                                    }}
-                                                    className="absolute left-2 top-1/2 transform -translate-y-1/2 p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 rounded-md transition-colors"
-                                                >
-                                                    <IconChevronDown />
-                                                </button>
-                                            </div>
-                                            
-                                            {/* قائمة الاقتراحات */}
-                                            {showProductSuggestions && !selectedProductDetails && (
-                                                <div className="absolute z-20 left-4 right-4 mt-1 bg-white border border-slate-200 shadow-2xl rounded-xl max-h-60 overflow-y-auto divide-y divide-slate-100">
-                                                    {products.filter(p => p.name.toLowerCase().includes(productSearchStr.toLowerCase())).map(p => (
-                                                        <div key={p.id} onClick={() => setSelectedProductDetails({ product: p, color: '', size: '' })} className="p-3 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors">
-                                                            {p.image ? <img src={p.image} className="w-10 h-10 rounded border object-cover"/> : <div className="w-10 h-10 bg-slate-100 rounded flex items-center justify-center text-slate-400"><IconPackage size={16}/></div>}
-                                                            <div>
-                                                                <div className="font-bold text-slate-800 text-xs md:text-sm">{p.name}</div>
-                                                                <div className="text-[10px] md:text-xs text-green-600 font-black mt-0.5">{p.price} ج.م</div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                    {products.filter(p => p.name.toLowerCase().includes(productSearchStr.toLowerCase())).length === 0 && (
-                                                        <div className="p-3 text-center text-slate-500 text-xs font-bold">لا توجد نتائج مطابقة</div>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {/* اختيار تفاصيل المنتج (الألوان والمقاسات) للدمج */}
-                                            {selectedProductDetails && (
-                                                <div className="mt-3 p-3 bg-white rounded-xl border border-indigo-200 shadow-sm animate-in fade-in slide-in-from-top-2">
-                                                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
-                                                        <h4 className="font-black text-xs md:text-sm text-indigo-900">{selectedProductDetails.product.name}</h4>
-                                                        <button type="button" onClick={()=>setSelectedProductDetails(null)} className="text-[10px] md:text-xs font-bold text-red-500 hover:underline">إلغاء التحديد</button>
-                                                    </div>
-                                                    
-                                                    {selectedProductDetails.product.colors && (
-                                                        <div className="mb-3">
-                                                            <span className="block text-[10px] md:text-xs font-bold text-slate-500 mb-1.5">اختر اللون:</span>
-                                                            <div className="flex flex-wrap gap-1.5 md:gap-2">
-                                                                {selectedProductDetails.product.colors.split(',').map(c => (
-                                                                    <button type="button" key={c} onClick={()=>setSelectedProductDetails({...selectedProductDetails, color: c})} className={`px-2 py-1 md:px-3 rounded-full text-[10px] md:text-xs font-bold border transition-colors ${selectedProductDetails.color === c ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'}`}>{c}</button>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {selectedProductDetails.product.sizes && (
-                                                        <div className="mb-4">
-                                                            <span className="block text-[10px] md:text-xs font-bold text-slate-500 mb-1.5">اختر المقاس:</span>
-                                                            <div className="flex flex-wrap gap-1.5 md:gap-2">
-                                                                {selectedProductDetails.product.sizes.split(',').map(s => (
-                                                                    <label key={s} className={`cursor-pointer px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[10px] md:text-xs font-black border transition-colors flex items-center justify-center min-w-[35px] md:min-w-[40px] ${selectedProductDetails.size === s ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'}`}>
-                                                                        <input type="radio" className="hidden" name="prod_size" checked={selectedProductDetails.size === s} onChange={()=>setSelectedProductDetails({...selectedProductDetails, size: s})} />
-                                                                        {s}
-                                                                    </label>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    <button type="button" onClick={applyProductToOrder} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-2 rounded-lg shadow-sm transition-colors text-xs md:text-sm">إضافة للمنتجات المختارة ➕</button>
-                                                </div>
-                                            )}
+                                        <div className="md:col-span-2">
+                                            <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">حالة الطلب</label>
+                                            <select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.status} onChange={e => setNewOrder({...newOrder, status: e.target.value})}>
+                                                {orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}
+                                            </select>
                                         </div>
-
-                                        <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">المنتج / الوصف النهائي (يمكن التعديل يدوياً) <span className="text-red-500">*</span></label><textarea required rows="3" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm leading-relaxed whitespace-pre-wrap ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
-                                        <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">حالة الطلب</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.status} onChange={e => setNewOrder({...newOrder, status: e.target.value})}>{orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}</select></div>
                                         <div>
                                             <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر المنتجات (ج.م) <span className="text-red-500">*</span></label>
                                             <input required type="text" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => setNewOrder({...newOrder, productPrice: e.target.value})} onBlur={(e) => handleMathOnBlur('productPrice', e.target.value)} placeholder="مثال: 150+150" />
@@ -2657,10 +2578,21 @@
                                             </>
                                         )}
 
-                                        <div className="md:col-span-2 p-3 md:p-4 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-between text-white shadow-inner"><span className="text-xs md:text-sm font-bold text-slate-300">الإجمالي النهائي المطلوب:</span><span className="font-black text-lg md:text-2xl tracking-wide">{(Number(newOrder.shippingPrice) || 0) + (Number(newOrder.productPrice) || 0)} <span className="text-[10px] md:text-sm font-normal text-slate-400">ج.م</span></span></div>
+                                        <div className="md:col-span-2 p-3 md:p-4 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-between text-white shadow-inner">
+                                            <span className="text-xs md:text-sm font-bold text-slate-300">الإجمالي النهائي المطلوب:</span>
+                                            <span className="font-black text-lg md:text-2xl tracking-wide">{(Number(newOrder.shippingPrice) || 0) + (Number(newOrder.productPrice) || 0)} <span className="text-[10px] md:text-sm font-normal text-slate-400">ج.م</span></span>
+                                        </div>
                                         
-                                        <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">ملاحظات إضافية (اختياري)</label><textarea rows="2" placeholder="أي ملحوظات إضافية بخصوص الطلب..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.notes || ''} onChange={e => setNewOrder({...newOrder, notes: e.target.value})}></textarea></div>
-                                        <div className="md:col-span-2 pt-2 border-t border-slate-200"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1 flex items-center gap-1 md:gap-2"><IconCalendar /> تاريخ الطلب</label><input type="date" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.date || ''} onChange={e => setNewOrder({...newOrder, date: e.target.value})} /><p className="text-[9px] md:text-xs font-bold text-slate-400 mt-1">يُترك فارغاً ليتم تسجيل تاريخ اليوم تلقائياً.</p></div>
+                                        <div className="md:col-span-2">
+                                            <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">ملاحظات إضافية (اختياري)</label>
+                                            <textarea rows="2" placeholder="أي ملحوظات إضافية بخصوص الطلب..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.notes || ''} onChange={e => setNewOrder({...newOrder, notes: e.target.value})}></textarea>
+                                        </div>
+                                        
+                                        <div className="md:col-span-2 pt-2 border-t border-slate-200">
+                                            <label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1 flex items-center gap-1 md:gap-2"><IconCalendar /> تاريخ الطلب</label>
+                                            <input type="date" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.date || ''} onChange={e => setNewOrder({...newOrder, date: e.target.value})} />
+                                            <p className="text-[9px] md:text-xs font-bold text-slate-400 mt-1">يُترك فارغاً ليتم تسجيل تاريخ اليوم تلقائياً.</p>
+                                        </div>
                                         
                                         {/* خانة رقم البوليصة مخفية عن الموظف العادي وتظهر للمدير فقط */}
                                         {isSuperAdmin && (
