@@ -157,7 +157,6 @@
         const IconSettings = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
         const IconImage = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>;
         const IconChevronDown = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>;
-        const IconSparkles = ({size=18}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>;
 
         // ==========================================
         // 3. منتجات Fashion EG الافتراضية (10 منتجات)
@@ -246,12 +245,6 @@
             const [quickTracking, setQuickTracking] = useState(''); 
             const [quickStatus, setQuickStatus] = useState(''); 
             
-            // -- Gemini AI States --
-            const [rawChatText, setRawChatText] = useState('');
-            const [isExtracting, setIsExtracting] = useState(false);
-            const [smartReplyText, setSmartReplyText] = useState('');
-            const [isGeneratingReply, setIsGeneratingReply] = useState(false);
-
             // حالة تتبع الحالة المختارة لكل صفحة في تبويب الإحصائيات
             const [selectedPageStatus, setSelectedPageStatus] = useState({});
             
@@ -333,106 +326,6 @@
             // ==========================================
             // 4. دوال الاتصال الأساسية والصلاحيات
             // ==========================================
-
-            // -- Gemini API Functions --
-            const callGeminiAPI = async (prompt, systemInstruction, schema) => {
-                const apiKey = "AIzaSyA-IzWWMm9w5egRoS928SK-VvBWLbv5rdk";
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-                
-                const payload = {
-                    contents: [{ parts: [{ text: prompt }] }],
-                    systemInstruction: { parts: [{ text: systemInstruction }] }
-                };
-
-                if (schema) {
-                    payload.generationConfig = {
-                        responseMimeType: "application/json",
-                        responseSchema: schema
-                    };
-                }
-
-                const retries = [1000, 2000, 4000, 8000, 16000];
-                for (let i = 0; i <= retries.length; i++) {
-                    try {
-                        const response = await fetch(url, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        
-                        if (!response.ok) {
-                            const errBody = await response.text();
-                            throw new Error(`خطأ في الاتصال بالذكاء الاصطناعي: ${response.status} - ${errBody}`);
-                        }
-                        
-                        const data = await response.json();
-                        let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                        
-                        if (schema) {
-                            // تنظيف النص في حال رجع بداخل علامات markdown
-                            text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                            return JSON.parse(text || '{}');
-                        }
-                        return text;
-                    } catch (err) {
-                        if (i === retries.length) throw err;
-                        await new Promise(res => setTimeout(res, retries[i]));
-                    }
-                }
-            };
-
-            const handleMagicPaste = async () => {
-                if(!rawChatText.trim()) return;
-                setIsExtracting(true);
-                try {
-                    const orderSchema = {
-                        type: "OBJECT",
-                        properties: {
-                            customer: { type: "STRING", description: "Customer full name" },
-                            phone: { type: "STRING", description: "Customer phone number (usually 11 digits starting with 01)" },
-                            address: { type: "STRING", description: "Full address including city and street" },
-                            item: { type: "STRING", description: "Products requested including colors and sizes" },
-                            notes: { type: "STRING", description: "Any extra notes" }
-                        }
-                    };
-                    const result = await callGeminiAPI(
-                        `استخرج بيانات الطلب من هذه المحادثة:\n${rawChatText}`,
-                        "أنت مساعد ذكي لمتجر إلكتروني في مصر. استخرج بيانات العميل المطلوبة. إذا كانت بعض المعلومات غير موجودة، اتركها فارغة. أجب باللغة العربية.",
-                        orderSchema
-                    );
-                    setNewOrder(prev => ({
-                        ...prev,
-                        customer: result.customer || prev.customer,
-                        phone: result.phone || prev.phone,
-                        address: result.address || prev.address,
-                        item: result.item || prev.item,
-                        notes: result.notes || prev.notes
-                    }));
-                    setRawChatText('');
-                } catch(e) {
-                    console.error("AI Error:", e);
-                    alert('حدث خطأ أثناء الاستخراج:\n' + e.message + '\n\n(تأكد من توفر مفتاح الـ API إذا كنت تشغل النظام محلياً)');
-                } finally {
-                    setIsExtracting(false);
-                }
-            };
-
-            const generateSmartReply = async () => {
-                if(!viewOrder) return;
-                setIsGeneratingReply(true);
-                try {
-                    const prompt = `بيانات الطلب:\nالاسم: ${viewOrder.customer}\nالمنتج: ${viewOrder.item}\nالحالة: ${viewOrder.status}\nالإجمالي: ${Number(viewOrder.productPrice) + Number(viewOrder.shippingPrice)}\nرقم البوليصة: ${viewOrder.trackingNumber || 'لم يصدر بعد'}`;
-                    const sysInst = "أنت مساعد خدمة عملاء لمتجر إلكتروني. قم بصياغة رسالة واتساب ودية ومحترفة باللهجة المصرية للعميل تخبره بحالة طلبه. استخدم الإيموجي المناسبة. لا تكتب أي مقدمات، فقط نص الرسالة المباشر.";
-                    const reply = await callGeminiAPI(prompt, sysInst, null);
-                    setSmartReplyText(reply);
-                    setCopiedType('');
-                } catch(e) {
-                    console.error("AI Error:", e);
-                    alert('فشل توليد الرد:\n' + e.message);
-                } finally {
-                    setIsGeneratingReply(false);
-                }
-            };
 
             const isSuperAdmin = SUPER_ADMIN_ROLES.includes(userRole?.role);
             const isPageManager = userRole?.role === 'page_manager';
@@ -1245,7 +1138,6 @@
                     setProductSearchStr(''); 
                     setSelectedProductDetails(null);
                     setShowProductSuggestions(false);
-                    setRawChatText('');
                     setNewOrder({ 
                         id: '', customer: '', address: '', phone: '', notes: '', 
                         page: (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0], 
@@ -1275,9 +1167,9 @@
                 setIsAddModalOpen(true); 
             };
             
-            const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); setDuplicateWarnings([]); setRawChatText(''); };
-            const openViewModal = (order) => { setViewOrder(order); setQuickTracking(order.trackingNumber || ''); setQuickStatus(order.status || 'جاري التحضير'); setSmartReplyText(''); setIsViewModalOpen(true); };
-            const closeViewModal = () => { setIsViewModalOpen(false); setViewOrder(null); setCopiedType(''); setQuickTracking(''); setSmartReplyText(''); };
+            const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); setDuplicateWarnings([]); };
+            const openViewModal = (order) => { setViewOrder(order); setQuickTracking(order.trackingNumber || ''); setQuickStatus(order.status || 'جاري التحضير'); setIsViewModalOpen(true); };
+            const closeViewModal = () => { setIsViewModalOpen(false); setViewOrder(null); setCopiedType(''); setQuickTracking(''); };
 
             const copyToClipboard = (text, type) => {
                 const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
@@ -2205,40 +2097,6 @@
                                         <button onClick={() => copyToClipboard(generateShippingMsg(viewOrder), 'shipping')} className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 py-3 md:py-4 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all ${copiedType === 'shipping' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-slate-800 border-slate-800 text-white hover:bg-slate-700'}`}><IconTruck size={20} />{copiedType === 'shipping' ? 'تم النسخ ✓' : 'نسخ لشركة الشحن'}</button>
                                     </div>
                                     
-                                    <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 md:p-4 flex flex-col gap-2 mb-4 md:mb-5">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className="text-[11px] md:text-sm font-black text-purple-800 flex items-center gap-1.5">
-                                                <IconSparkles size={16} /> الرد الذكي المخصص (AI) ✨
-                                            </label>
-                                            <button
-                                                onClick={generateSmartReply}
-                                                disabled={isGeneratingReply}
-                                                className="text-[10px] md:text-xs bg-purple-200 text-purple-800 hover:bg-purple-300 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1 shadow-sm"
-                                            >
-                                                {isGeneratingReply ? 'جاري التوليد...' : 'توليد رد 🔄'}
-                                            </button>
-                                        </div>
-                                        {smartReplyText ? (
-                                            <div className="relative">
-                                                <textarea
-                                                    readOnly
-                                                    className="w-full h-24 p-3 bg-white border border-purple-300 rounded-xl outline-none resize-none font-semibold text-purple-900 shadow-inner text-xs md:text-sm leading-relaxed"
-                                                    value={smartReplyText}
-                                                />
-                                                <button
-                                                    onClick={() => copyToClipboard(smartReplyText, 'smart_reply')}
-                                                    className={`absolute bottom-2 left-2 px-3 py-1.5 rounded-lg font-bold text-[10px] md:text-xs transition-colors shadow-sm ${copiedType === 'smart_reply' ? 'bg-green-500 text-white copy-animation' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
-                                                >
-                                                    {copiedType === 'smart_reply' ? 'تم النسخ ✓' : 'نسخ الرد ✨'}
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="text-center py-4 bg-white/60 border border-purple-100 rounded-xl text-purple-600/70 text-xs font-bold">
-                                                اضغط على "توليد رد" ليقوم الذكاء الاصطناعي بكتابة رسالة واتساب مناسبة لحالة الطلب.
-                                            </div>
-                                        )}
-                                    </div>
-
                                     <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 md:p-4 flex flex-col gap-2">
                                         <label className="block text-xs md:text-sm font-black text-teal-800 mb-1 md:mb-2">تحديث سريع للحالة {isSuperAdmin ? 'ورقم البوليصة' : ''}:</label>
                                         {(userRole?.role === 'agent' && (viewOrder?.status === 'الشحن' || viewOrder?.trackingNumber)) ? (
@@ -2276,30 +2134,6 @@
                                 <div className={`px-4 py-3 md:px-6 md:py-5 border-b flex justify-between items-center shrink-0 ${currentTheme.bgLight}`}><div className="flex items-center gap-2 md:gap-3"><div className={`p-1.5 md:p-2 rounded-lg bg-white shadow-sm ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit /> : <IconPlus />}</div><h2 className={`text-sm md:text-xl font-black ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2></div><button onClick={closeModal} className="p-1.5 md:p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={20} /></button></div>
                                 
                                 <form onSubmit={handleAddOrEditOrder} className={`p-4 md:p-6 space-y-3 md:space-y-4 overflow-y-auto flex-1 ${currentTheme.bgLight}`}>
-                                    
-                                    {/* اللصق السحري AI */}
-                                    <div className="md:col-span-2 bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-xl border border-purple-200 shadow-sm mb-2">
-                                        <label className="block text-[11px] md:text-sm font-black text-purple-800 mb-2 flex items-center gap-2">
-                                            <IconSparkles /> اللصق السحري بالذكاء الاصطناعي ✨
-                                        </label>
-                                        <div className="flex flex-col md:flex-row gap-2">
-                                            <textarea
-                                                rows="2"
-                                                placeholder="انسخ رسالة العميل هنا (الاسم، العنوان، الطلب، الموبايل) وسيقوم الذكاء الاصطناعي بتوزيعها في الخانات المناسبة..."
-                                                className="flex-1 px-3 py-2 border border-purple-200 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 text-xs font-semibold resize-none bg-white"
-                                                value={rawChatText}
-                                                onChange={e => setRawChatText(e.target.value)}
-                                            />
-                                            <button
-                                                type="button"
-                                                disabled={isExtracting || !rawChatText.trim()}
-                                                onClick={handleMagicPaste}
-                                                className={`px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm ${isExtracting ? 'opacity-50 cursor-wait' : ''}`}
-                                            >
-                                                {isExtracting ? <span className="animate-spin text-lg">⏳</span> : 'استخراج البيانات'}
-                                            </button>
-                                        </div>
-                                    </div>
 
                                     {/* شريط التحذير من التكرار */}
                                     {duplicateWarnings.length > 0 && !isEditing && (
