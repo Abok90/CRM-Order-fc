@@ -359,10 +359,21 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
                         });
-                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        
+                        if (!response.ok) {
+                            const errBody = await response.text();
+                            throw new Error(`خطأ في الاتصال بالذكاء الاصطناعي: ${response.status} - ${errBody}`);
+                        }
+                        
                         const data = await response.json();
-                        const text = data.candidates[0].content.parts[0].text;
-                        return schema ? JSON.parse(text) : text;
+                        let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                        
+                        if (schema) {
+                            // تنظيف النص في حال رجع بداخل علامات markdown
+                            text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                            return JSON.parse(text || '{}');
+                        }
+                        return text;
                     } catch (err) {
                         if (i === retries.length) throw err;
                         await new Promise(res => setTimeout(res, retries[i]));
@@ -399,7 +410,8 @@
                     }));
                     setRawChatText('');
                 } catch(e) {
-                    alert('حدث خطأ أثناء الاستخراج بالذكاء الاصطناعي. يرجى المحاولة مرة أخرى.');
+                    console.error("AI Error:", e);
+                    alert('حدث خطأ أثناء الاستخراج:\n' + e.message + '\n\n(تأكد من توفر مفتاح الـ API إذا كنت تشغل النظام محلياً)');
                 } finally {
                     setIsExtracting(false);
                 }
@@ -415,7 +427,8 @@
                     setSmartReplyText(reply);
                     setCopiedType('');
                 } catch(e) {
-                    alert('فشل توليد الرد بالذكاء الاصطناعي.');
+                    console.error("AI Error:", e);
+                    alert('فشل توليد الرد:\n' + e.message);
                 } finally {
                     setIsGeneratingReply(false);
                 }
