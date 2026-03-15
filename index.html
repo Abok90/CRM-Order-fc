@@ -1637,76 +1637,86 @@
                                         <table className="w-full text-right dynamic-table min-w-[800px]">
                                             <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="font-bold w-1/6">الآي دي (ID)</th><th className="font-bold w-1/6">الاسم</th><th className="font-bold w-1/4">الدور والصلاحيات الإضافية</th><th className="font-bold">الصفحات المخصصة</th><th className="font-bold text-center w-24">حالة الحساب</th></tr></thead>
                                             <tbody className="divide-y divide-slate-100/50">
-                                                {visibleUsers.map(u => (
-                                                    <tr key={u.id} className="hover:bg-slate-50 align-top">
-                                                        <td className="text-[10px] md:text-xs font-mono text-slate-400 break-all">{u.id}</td>
-                                                        <td className="font-bold text-xs md:text-sm">
-                                                            {isSuperAdmin ? (
-                                                                <input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full" />
-                                                            ) : (
-                                                                <span className="text-slate-800">{u.name}</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="font-bold text-xs md:text-sm">
-                                                            {isSuperAdmin ? (
-                                                                <select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(SUPER_ADMIN_ROLES.includes(e.target.value)) await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full mb-2 outline-none focus:ring-2 focus:ring-indigo-500">
-                                                                    {Object.entries(ROLE_NAMES).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
-                                                                </select>
-                                                            ) : (
-                                                                <div className="mb-2 text-slate-700 bg-slate-100 px-2 py-1 rounded font-bold">{ROLE_NAMES[u.role]}</div>
-                                                            )}
-                                                            
-                                                            {(!SUPER_ADMIN_ROLES.includes(u.role)) && (
-                                                                <div className="flex flex-col gap-1.5 text-[10px] md:text-[11px] text-slate-700 font-semibold bg-slate-50 p-2 rounded border border-slate-200 shadow-inner">
-                                                                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={u.can_add_bulk || false} onChange={e => togglePerm(u.id, 'can_add_bulk', e.target.checked)}/> إضافة مجموعة</label>
-                                                                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={u.can_import_excel || false} onChange={e => togglePerm(u.id, 'can_import_excel', e.target.checked)}/> رفع شيت إكسيل</label>
-                                                                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={u.can_export_shipping || false} onChange={e => togglePerm(u.id, 'can_export_shipping', e.target.checked)}/> تنزيل شيت الشحن</label>
-                                                                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={u.can_edit_after_shipping || false} onChange={e => togglePerm(u.id, 'can_edit_after_shipping', e.target.checked)}/> السماح بالتعديل بعد الشحن</label>
-                                                                </div>
-                                                            )}
-                                                            {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-slate-400 text-center mt-2">صلاحيات إدارة كاملة</div>}
-                                                        </td>
-                                                        <td className="font-bold text-xs md:text-sm">
-                                                            {SUPER_ADMIN_ROLES.includes(u.role) ? <span className="text-slate-400 text-xs mt-2 inline-block">مفتوح لكل الصفحات</span> : (
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                    {availablePages.map(p => {
-                                                                        const isChecked = u.assigned_page && u.assigned_page.includes(p);
-                                                                        return (
-                                                                            <label key={p} className={`flex items-center gap-1.5 cursor-pointer px-2 py-1.5 rounded border transition-colors ${isChecked ? 'bg-indigo-50 border-indigo-300 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    className="cursor-pointer"
-                                                                                    checked={isChecked} 
-                                                                                    onChange={async (e) => {
-                                                                                        let currentPages = u.assigned_page ? u.assigned_page.split(',').filter(Boolean) : [];
-                                                                                        if (e.target.checked) {
-                                                                                            if (!currentPages.includes(p)) currentPages.push(p);
-                                                                                        } else {
-                                                                                            currentPages = currentPages.filter(page => page !== p);
-                                                                                        }
-                                                                                        const newPagesStr = currentPages.join(',');
-                                                                                        await supabase.from('user_roles').update({assigned_page: newPagesStr}).eq('id', u.id);
-                                                                                        fetchUsersList();
-                                                                                    }}
-                                                                                />
-                                                                                <span className="text-[10px] md:text-xs font-bold text-slate-700">{p}</span>
-                                                                            </label>
-                                                                        )
-                                                                    })}
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        <td className="text-center align-middle">
-                                                            <label className="flex flex-col items-center gap-1 cursor-pointer">
-                                                                <div className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${u.is_approved ? 'bg-green-500' : 'bg-slate-300'}`}>
-                                                                    <input type="checkbox" className="sr-only" checked={u.is_approved || false} onChange={e => togglePerm(u.id, 'is_approved', e.target.checked)} disabled={SUPER_ADMIN_ROLES.includes(u.role)} />
-                                                                    <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${u.is_approved ? 'translate-x-1' : '-translate-x-6'}`}/>
-                                                                </div>
-                                                                <span className={`text-[10px] font-bold ${u.is_approved ? 'text-green-600' : 'text-amber-500'}`}>{u.is_approved ? 'مفعل' : 'معلق'}</span>
-                                                            </label>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                {visibleUsers.map(u => {
+                                                    const isProtectedAccount = u.id === 'd24dd1d7-696d-47d0-be55-185a1aae0c59' || u.id === '6323bb6e-8f56-4e94-a44f-af45322d3fd8';
+                                                    const canEditUser = !isProtectedAccount || userRole?.role === 'admin';
+                                                    const canAssignProtectedRoles = userRole?.role === 'admin';
+
+                                                    return (
+                                                        <tr key={u.id} className="hover:bg-slate-50 align-top">
+                                                            <td className="text-[10px] md:text-xs font-mono text-slate-400 break-all">{u.id}</td>
+                                                            <td className="font-bold text-xs md:text-sm">
+                                                                {isSuperAdmin && canEditUser ? (
+                                                                    <input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full" />
+                                                                ) : (
+                                                                    <span className="text-slate-800">{u.name}</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="font-bold text-xs md:text-sm">
+                                                                {isSuperAdmin && canEditUser ? (
+                                                                    <select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(SUPER_ADMIN_ROLES.includes(e.target.value)) await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full mb-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                                                                        {Object.entries(ROLE_NAMES).map(([val, label]) => {
+                                                                            if (!canAssignProtectedRoles && (val === 'admin' || val === 'owner') && u.role !== val) return null;
+                                                                            return <option key={val} value={val}>{label}</option>;
+                                                                        })}
+                                                                    </select>
+                                                                ) : (
+                                                                    <div className="mb-2 text-slate-700 bg-slate-100 px-2 py-1 rounded font-bold">{ROLE_NAMES[u.role]}</div>
+                                                                )}
+                                                                
+                                                                {(!SUPER_ADMIN_ROLES.includes(u.role)) && (
+                                                                    <div className="flex flex-col gap-1.5 text-[10px] md:text-[11px] text-slate-700 font-semibold bg-slate-50 p-2 rounded border border-slate-200 shadow-inner">
+                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_add_bulk || false} onChange={e => togglePerm(u.id, 'can_add_bulk', e.target.checked)}/> إضافة مجموعة</label>
+                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_import_excel || false} onChange={e => togglePerm(u.id, 'can_import_excel', e.target.checked)}/> رفع شيت إكسيل</label>
+                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_export_shipping || false} onChange={e => togglePerm(u.id, 'can_export_shipping', e.target.checked)}/> تنزيل شيت الشحن</label>
+                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_edit_after_shipping || false} onChange={e => togglePerm(u.id, 'can_edit_after_shipping', e.target.checked)}/> السماح بالتعديل بعد الشحن</label>
+                                                                    </div>
+                                                                )}
+                                                                {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-slate-400 text-center mt-2">صلاحيات إدارة كاملة</div>}
+                                                            </td>
+                                                            <td className="font-bold text-xs md:text-sm">
+                                                                {SUPER_ADMIN_ROLES.includes(u.role) ? <span className="text-slate-400 text-xs mt-2 inline-block">مفتوح لكل الصفحات</span> : (
+                                                                    <div className="flex flex-wrap gap-1.5">
+                                                                        {availablePages.map(p => {
+                                                                            const isChecked = u.assigned_page && u.assigned_page.includes(p);
+                                                                            return (
+                                                                                <label key={p} className={`flex items-center gap-1.5 px-2 py-1.5 rounded border transition-colors ${!canEditUser ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${isChecked ? 'bg-indigo-50 border-indigo-300 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
+                                                                                    <input 
+                                                                                        type="checkbox" 
+                                                                                        className={canEditUser ? 'cursor-pointer' : 'cursor-not-allowed'}
+                                                                                        checked={isChecked} 
+                                                                                        disabled={!canEditUser}
+                                                                                        onChange={async (e) => {
+                                                                                            let currentPages = u.assigned_page ? u.assigned_page.split(',').filter(Boolean) : [];
+                                                                                            if (e.target.checked) {
+                                                                                                if (!currentPages.includes(p)) currentPages.push(p);
+                                                                                            } else {
+                                                                                                currentPages = currentPages.filter(page => page !== p);
+                                                                                            }
+                                                                                            const newPagesStr = currentPages.join(',');
+                                                                                            await supabase.from('user_roles').update({assigned_page: newPagesStr}).eq('id', u.id);
+                                                                                            fetchUsersList();
+                                                                                        }}
+                                                                                    />
+                                                                                    <span className="text-[10px] md:text-xs font-bold text-slate-700">{p}</span>
+                                                                                </label>
+                                                                            )
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td className="text-center align-middle">
+                                                                <label className={`flex flex-col items-center gap-1 ${canEditUser && !SUPER_ADMIN_ROLES.includes(u.role) ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                                                                    <div className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${u.is_approved ? 'bg-green-500' : 'bg-slate-300'} ${(!canEditUser || SUPER_ADMIN_ROLES.includes(u.role)) ? 'opacity-70' : ''}`}>
+                                                                        <input type="checkbox" className="sr-only" checked={u.is_approved || false} onChange={e => togglePerm(u.id, 'is_approved', e.target.checked)} disabled={!canEditUser || SUPER_ADMIN_ROLES.includes(u.role)} />
+                                                                        <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${u.is_approved ? 'translate-x-1' : '-translate-x-6'}`}/>
+                                                                    </div>
+                                                                    <span className={`text-[10px] font-bold ${u.is_approved ? 'text-green-600' : 'text-amber-500'}`}>{u.is_approved ? 'مفعل' : 'معلق'}</span>
+                                                                </label>
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
