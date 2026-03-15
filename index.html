@@ -139,7 +139,7 @@
         const IconClock = ({size=24}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
         const IconMenu = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg>;
         const IconX = ({size=20}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
-        const IconCalc = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>;
+        const IconCalc = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>;
         const IconEdit = ({size=14}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
         const IconTrash = ({size=14}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
         const IconTruck = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="15" height="10" x="3" y="8" rx="2"/><path d="M18 8h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><circle cx="7" cy="20" r="2"/><circle cx="17" cy="20" r="2"/></svg>;
@@ -248,11 +248,17 @@
             // حالة تتبع الحالة المختارة لكل صفحة في تبويب الإحصائيات
             const [selectedPageStatus, setSelectedPageStatus] = useState({});
             
-            // -- البيانات الأساسية --
+            // -- البيانات الأساسية للطلبات والمنتجات والمستخدمين --
             const [orders, setOrders] = useState([]);
             const [products, setProducts] = useState([]);
             const ordersRef = useRef([]); 
             const [usersList, setUsersList] = useState([]);
+            
+            // -- الحسابات المالية (Accounting) --
+            const [financeRecords, setFinanceRecords] = useState([]);
+            const [financeSubTab, setFinanceSubTab] = useState('expense'); // 'expense' or 'income'
+            const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
+            const [newFinanceRecord, setNewFinanceRecord] = useState({ id: '', type: 'expense', date: '', category: '', details: '', department: 'أونلاين', amount: '' });
             
             // -- الإشعارات وسجل النشاطات --
             const [toasts, setToasts] = useState([]);
@@ -304,6 +310,12 @@
             // -- الثوابت وإعدادات الإضافة المتعددة ومسميات الوظائف --
             const pages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG'];
             const orderStatuses = ['جاري التحضير', 'تم', 'الشحن', 'مراجعة', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل', 'اعادة ارسال', 'خارجي'];
+            
+            // ثوابت الحسابات المالية
+            const EXPENSE_CATEGORIES = ['إعلانات عايدة', 'إعلانات اوفر', 'مرتبات مصنع', 'مرتبات اونلاين', 'سلف مصنع', 'سلف اونلاين', 'قماش', 'مستلزمات تصنيع', 'مستلزمات اونلاين', 'انتقالات', 'موديل وبلوجر', 'اشتراكات اونلاين', 'صيانه اونلاين', 'صيانه مصنع', 'اكراميات', 'مرافق مصنع', 'مرافق اونلاين', 'ايجار مصنع', 'ايجار اونلاين', 'مرتجعات', 'تعاملات قانونية', 'مرتبات خارجية', 'حساب ريهام', 'حساب شخصي', 'مرتب اسامه'];
+            const INCOME_CATEGORIES = ['شحن عايده', 'شحن اوفر', 'شحن مكتب', 'أخرى'];
+            const DEPARTMENTS = ['أونلاين', 'مصنع'];
+
             const ROLE_NAMES = {
                 admin: 'مدير النظام',
                 owner: 'صاحب البراندات',
@@ -313,6 +325,7 @@
                 agent: 'موظفة (بنت)'
             };
             const SUPER_ADMIN_ROLES = ['admin', 'owner', 'social_manager', 'media_buyer'];
+            const FINANCE_ROLES = ['admin', 'owner'];
             
             const initialOrderState = {
                 id: '', customer: '', address: '', phone: '', notes: '', page: pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: ''
@@ -329,6 +342,7 @@
 
             const isSuperAdmin = SUPER_ADMIN_ROLES.includes(userRole?.role);
             const isPageManager = userRole?.role === 'page_manager';
+            const canAccessFinance = userRole && FINANCE_ROLES.includes(userRole.role);
 
             const availablePages = useMemo(() => {
                 if (!userRole) return [];
@@ -430,6 +444,14 @@
                 } catch(e) { console.error("Logs error:", e); }
             };
 
+            const fetchFinanceRecords = async () => {
+                if (!user || !canAccessFinance) return;
+                try {
+                    const { data, error } = await supabase.from('finance_records').select('*').order('date', { ascending: false });
+                    if (!error && data) setFinanceRecords(data);
+                } catch(e) { console.error("Finance fetch error", e); }
+            };
+
             const searchDatabase = async (searchText) => {
                 if (!user || String(searchText).trim() === '') { setSearchResults([]); return; }
                 setIsSearchingDb(true);
@@ -508,6 +530,9 @@
                         fetchUsersList();
                         fetchActivityLogs();
                     }
+                    if (canAccessFinance) {
+                        fetchFinanceRecords();
+                    }
                     
                     const logSub = supabase.channel('logs-realtime').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, (payload) => {
                         const newLog = payload.new;
@@ -525,7 +550,7 @@
 
                     return () => { supabase.removeChannel(logSub); supabase.removeChannel(prodSub); };
                 }
-            }, [user, userRole, fetchOrdersData, isSuperAdmin, isPageManager]);
+            }, [user, userRole, fetchOrdersData, isSuperAdmin, isPageManager, canAccessFinance]);
 
             useEffect(() => {
                 setCurrentPage(1);
@@ -668,6 +693,20 @@
                     return acc;
                 }, {});
             }, [displayedLogs]);
+
+            const financeStats = useMemo(() => {
+                let totalIncome = 0;
+                let totalExpense = 0;
+                financeRecords.forEach(record => {
+                    if (record.type === 'income') totalIncome += Number(record.amount || 0);
+                    if (record.type === 'expense') totalExpense += Number(record.amount || 0);
+                });
+                return { totalIncome, totalExpense, net: totalIncome - totalExpense };
+            }, [financeRecords]);
+
+            const filteredFinanceRecords = useMemo(() => {
+                return financeRecords.filter(r => r.type === financeSubTab);
+            }, [financeRecords, financeSubTab]);
 
             // ==========================================
             // 7. دوال الإرسال لجوجل شيت والتعديل
@@ -1111,7 +1150,66 @@
             };
 
             // ==========================================
-            // 9. النوافذ المنبثقة والمساعدات
+            // 9. الحسابات المالية (Accounting)
+            // ==========================================
+            const openFinanceModal = (type, record = null) => {
+                if (record) {
+                    setNewFinanceRecord(record);
+                } else {
+                    setNewFinanceRecord({ 
+                        id: '', type, date: new Date().toISOString().split('T')[0], 
+                        category: type === 'expense' ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0], 
+                        details: '', department: 'أونلاين', amount: '' 
+                    });
+                }
+                setIsFinanceModalOpen(true);
+            };
+
+            const handleSaveFinance = async (e) => {
+                e.preventDefault();
+                if (!user || !canAccessFinance) return;
+                setIsSubmitting(true);
+                try {
+                    const payload = {
+                        ...newFinanceRecord,
+                        amount: Number(newFinanceRecord.amount),
+                        date: newFinanceRecord.date || new Date().toISOString().split('T')[0],
+                        user_id: user.id
+                    };
+                    if (!payload.id) delete payload.id;
+
+                    if (newFinanceRecord.id) {
+                        const { error } = await supabase.from('finance_records').update(payload).eq('id', newFinanceRecord.id);
+                        if(error) throw error;
+                        logActivity(`تعديل سجل مالي: ${payload.amount} ج.م`, 'حسابات');
+                    } else {
+                        const { error } = await supabase.from('finance_records').insert([payload]);
+                        if(error) throw error;
+                        logActivity(`إضافة سجل مالي جديد: ${payload.amount} ج.م`, 'حسابات');
+                    }
+                    fetchFinanceRecords();
+                    setIsFinanceModalOpen(false);
+                } catch (err) {
+                    alert(`حدث خطأ أثناء حفظ السجل المالي.\n\nملاحظة: هل قمت بإنشاء جدول 'finance_records' في Supabase؟\nتفاصيل الخطأ: ${err.message}`);
+                } finally {
+                    setIsSubmitting(false);
+                }
+            };
+
+            const handleDeleteFinance = async (id) => {
+                if (!window.confirm("هل أنت متأكد من مسح هذا السجل المالي؟")) return;
+                try {
+                    await supabase.from('finance_records').delete().eq('id', id);
+                    logActivity(`مسح سجل مالي`, 'حسابات');
+                    fetchFinanceRecords();
+                } catch (err) {
+                    alert("حدث خطأ أثناء المسح");
+                }
+            };
+
+
+            // ==========================================
+            // 10. النوافذ المنبثقة والمساعدات
             // ==========================================
             
             const generateCustomerMsg = (order) => {
@@ -1318,7 +1416,7 @@
             };
 
             // ==========================================
-            // 10. واجهة المستخدم (Rendering)
+            // 11. واجهة المستخدم (Rendering)
             // ==========================================
 
             if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>;
@@ -1420,6 +1518,7 @@
                             <button onClick={() => {setCurrentTab('dashboard'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconDashboard /></span> <span>لوحة التحكم</span></button>
                             <button onClick={() => {setCurrentTab('orders'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'orders' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconCart /></span> <span>الطلبات والمتابعة</span></button>
                             {isSuperAdmin && <button onClick={() => {setCurrentTab('pages'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'pages' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إحصائيات الصفحات</span></button>}
+                            {canAccessFinance && <button onClick={() => {setCurrentTab('finance'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'finance' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconCalc /></span> <span>الحسابات المالية</span></button>}
                             {isSuperAdmin && <button onClick={() => {setCurrentTab('products'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'products' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إدارة المنتجات</span></button>}
                             {(isSuperAdmin || isPageManager) && <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-4 border border-indigo-500/30 ${currentTab === 'users' ? 'bg-indigo-800 text-white shadow-lg shadow-indigo-900/50' : 'text-indigo-300 hover:bg-slate-800 hover:text-white'}`}><span><IconUsers /></span> <span>إدارة الموظفين</span></button>}
                             {(isSuperAdmin || isPageManager) && <button onClick={() => {setCurrentTab('logs'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-2 border border-amber-500/30 ${currentTab === 'logs' ? 'bg-amber-700 text-white shadow-lg shadow-amber-900/50' : 'text-amber-300 hover:bg-slate-800 hover:text-white'}`}><span><IconActivity /></span> <span>سجل النشاطات</span></button>}
@@ -1443,6 +1542,7 @@
                                     {currentTab === 'dashboard' && 'نظرة عامة'}
                                     {currentTab === 'orders' && (isSuperAdmin ? 'إدارة كل الطلبات' : `طلباتك`)}
                                     {currentTab === 'pages' && 'الإحصائيات المتقدمة'}
+                                    {currentTab === 'finance' && 'الحسابات المالية'}
                                     {currentTab === 'users' && 'لوحة الإدارة'}
                                     {currentTab === 'logs' && 'سجل نشاطات الموظفين'}
                                     {currentTab === 'products' && 'إدارة المنتجات'}
@@ -1464,6 +1564,81 @@
                             {/* مؤشر التحميل */}
                             {loadingDB && (
                                 <div className="absolute inset-0 bg-white/60 z-10 flex flex-col items-center justify-center backdrop-blur-sm"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>
+                            )}
+
+                            {/* تبويب الحسابات المالية (Finance) */}
+                            {currentTab === 'finance' && canAccessFinance && (
+                                <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
+                                        <div className="glass-panel p-4 md:p-6 rounded-2xl shadow-sm border border-white flex flex-col gap-2 relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-2 h-full bg-red-500"></div>
+                                            <p className="text-slate-500 text-xs md:text-sm font-bold">إجمالي المصروفات</p>
+                                            <p className="text-2xl md:text-3xl font-black text-red-600">{financeStats.totalExpense} <span className="text-sm">ج.م</span></p>
+                                        </div>
+                                        <div className="glass-panel p-4 md:p-6 rounded-2xl shadow-sm border border-white flex flex-col gap-2 relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-2 h-full bg-green-500"></div>
+                                            <p className="text-slate-500 text-xs md:text-sm font-bold">إجمالي الإيرادات (التحصيلات)</p>
+                                            <p className="text-2xl md:text-3xl font-black text-green-600">{financeStats.totalIncome} <span className="text-sm">ج.م</span></p>
+                                        </div>
+                                        <div className="glass-panel p-4 md:p-6 rounded-2xl shadow-sm border border-white flex flex-col gap-2 relative overflow-hidden bg-slate-800 text-white">
+                                            <p className="text-slate-300 text-xs md:text-sm font-bold">الصافي</p>
+                                            <p className={`text-2xl md:text-3xl font-black ${financeStats.net >= 0 ? 'text-green-400' : 'text-red-400'}`} dir="ltr">{financeStats.net} <span className="text-sm">ج.م</span></p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                        <button onClick={() => setFinanceSubTab('expense')} className={`flex-1 py-3 md:py-4 font-black text-sm transition-colors ${financeSubTab === 'expense' ? 'bg-red-50 text-red-600 border-b-2 border-red-600' : 'text-slate-500 hover:bg-slate-50'}`}>المصروفات</button>
+                                        <button onClick={() => setFinanceSubTab('income')} className={`flex-1 py-3 md:py-4 font-black text-sm transition-colors ${financeSubTab === 'income' ? 'bg-green-50 text-green-600 border-b-2 border-green-600' : 'text-slate-500 hover:bg-slate-50'}`}>الإيرادات والتحصيلات</button>
+                                    </div>
+
+                                    <div className="glass-panel rounded-2xl shadow-sm border border-white flex flex-col overflow-hidden">
+                                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                                <IconCalc size={20} /> 
+                                                {financeSubTab === 'expense' ? 'سجل المصروفات' : 'سجل الإيرادات'}
+                                            </h3>
+                                            <button onClick={() => openFinanceModal(financeSubTab)} className={`px-4 py-2 rounded-lg font-bold text-white text-xs md:text-sm shadow-md flex items-center gap-1 transition-transform hover:-translate-y-0.5 ${financeSubTab === 'expense' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
+                                                <IconPlus size={16} /> إضافة {financeSubTab === 'expense' ? 'مصروف' : 'إيراد'} جديد
+                                            </button>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-right dynamic-table whitespace-nowrap min-w-[700px]">
+                                                <thead className="bg-slate-800 text-white">
+                                                    <tr>
+                                                        <th className="w-12 text-center">#</th>
+                                                        <th>التاريخ</th>
+                                                        <th>{financeSubTab === 'expense' ? 'البند الرئيسي' : 'نوع التحصيل'}</th>
+                                                        <th className="w-1/3">التفاصيل / الوصف</th>
+                                                        {financeSubTab === 'expense' && <th>القسم (مصنع/أونلاين)</th>}
+                                                        <th>المبلغ</th>
+                                                        <th className="text-center w-24">إجراءات</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {filteredFinanceRecords.map((r, i) => (
+                                                        <tr key={r.id} className="hover:bg-slate-50">
+                                                            <td className="text-center font-bold text-slate-400">{i + 1}</td>
+                                                            <td className="font-bold text-slate-700">{r.date}</td>
+                                                            <td><span className={`px-2 py-1 rounded text-xs font-bold ${financeSubTab === 'expense' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{r.category}</span></td>
+                                                            <td className="text-sm text-slate-600 whitespace-pre-wrap">{r.details}</td>
+                                                            {financeSubTab === 'expense' && <td className="font-bold text-slate-700">{r.department}</td>}
+                                                            <td className={`font-black ${financeSubTab === 'expense' ? 'text-red-600' : 'text-green-600'}`}>{r.amount} ج.م</td>
+                                                            <td className="text-center">
+                                                                <button onClick={() => openFinanceModal(financeSubTab, r)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors ml-1"><IconEdit/></button>
+                                                                <button onClick={() => handleDeleteFinance(r.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><IconTrash/></button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    {filteredFinanceRecords.length === 0 && (
+                                                        <tr>
+                                                            <td colSpan={financeSubTab === 'expense' ? 7 : 6} className="text-center py-10 text-slate-500 font-bold">لا توجد سجلات. الرجاء التأكد من إنشاء جدول `finance_records` في قاعدة البيانات.</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
 
                             {/* تبويب المنتجات (للمديرين) */}
@@ -2137,7 +2312,61 @@
                         </div>
                     )}
 
-                    {/* نافذة الإضافة والتعديل الرئيسية */}
+                    {/* نافذة الإضافة والتعديل لـ (الماليات / الحسابات) */}
+                    {isFinanceModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border-t-4 border-indigo-600">
+                                <div className={`px-4 py-3 md:px-6 md:py-5 border-b flex justify-between items-center ${newFinanceRecord.type === 'expense' ? 'bg-red-50' : 'bg-green-50'}`}>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`p-1.5 rounded-lg bg-white shadow-sm ${newFinanceRecord.type === 'expense' ? 'text-red-600' : 'text-green-600'}`}><IconCalc size={20} /></div>
+                                        <h2 className={`text-lg font-black ${newFinanceRecord.type === 'expense' ? 'text-red-800' : 'text-green-800'}`}>{newFinanceRecord.id ? 'تعديل سجل' : 'إضافة'} {newFinanceRecord.type === 'expense' ? 'مصروف جديد' : 'إيراد جديد'}</h2>
+                                    </div>
+                                    <button onClick={() => setIsFinanceModalOpen(false)} className="p-1.5 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={20} /></button>
+                                </div>
+                                <form onSubmit={handleSaveFinance} className="p-4 md:p-6 space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="col-span-2 md:col-span-1">
+                                            <label className="block text-sm font-black text-slate-700 mb-1">المبلغ (ج.م) <span className="text-red-500">*</span></label>
+                                            <input required type="number" step="0.01" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-black text-lg" value={newFinanceRecord.amount} onChange={e => setNewFinanceRecord({...newFinanceRecord, amount: e.target.value})} placeholder="0" />
+                                        </div>
+                                        <div className="col-span-2 md:col-span-1">
+                                            <label className="block text-sm font-black text-slate-700 mb-1">التاريخ <span className="text-red-500">*</span></label>
+                                            <input required type="date" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={newFinanceRecord.date} onChange={e => setNewFinanceRecord({...newFinanceRecord, date: e.target.value})} />
+                                        </div>
+                                        
+                                        <div className="col-span-2">
+                                            <label className="block text-sm font-black text-slate-700 mb-1">{newFinanceRecord.type === 'expense' ? 'البند الرئيسي' : 'نوع التحصيل'} <span className="text-red-500">*</span></label>
+                                            <select className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={newFinanceRecord.category} onChange={e => setNewFinanceRecord({...newFinanceRecord, category: e.target.value})}>
+                                                {(newFinanceRecord.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+
+                                        {newFinanceRecord.type === 'expense' && (
+                                            <div className="col-span-2">
+                                                <label className="block text-sm font-black text-slate-700 mb-1">القسم / تبع إيه؟ <span className="text-red-500">*</span></label>
+                                                <select className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={newFinanceRecord.department} onChange={e => setNewFinanceRecord({...newFinanceRecord, department: e.target.value})}>
+                                                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        <div className="col-span-2">
+                                            <label className="block text-sm font-black text-slate-700 mb-1">التفاصيل (نسخ من الواتساب) <span className="text-red-500">*</span></label>
+                                            <textarea required rows="3" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm resize-none" placeholder="اكتب أو انسخ رسالة الواتس هنا..." value={newFinanceRecord.details} onChange={e => setNewFinanceRecord({...newFinanceRecord, details: e.target.value})}></textarea>
+                                        </div>
+                                    </div>
+                                    <div className="pt-2 flex gap-3">
+                                        <button type="submit" disabled={isSubmitting} className={`flex-1 text-white font-black py-3 rounded-xl shadow-md transition-transform hover:-translate-y-0.5 ${newFinanceRecord.type === 'expense' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                            {isSubmitting ? 'جاري الحفظ...' : 'تأكيد وحفظ'}
+                                        </button>
+                                        <button type="button" onClick={() => setIsFinanceModalOpen(false)} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl transition-colors">إلغاء</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* نافذة الإضافة والتعديل الرئيسية للطلبات */}
                     {isAddModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end md:items-center justify-center md:p-4">
                             <div className={`bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full md:max-w-2xl max-h-[90vh] md:max-h-[95vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border-4 ${currentTheme.border}`}>
