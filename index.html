@@ -769,10 +769,14 @@
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const scaleSize = 300 / img.width;
-                        canvas.width = 300; canvas.height = img.height * scaleSize;
+                        const scaleSize = Math.min(1, 600 / img.width);
+                        canvas.width = img.width * scaleSize;
+                        canvas.height = img.height * scaleSize;
                         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                        setEditingProduct({ ...editingProduct, image: canvas.toDataURL('image/jpeg', 0.7) });
+                        canvas.toBlob((blob) => {
+                            const previewUrl = URL.createObjectURL(blob);
+                            setEditingProduct(prev => ({ ...prev, image: previewUrl, _imageBlob: blob }));
+                        }, 'image/jpeg', 0.75);
                     };
                     img.src = event.target.result;
                 };
@@ -783,7 +787,18 @@
                 e.preventDefault();
                 setLoadingDB(true);
                 try {
-                    const payload = { name: editingProduct.name, price: Number(editingProduct.price), colors: editingProduct.colors, sizes: editingProduct.sizes, image: editingProduct.image };
+                    let imageUrl = editingProduct.image;
+                    // Upload new image to Supabase Storage if a new file was selected
+                    if (editingProduct._imageBlob) {
+                        const filePath = `products/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+                        const { error: uploadError } = await supabase.storage
+                            .from('product-images')
+                            .upload(filePath, editingProduct._imageBlob, { contentType: 'image/jpeg' });
+                        if (uploadError) throw new Error('فشل رفع الصورة: ' + uploadError.message);
+                        const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(filePath);
+                        imageUrl = urlData.publicUrl;
+                    }
+                    const payload = { name: editingProduct.name, price: Number(editingProduct.price), colors: editingProduct.colors, sizes: editingProduct.sizes, image: imageUrl };
                     if (editingProduct.id) {
                         await supabase.from('products').update(payload).eq('id', editingProduct.id);
                         alert("تم التعديل بنجاح");
@@ -791,13 +806,19 @@
                         await supabase.from('products').insert([payload]);
                         alert("تمت الإضافة بنجاح");
                     }
-                    setEditingProduct({ id: null, name: '', price: '', colors: '', sizes: '', image: '' });
+                    setEditingProduct({ id: null, name: '', price: '', colors: '', sizes: '', image: '', _imageBlob: null });
                     fetchProducts();
                 } catch(e) { alert("خطأ: " + e.message); } finally { setLoadingDB(false); }
             };
 
             const deleteProduct = async (id) => {
                 if(!window.confirm("متأكد من حذف المنتج؟")) return;
+                // Delete storage image if it belongs to our bucket
+                const product = products.find(p => p.id === id);
+                if (product?.image && product.image.includes('/product-images/')) {
+                    const match = product.image.match(/\/product-images\/(.+)$/);
+                    if (match) await supabase.storage.from('product-images').remove([match[1]]);
+                }
                 await supabase.from('products').delete().eq('id', id);
                 fetchProducts();
             };
