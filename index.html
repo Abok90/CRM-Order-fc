@@ -28,84 +28,151 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     
     <style>
-        /* المتغيرات الديناميكية للتحكم في واجهة المستخدم (حسب الإعدادات) */
         :root {
             --fs: 14px;
             --row-pad: 8px;
+            --primary: #0284c7;
+            --primary-light: #e0f2fe;
+            --primary-hover: #0369a1;
         }
 
-        body { 
-            font-family: 'Cairo', sans-serif; 
-            background-color: #f0f4f8; 
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f1f5f9;
             -webkit-tap-highlight-color: transparent;
         }
-        
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
+
         .glass-panel {
             background: #ffffff;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e8eef4;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.03);
         }
-        
+
         .custom-checkbox {
             appearance: none;
             background-color: #fff;
-            width: 1.5rem; height: 1.5rem;
-            border: 2px solid #cbd5e1; border-radius: 0.4rem;
+            width: 1.25rem; height: 1.25rem;
+            border: 2px solid #cbd5e1; border-radius: 0.375rem;
             display: grid; place-content: center; cursor: pointer;
-            transition: all 0.2s ease-in-out;
+            transition: all 0.15s ease;
         }
         .custom-checkbox::before {
-            content: ""; width: 0.8rem; height: 0.8rem; transform: scale(0);
+            content: ""; width: 0.65rem; height: 0.65rem; transform: scale(0);
             box-shadow: inset 1em 1em white; background-color: white;
             clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
         }
-        .custom-checkbox:checked { background-color: #4f46e5; border-color: #4f46e5; }
+        .custom-checkbox:checked { background-color: var(--primary); border-color: var(--primary); }
         .custom-checkbox:checked::before { transform: scale(1); }
-        
-        /* تصميم مدخلات الإكسيل الداخلي */
+
         .excel-input {
             width: 100%; min-width: 90px; padding: 8px;
             border: 1px solid transparent; background: transparent;
             outline: none; font-size: 0.9rem; transition: all 0.2s;
         }
-        .excel-input:focus { background: #f0f9ff; border-color: #bae6fd; border-radius: 6px; }
+        .excel-input:focus { background: #f0f9ff; border-color: #7dd3fc; border-radius: 6px; }
 
-        /* التحكم في أحجام ومسافات الجداول عبر الإعدادات بقوة !important للتغلب على كلاسات تيلويند */
-        .dynamic-table th, .dynamic-table td {
-            padding: var(--row-pad) !important;
-        }
+        .dynamic-table th, .dynamic-table td { padding: var(--row-pad) !important; }
         .dynamic-table,
-        .dynamic-table th, 
-        .dynamic-table td, 
-        .dynamic-table th div, 
-        .dynamic-table td div,
-        .dynamic-table th span, 
-        .dynamic-table td span,
-        .dynamic-table td select, 
-        .dynamic-table td input, 
-        .dynamic-table td button {
+        .dynamic-table th, .dynamic-table td,
+        .dynamic-table th div, .dynamic-table td div,
+        .dynamic-table th span, .dynamic-table td span,
+        .dynamic-table td select, .dynamic-table td input, .dynamic-table td button {
             font-size: var(--fs) !important;
             line-height: 1.5 !important;
         }
-        
+
         .copy-animation { animation: pulse-copy 0.4s ease-out; }
         @keyframes pulse-copy {
             0% { transform: scale(1); }
             50% { transform: scale(1.03); background-color: #dcfce7; color: #166534; border-color: #86efac; }
             100% { transform: scale(1); }
         }
-        
-        /* تأثير دخول الإشعارات */
+
         @keyframes slideDown {
             from { transform: translateY(-100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
         .toast-enter { animation: slideDown 0.3s ease-out forwards; }
+
+        /* --- Bottom Navigation --- */
+        .bottom-nav {
+            position: fixed; bottom: 0; right: 0; left: 0;
+            background: #ffffff;
+            border-top: 1px solid #e8eef4;
+            box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+            z-index: 60;
+            display: flex; align-items: stretch;
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+        @media (min-width: 768px) { .bottom-nav { display: none; } }
+
+        .bottom-nav-btn {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 3px; padding: 10px 4px;
+            font-size: 10px; font-weight: 700;
+            color: #94a3b8; cursor: pointer;
+            border: none; background: transparent;
+            transition: color 0.15s;
+            font-family: 'Cairo', sans-serif;
+        }
+        .bottom-nav-btn.active { color: var(--primary); }
+        .bottom-nav-btn svg { transition: transform 0.15s; }
+        .bottom-nav-btn.active svg { transform: scale(1.1); }
+
+        .bottom-nav-fab {
+            flex: 1.4; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 3px; padding: 8px 4px;
+            font-size: 10px; font-weight: 800; color: white;
+            cursor: pointer; border: none;
+            background: linear-gradient(135deg, var(--primary), #38bdf8);
+            font-family: 'Cairo', sans-serif;
+        }
+
+        /* --- Order Cards (mobile) --- */
+        .order-card {
+            background: #fff;
+            border: 1px solid #e8eef4;
+            border-radius: 16px;
+            padding: 14px 16px 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            transition: box-shadow 0.15s;
+            position: relative; overflow: hidden;
+        }
+        .order-card::before {
+            content: ''; position: absolute;
+            top: 0; right: 0; width: 4px; height: 100%;
+        }
+        .order-card-status-bar-preparing { border-right: 4px solid #0ea5e9; }
+        .order-card-status-bar-done { border-right: 4px solid #22c55e; }
+        .order-card-status-bar-shipping { border-right: 4px solid #f97316; }
+        .order-card-status-bar-review { border-right: 4px solid #eab308; }
+        .order-card-status-bar-return { border-right: 4px solid #f43f5e; }
+        .order-card-status-bar-cancel { border-right: 4px solid #ef4444; }
+        .order-card-status-bar-other { border-right: 4px solid #8b5cf6; }
+        .order-card-status-bar-default { border-right: 4px solid #e2e8f0; }
+
+        /* Sidebar refined */
+        .sidebar-nav-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 16px; border-radius: 12px;
+            font-weight: 600; font-size: 14px;
+            transition: all 0.15s; cursor: pointer;
+            color: #94a3b8; border: none; background: transparent;
+            width: 100%; text-align: right;
+            font-family: 'Cairo', sans-serif;
+        }
+        .sidebar-nav-item:hover { background: rgba(255,255,255,0.07); color: #e2e8f0; }
+        .sidebar-nav-item.active { background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(2,132,199,0.35); }
+
+        /* Stat card accent */
+        .stat-card-accent { border-top: 3px solid var(--primary); }
     </style>
 </head>
 <body class="text-slate-800 antialiased overflow-x-hidden">
@@ -1085,7 +1152,7 @@
                     case 'مرتجع': return 'bg-rose-50 hover:bg-rose-100 text-rose-900 border-rose-200';
                     case 'الغاء': return 'bg-red-50 hover:bg-red-100 text-red-900 border-red-200';
                     case 'تاجيل': return 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300';
-                    case 'اعادة ارسال': return 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200';
+                    case 'اعادة ارسال': return 'bg-sky-50 hover:bg-sky-100 text-sky-900 border-sky-200';
                     case 'خارجي': return 'bg-teal-50 hover:bg-teal-100 text-teal-900 border-teal-200';
                     default: return 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200';
                 }
@@ -1101,28 +1168,32 @@
                     case 'مرتجع': return 'text-rose-800 border-rose-300 bg-white/60';
                     case 'الغاء': return 'text-red-800 border-red-300 bg-white/60';
                     case 'تاجيل': return 'text-slate-700 border-slate-400 bg-white/60';
-                    case 'اعادة ارسال': return 'text-indigo-800 border-indigo-300 bg-white/60';
+                    case 'اعادة ارسال': return 'text-sky-800 border-sky-300 bg-white/60';
                     case 'خارجي': return 'text-teal-800 border-teal-300 bg-white/60';
                     default: return 'text-slate-800 border-slate-300 bg-white/60';
                 }
             };
 
-            if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>;
+            if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-12 h-12 border-4 border-sky-200 border-t-sky-600 rounded-full animate-spin"></div></div>;
 
             if (!user) {
                 return (
-                    <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
-                        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl w-full max-w-md text-center">
-                            <div className="flex justify-center mb-6 text-indigo-600"><IconPackage size={64} /></div>
-                            <h2 className="text-xl md:text-2xl font-black text-slate-800 mb-2">تسجيل الدخول للنظام</h2>
-                            <p className="text-slate-500 font-bold mb-6 text-xs md:text-sm">أول حساب يتم إنشاؤه سيكون حساب (المدير) تلقائياً.</p>
-                            {authError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-xs md:text-sm font-bold mb-4">{authError}</div>}
-                            <form onSubmit={handleLogin} className="space-y-4">
-                                <div><label className="block text-sm font-bold text-slate-700 mb-1 text-right">البريد الإلكتروني</label><input type="email" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-left" dir="ltr" value={authEmail} onChange={e => setAuthEmail(e.target.value)} /></div>
-                                <div><label className="block text-sm font-bold text-slate-700 mb-1 text-right">كلمة المرور</label><input type="password" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-left" dir="ltr" value={authPassword} onChange={e => setAuthPassword(e.target.value)} /></div>
-                                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl transition-colors mt-2 shadow-md text-sm md:text-base">دخول إلى لوحة التحكم</button>
+                    <div className="h-screen flex flex-col items-center justify-center p-4" style={{background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f1f5f9 100%)'}}>
+                        <div className="mb-6 text-center">
+                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg" style={{background: 'linear-gradient(135deg, #0284c7, #38bdf8)'}}><IconPackage size={32} /></div>
+                            <h1 className="text-2xl font-black text-slate-800">نظام المبيعات</h1>
+                            <p className="text-sky-600 font-bold text-sm">CRM Pro</p>
+                        </div>
+                        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl w-full max-w-sm border border-sky-100/50">
+                            <h2 className="text-lg font-black text-slate-800 mb-1">تسجيل الدخول</h2>
+                            <p className="text-slate-400 font-bold mb-5 text-xs">مرحباً، أدخل بياناتك للمتابعة.</p>
+                            {authError && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold mb-4 border border-red-100">{authError}</div>}
+                            <form onSubmit={handleLogin} className="space-y-3">
+                                <div><label className="block text-xs font-black text-slate-600 mb-1.5 text-right">البريد الإلكتروني</label><input type="email" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 font-medium text-sm text-left transition-all" dir="ltr" placeholder="example@email.com" value={authEmail} onChange={e => setAuthEmail(e.target.value)} /></div>
+                                <div><label className="block text-xs font-black text-slate-600 mb-1.5 text-right">كلمة المرور</label><input type="password" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 font-medium text-sm text-left transition-all" dir="ltr" placeholder="••••••••" value={authPassword} onChange={e => setAuthPassword(e.target.value)} /></div>
+                                <button type="submit" className="w-full text-white font-black py-3.5 rounded-xl transition-all shadow-md text-sm mt-1 hover:opacity-90 active:scale-[0.98]" style={{background: 'linear-gradient(135deg, #0284c7, #38bdf8)'}}>دخول إلى النظام</button>
                             </form>
-                            <div className="mt-6 text-center border-t border-slate-100 pt-4">
+                            <div className="mt-4 pt-4 border-t border-slate-100">
                                 <button type="button" onClick={async () => {
                                     const email = prompt("أدخل إيميل الموظف الجديد (مثال: ali@crm.com):");
                                     if(!email || !email.includes('@')) return alert("يرجى كتابة إيميل بصيغة صحيحة!");
@@ -1134,9 +1205,10 @@
                                     if(error) alert("لم يتم إنشاء الحساب بسبب: " + error.message);
                                     else if(data?.session) { alert("تم إنشاء الحساب بنجاح! سيتم تحويلك الآن."); window.location.reload(); } 
                                     else alert("⚠️ تنبيه هام: تم تسجيل البيانات، ولكن الحساب معلق!\n\nيجب إيقاف خيار (Confirm email) من إعدادات Supabase ثم إعادة المحاولة ليعمل الحساب فوراً.");
-                                }} className="text-xs md:text-sm font-bold text-indigo-600 hover:text-indigo-800 p-2 bg-indigo-50 rounded-lg transition-colors w-full border border-indigo-100">إنشاء حساب جديد (سريع)</button>
+                                }} className="text-xs font-bold text-sky-600 hover:text-sky-800 py-2.5 px-4 bg-sky-50 rounded-xl transition-colors w-full border border-sky-100 hover:bg-sky-100">إنشاء حساب جديد</button>
                             </div>
                         </div>
+                        <p className="text-[10px] text-slate-400 font-bold mt-4">أول حساب يُنشأ سيكون مدير النظام تلقائياً</p>
                     </div>
                 );
             }
@@ -1158,7 +1230,7 @@
                  return (
                     <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
                         <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-100 text-center">
-                            <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+                            <div className="w-12 h-12 border-4 border-sky-200 border-t-sky-600 rounded-full animate-spin mx-auto mb-4"></div>
                             <h2 className="text-xl font-black text-slate-800 mb-4">جاري التحقق من الصلاحيات...</h2>
                             <button onClick={handleLogout} className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold mt-4 text-sm">إلغاء العملية والتحديث</button>
                         </div>
@@ -1169,79 +1241,90 @@
             const currentTheme = getThemeClasses(newOrder.page);
 
             return (
-                <div className="flex h-screen overflow-hidden bg-[#f8fafc]">
+                <div className="flex h-screen overflow-hidden" style={{background: '#f1f5f9'}}>
                     
                     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none w-11/12 md:w-auto max-w-md">
                         {toasts.map((t, idx) => (
                             <div key={t.id || idx} className="toast-enter bg-slate-800 text-white px-4 py-3 rounded-xl shadow-2xl text-xs md:text-sm flex items-center gap-3 border border-slate-700">
-                                <span className="bg-indigo-500 p-1.5 rounded-full"><IconBell /></span>
-                                <span className="font-semibold leading-relaxed">الموظف <b className="text-indigo-300">{t.user_name}</b> <b className="text-amber-300">{t.action}</b> {t.order_id !== 'متعدد' ? `(طلب: ${t.order_id})` : ''}</span>
+                                <span className="bg-sky-500 p-1.5 rounded-full"><IconBell /></span>
+                                <span className="font-semibold leading-relaxed">الموظف <b className="text-sky-300">{t.user_name}</b> <b className="text-amber-300">{t.action}</b> {t.order_id !== 'متعدد' ? `(طلب: ${t.order_id})` : ''}</span>
                             </div>
                         ))}
                     </div>
 
                     <aside className={`fixed inset-y-0 right-0 z-50 w-64 bg-slate-900 text-white transition-transform transform ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0 md:relative shadow-2xl flex flex-col`}>
-                        <div className="flex items-center justify-between p-6 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-700/50">
-                            <div className="flex items-center gap-3 font-black text-xl tracking-wide"><div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-400"><IconPackage /></div><span>نظام المبيعات</span></div>
-                            <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}><IconX /></button>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700/50" style={{background: 'linear-gradient(135deg, #0c1a2e 0%, #0f2643 100%)'}}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background: 'rgba(14,165,233,0.2)'}}><IconPackage size={20} /></div>
+                                <div><div className="font-black text-sm text-white leading-tight">نظام المبيعات</div><div className="text-[10px] text-sky-400 font-bold">CRM Pro</div></div>
+                            </div>
+                            <button className="md:hidden text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors" onClick={() => setIsSidebarOpen(false)}><IconX size={18}/></button>
                         </div>
-                        <div className="p-4 bg-slate-800/50 border-b border-slate-800 flex justify-between items-center">
-                            <div className="flex flex-col overflow-hidden"><span className="text-sm font-bold text-white truncate">{userRole.name || 'مستخدم'}</span><span className="text-[10px] text-indigo-300 font-black mt-0.5">{ROLE_NAMES[userRole.role] || 'موظف'}</span></div>
-                            <button onClick={handleLogout} className="text-red-400 hover:text-red-300 p-2 bg-slate-800 rounded-lg" title="تسجيل خروج"><IconLogOut /></button>
+                        <div className="px-4 py-3 border-b border-slate-800 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-sky-600 flex items-center justify-center text-white font-black text-sm shrink-0">{(userRole.name || 'م')[0]}</div>
+                            <div className="flex-1 min-w-0"><div className="text-sm font-bold text-white truncate">{userRole.name || 'مستخدم'}</div><div className="text-[10px] text-sky-400 font-bold truncate">{ROLE_NAMES[userRole.role] || 'موظف'}</div></div>
+                            <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors shrink-0" title="تسجيل خروج"><IconLogOut /></button>
                         </div>
-                        <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
-                            <button onClick={() => {setCurrentTab('dashboard'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconDashboard /></span> <span>لوحة التحكم</span></button>
-                            <button onClick={() => {setCurrentTab('orders'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'orders' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconCart /></span> <span>الطلبات والمتابعة</span></button>
-                            {isSuperAdmin && <button onClick={() => {setCurrentTab('pages'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'pages' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إحصائيات الصفحات</span></button>}
-                            {canAccessFinance && <button onClick={() => {setCurrentTab('finance'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'finance' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconCalc /></span> <span>الحسابات المالية</span></button>}
-                            {isSuperAdmin && <button onClick={() => {setCurrentTab('products'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${currentTab === 'products' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}><span><IconStore /></span> <span>إدارة المنتجات</span></button>}
-                            {(isSuperAdmin || isPageManager) && <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-4 border border-indigo-500/30 ${currentTab === 'users' ? 'bg-indigo-800 text-white shadow-lg shadow-indigo-900/50' : 'text-indigo-300 hover:bg-slate-800 hover:text-white'}`}><span><IconUsers /></span> <span>إدارة الموظفين</span></button>}
-                            {(isSuperAdmin || isPageManager) && <button onClick={() => {setCurrentTab('logs'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-2 border border-amber-500/30 ${currentTab === 'logs' ? 'bg-amber-700 text-white shadow-lg shadow-amber-900/50' : 'text-amber-300 hover:bg-slate-800 hover:text-white'}`}><span><IconActivity /></span> <span>سجل النشاطات</span></button>}
-                            <button onClick={handleInstallClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold mt-8 border border-green-500/30 text-green-400 hover:bg-slate-800 hover:text-white`}>
-                                <span><IconDownload size={20} /></span> <span>تثبيت التطبيق 📱</span>
-                            </button>
+                        <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
+                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest px-3 pt-2 pb-1">القائمة الرئيسية</p>
+                            <button onClick={() => {setCurrentTab('dashboard'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'dashboard' ? 'active' : ''}`}><IconDashboard /> <span>لوحة التحكم</span></button>
+                            <button onClick={() => {setCurrentTab('orders'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'orders' ? 'active' : ''}`}><IconCart /> <span>الطلبات والمتابعة</span></button>
+                            {isSuperAdmin && <button onClick={() => {setCurrentTab('pages'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'pages' ? 'active' : ''}`}><IconStore /> <span>إحصائيات الصفحات</span></button>}
+                            {canAccessFinance && <button onClick={() => {setCurrentTab('finance'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'finance' ? 'active' : ''}`}><IconCalc /> <span>الحسابات المالية</span></button>}
+                            {isSuperAdmin && <button onClick={() => {setCurrentTab('products'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'products' ? 'active' : ''}`}><IconStore /> <span>إدارة المنتجات</span></button>}
+                            {(isSuperAdmin || isPageManager) && (<>
+                                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest px-3 pt-4 pb-1">الإدارة</p>
+                                <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'users' ? 'active' : ''}`}><IconUsers /> <span>إدارة الموظفين</span></button>
+                                <button onClick={() => {setCurrentTab('logs'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'logs' ? 'active' : ''}`}><IconActivity /> <span>سجل النشاطات</span></button>
+                            </>)}
+                            <div className="pt-4 mt-4 border-t border-slate-800">
+                                <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
+                            </div>
                         </nav>
                     </aside>
 
                     {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
                     <main className="flex-1 flex flex-col h-screen overflow-hidden">
-                        <header className="glass-panel shadow-sm px-4 py-3 md:px-6 md:py-4 flex items-center justify-between z-10 sticky top-0 flex-wrap gap-3">
+                        <header className="glass-panel px-4 py-2.5 md:px-6 md:py-3.5 flex items-center justify-between z-10 sticky top-0 flex-wrap gap-2">
                             <div className="flex items-center gap-3">
-                                <button className="md:hidden p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors" onClick={() => setIsSidebarOpen(true)}><IconMenu /></button>
-                                <h1 className="text-lg md:text-2xl font-black text-slate-800 drop-shadow-sm">
-                                    {currentTab === 'dashboard' && 'نظرة عامة'}
-                                    {currentTab === 'orders' && (isSuperAdmin ? 'إدارة كل الطلبات' : `طلباتك`)}
-                                    {currentTab === 'pages' && 'الإحصائيات المتقدمة'}
-                                    {currentTab === 'finance' && 'الحسابات المالية'}
-                                    {currentTab === 'users' && 'لوحة الإدارة'}
-                                    {currentTab === 'logs' && 'سجل نشاطات الموظفين'}
-                                    {currentTab === 'products' && 'إدارة المنتجات'}
-                                </h1>
+                                <button className="md:hidden p-2 rounded-xl bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors" onClick={() => setIsSidebarOpen(true)}><IconMenu /></button>
+                                <div>
+                                    <h1 className="text-base md:text-xl font-black text-slate-800 leading-tight">
+                                        {currentTab === 'dashboard' && 'نظرة عامة'}
+                                        {currentTab === 'orders' && (isSuperAdmin ? 'إدارة الطلبات' : 'طلباتك')}
+                                        {currentTab === 'pages' && 'إحصائيات الصفحات'}
+                                        {currentTab === 'finance' && 'الحسابات المالية'}
+                                        {currentTab === 'users' && 'إدارة الفريق'}
+                                        {currentTab === 'logs' && 'سجل النشاطات'}
+                                        {currentTab === 'products' && 'إدارة المنتجات'}
+                                    </h1>
+                                    <p className="text-[10px] text-slate-400 font-bold hidden md:block">{new Date().toLocaleDateString('ar-EG', {weekday:'long', year:'numeric', month:'long', day:'numeric'})}</p>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-1.5 md:gap-3 w-full md:w-auto">
-                                <button onClick={handleRefreshData} className="p-2 md:p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors shadow-sm" title="تحديث النظام"><IconRefresh/></button>
-                                <button onClick={() => setIsSettingsOpen(true)} className="p-2 md:p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors" title="إعدادات الواجهة"><IconSettings /></button>
+                            <div className="flex items-center gap-1.5 md:gap-2">
+                                <button onClick={handleRefreshData} className="p-2 rounded-xl bg-slate-100 hover:bg-sky-50 text-slate-500 hover:text-sky-600 transition-colors" title="تحديث"><IconRefresh size={18}/></button>
+                                <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors hidden md:flex" title="إعدادات"><IconSettings /></button>
                                 {(isSuperAdmin || userRole?.can_add_bulk) && (
-                                    <button onClick={() => setIsBulkModalOpen(true)} className="flex-1 md:flex-none bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 px-2 py-2 md:px-4 md:py-2.5 rounded-lg flex items-center justify-center gap-1 transition-all shadow-sm font-bold text-[11px] md:text-sm"><IconTable size={16} /> <span className="hidden sm:inline">مجموعة</span></button>
+                                    <button onClick={() => setIsBulkModalOpen(true)} className="hidden md:flex items-center gap-1.5 bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 px-3 py-2 rounded-xl transition-all font-bold text-sm"><IconTable size={15} /> مجموعة</button>
                                 )}
                                 {(isSuperAdmin || userRole?.can_import_excel) && (
-                                    <button onClick={() => setIsImportModalOpen(true)} className="flex-1 md:flex-none bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-2 py-2 md:px-4 md:py-2.5 rounded-lg flex items-center justify-center gap-1 transition-all shadow-sm font-bold text-[11px] md:text-sm"><IconUpload size={16} /> <span className="hidden sm:inline">شيت</span></button>
+                                    <button onClick={() => setIsImportModalOpen(true)} className="hidden md:flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-3 py-2 rounded-xl transition-all font-bold text-sm"><IconUpload size={15} /> رفع شيت</button>
                                 )}
-                                <button onClick={openAddModal} className="flex-1 md:flex-none bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white px-2 py-2 md:px-5 md:py-2.5 rounded-lg flex items-center justify-center gap-1 transition-all shadow-md font-bold text-[11px] md:text-sm transform hover:-translate-y-0.5"><IconPlus size={16} /> <span className="hidden sm:inline">طلب جديد</span></button>
+                                <button onClick={openAddModal} className="hidden md:flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm font-bold text-sm"><IconPlus size={16} /> طلب جديد</button>
                             </div>
                         </header>
 
-                        <div className="flex-1 overflow-auto p-3 md:p-6 relative">
-                            {loadingDB && <div className="absolute inset-0 bg-white/60 z-10 flex flex-col items-center justify-center backdrop-blur-sm"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div>}
+                        <div className="flex-1 overflow-auto p-3 md:p-6 pb-24 md:pb-6 relative">
+                            {loadingDB && <div className="absolute inset-0 bg-white/60 z-10 flex flex-col items-center justify-center backdrop-blur-sm"><div className="w-12 h-12 border-4 border-sky-200 border-t-sky-600 rounded-full animate-spin"></div></div>}
 
                             {currentTab === 'dashboard' && (
-                                <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-                                        <div className="glass-panel p-3 md:p-6 rounded-xl shadow-sm border border-white flex flex-col md:flex-row items-start justify-between hover:shadow-md transition-shadow gap-2"><div><p className="text-slate-500 text-[10px] md:text-sm font-bold mb-0.5">الطلبات المرئية لك</p><p className="text-2xl md:text-4xl font-black text-slate-800">{globalStats.total}</p></div><div className="p-2 md:p-3.5 bg-blue-100 text-blue-600 rounded-lg md:rounded-2xl"><IconCart size={20} /></div></div>
-                                        <div className="glass-panel p-3 md:p-6 rounded-xl shadow-sm border border-white flex flex-col md:flex-row items-start justify-between hover:shadow-md transition-shadow gap-2"><div><p className="text-slate-500 text-[10px] md:text-sm font-bold mb-0.5">قيد المعالجة</p><p className="text-2xl md:text-4xl font-black text-slate-800">{globalStats.new}</p></div><div className="p-2 md:p-3.5 bg-amber-100 text-amber-600 rounded-lg md:rounded-2xl"><IconClock size={20} /></div></div>
-                                        <div className="glass-panel p-3 md:p-6 rounded-xl shadow-sm border border-white flex flex-col md:flex-row items-start justify-between hover:shadow-md transition-shadow gap-2"><div><p className="text-slate-500 text-[10px] md:text-sm font-bold mb-0.5">تم التوصيل بنجاح</p><p className="text-2xl md:text-4xl font-black text-slate-800">{globalStats.delivered}</p></div><div className="p-2 md:p-3.5 bg-green-100 text-green-600 rounded-lg md:rounded-2xl"><IconCheck size={20} /></div></div>
-                                        <div className="glass-panel p-3 md:p-6 rounded-xl shadow-sm border border-white flex flex-col md:flex-row items-start justify-between hover:shadow-md transition-shadow bg-gradient-to-br from-indigo-50 to-white gap-2"><div><p className="text-slate-500 text-[10px] md:text-sm font-bold mb-0.5">إجمالي الإيرادات</p><p className="text-xl md:text-3xl font-black text-indigo-700">{globalStats.revenue} <span className="text-[10px] md:text-sm">ج.م</span></p></div><div className="p-2 md:p-3.5 bg-indigo-100 text-indigo-600 rounded-lg md:rounded-2xl"><IconStore size={20} /></div></div>
+                                <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow stat-card-accent" style={{borderTop: '3px solid #0ea5e9'}}><div className="p-2.5 bg-sky-50 text-sky-500 rounded-xl shrink-0"><IconCart size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">إجمالي الطلبات</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{globalStats.total}</p></div></div>
+                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #f59e0b'}}><div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl shrink-0"><IconClock size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">قيد المعالجة</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{globalStats.new}</p></div></div>
+                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #22c55e'}}><div className="p-2.5 bg-green-50 text-green-500 rounded-xl shrink-0"><IconCheck size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">تم التوصيل</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{globalStats.delivered}</p></div></div>
+                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #8b5cf6'}}><div className="p-2.5 bg-purple-50 text-purple-500 rounded-xl shrink-0"><IconStore size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">الإيرادات</p><p className="text-lg md:text-2xl font-black text-sky-700 leading-none">{globalStats.revenue}<span className="text-[10px] font-bold text-slate-400 mr-0.5">ج.م</span></p></div></div>
                                     </div>
                                     {availablePages.length > 0 && (
                                     <div>
@@ -1252,7 +1335,7 @@
                                                 if (pageOrders.length === 0) return null;
                                                 return (
                                                     <div key={page} className="glass-panel p-4 md:p-5 rounded-2xl shadow-sm border border-white hover:shadow-md transition-shadow">
-                                                        <div className="flex justify-between items-center mb-3 border-b border-slate-100 pb-2 md:pb-3"><h3 className="font-black text-sm md:text-lg text-indigo-900 flex items-center gap-1.5 md:gap-2"><IconStore size={16}/> {page}</h3><span className="bg-indigo-100 text-indigo-800 text-[10px] md:text-xs font-bold px-2 py-1 rounded-lg">{pageOrders.length} طلب</span></div>
+                                                        <div className="flex justify-between items-center mb-3 border-b border-slate-100 pb-2 md:pb-3"><h3 className="font-black text-sm md:text-lg text-sky-900 flex items-center gap-1.5 md:gap-2"><IconStore size={16}/> {page}</h3><span className="bg-sky-100 text-sky-800 text-[10px] md:text-xs font-bold px-2 py-1 rounded-lg">{pageOrders.length} طلب</span></div>
                                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 md:gap-2">
                                                             {orderStatuses.map(status => {
                                                                 const count = pageOrders.filter(o => o.status === status).length;
@@ -1291,9 +1374,9 @@
                                             )}
                                         </div>
                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
-                                            <div className="col-span-2 relative"><div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400"><IconSearch size={14} /></div><input type="text" placeholder="بحث بالاسم، هاتف، طلب..." className="block w-full pl-2 pr-8 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow text-[11px] md:text-sm font-semibold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
-                                            <div><select className="w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-[11px] md:text-sm font-semibold" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="الكل">جميع الحالات</option>{orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                                            <div><select className={`w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-[11px] md:text-sm font-semibold ${userRole.role === 'agent' && availablePages.length === 1 ? 'opacity-70 bg-slate-100 cursor-not-allowed' : ''}`} value={filterPage} onChange={(e) => setFilterPage(e.target.value)} disabled={userRole.role === 'agent' && availablePages.length === 1}><option value="الكل">{isSuperAdmin ? 'جميع الصفحات' : 'كل صفحاتك'}</option>{availablePages.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
+                                            <div className="col-span-2 relative"><div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400"><IconSearch size={14} /></div><input type="text" placeholder="بحث بالاسم، هاتف، طلب..." className="block w-full pl-2 pr-8 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none transition-shadow text-[11px] md:text-sm font-semibold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
+                                            <div><select className="w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none text-[11px] md:text-sm font-semibold" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="الكل">جميع الحالات</option>{orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                            <div><select className={`w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none text-[11px] md:text-sm font-semibold ${userRole.role === 'agent' && availablePages.length === 1 ? 'opacity-70 bg-slate-100 cursor-not-allowed' : ''}`} value={filterPage} onChange={(e) => setFilterPage(e.target.value)} disabled={userRole.role === 'agent' && availablePages.length === 1}><option value="الكل">{isSuperAdmin ? 'جميع الصفحات' : 'كل صفحاتك'}</option>{availablePages.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
                                             <div className="col-span-2 md:col-span-1 flex gap-2">
                                                 <button onClick={resetFilters} className="flex-1 py-1.5 md:py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg md:rounded-xl font-bold text-[11px] md:text-sm transition-colors border border-slate-200">إلغاء</button>
                                                 <button onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)} className={`flex-1 py-1.5 md:py-2.5 rounded-lg md:rounded-xl font-bold text-[11px] md:text-sm transition-colors border ${showDuplicatesOnly ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-white hover:bg-amber-50 border-slate-200 text-slate-700'}`}>مكرر</button>
@@ -1302,7 +1385,50 @@
                                     </div>
 
                                     <div className="glass-panel rounded-2xl shadow-sm border border-white flex-1 overflow-hidden flex flex-col">
-                                        <div className="overflow-x-auto flex-1 w-full pb-2">
+                                        {/* Mobile Cards View */}
+                                        <div className="md:hidden flex-1 overflow-y-auto p-3 space-y-2.5">
+                                            {displayedOrders.length === 0 ? (
+                                                <div className="py-20 text-center text-slate-400 font-bold">لا توجد طلبات مطابقة</div>
+                                            ) : displayedOrders.map(order => {
+                                                const cardColor = {'جاري التحضير':'#0ea5e9','تم':'#22c55e','الشحن':'#f97316','مراجعة':'#eab308','تاجيل':'#94a3b8','استبدال':'#8b5cf6','مرتجع':'#f43f5e','الغاء':'#ef4444','اعادة ارسال':'#6366f1','خارجي':'#14b8a6'}[order.status] || '#e2e8f0';
+                                                const agentLocked = userRole?.role === 'agent' && (order.status === 'الشحن' || order.trackingNumber);
+                                                const isDuplicate = phoneCounts[order.phone] > 1;
+                                                return (
+                                                    <div key={order.id} className="order-card" style={{borderRight: `4px solid ${cardColor}`}}>
+                                                        <div className="flex items-start justify-between mb-2">
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <input type="checkbox" className="custom-checkbox shrink-0" checked={selectedOrders.includes(order.id)} onChange={() => handleSelectOrder(order.id)} />
+                                                                <div className="min-w-0"><div className="text-[10px] font-bold text-slate-400 leading-none mb-0.5">{order.id}</div><div className="font-black text-sm text-slate-800 truncate">{order.customer}</div></div>
+                                                            </div>
+                                                            <div className="text-[10px] text-slate-400 font-bold shrink-0 mr-1">{order.date}</div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs mb-2 text-slate-500">
+                                                            <span className="font-bold text-slate-700" dir="ltr">{order.phone}</span>
+                                                            {isDuplicate && <span className="bg-red-100 text-red-600 text-[9px] px-1.5 py-0.5 rounded font-black border border-red-200">مكرر</span>}
+                                                            <span className="truncate opacity-70">{order.address}</span>
+                                                        </div>
+                                                        <div className="text-xs text-slate-600 font-bold mb-0 line-clamp-2 leading-relaxed">
+                                                            <span className="inline bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[9px] font-black ml-1">{order.page}</span>{order.item}
+                                                        </div>
+                                                        {order.trackingNumber && <div className="text-[10px] font-bold text-orange-600 flex items-center gap-1 mt-1"><IconTruck size={11}/>{order.trackingNumber}</div>}
+                                                        <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
+                                                            <div className="font-black text-base text-slate-800 leading-none">{Number(order.productPrice||0)+Number(order.shippingPrice||0)}<span className="text-[10px] text-slate-400 font-bold mr-0.5">ج.م</span></div>
+                                                            <div className="flex-1"/>
+                                                            <select value={order.status} onChange={e => handleStatusChange(order.id, e.target.value)} disabled={agentLocked} className={`text-[10px] rounded-lg px-2 py-1.5 outline-none font-black border shadow-sm ${getSelectStatusColor(order.status)} ${agentLocked ? 'opacity-70' : ''}`} style={{maxWidth:'130px'}}>
+                                                                {orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        <div className="flex gap-1.5 mt-2">
+                                                            <button onClick={() => openViewModal(order)} className="flex-1 flex items-center justify-center gap-1 bg-sky-600 hover:bg-sky-700 text-white text-xs font-black py-2 rounded-xl transition-colors"><IconEye size={13}/> عرض</button>
+                                                            <button onClick={() => openEditModal(order)} className="flex-1 flex items-center justify-center gap-1 bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-black py-2 rounded-xl transition-colors"><IconEdit size={13}/> تعديل</button>
+                                                            {isSuperAdmin && <button onClick={() => handleDeleteOrder(order.id)} className="flex items-center justify-center px-3 bg-red-50 border border-red-200 text-red-500 hover:bg-red-100 py-2 rounded-xl transition-colors"><IconTrash size={13}/></button>}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        {/* Desktop Table View */}
+                                        <div className="hidden md:block overflow-x-auto flex-1 w-full pb-2">
                                             <table className="w-full text-right dynamic-table whitespace-nowrap min-w-[750px] md:min-w-[1000px]">
                                                 <thead className="bg-slate-800 text-white text-[10px] md:text-sm sticky top-0 z-10 shadow-md">
                                                     <tr>
@@ -1325,7 +1451,7 @@
                                                         const isDuplicate = phoneCounts[order.phone] > 1;
 
                                                         return (
-                                                        <tr key={order.id} className={`transition-colors border-b border-white/20 ${selectedOrders.includes(order.id) ? 'bg-indigo-50 border-indigo-200' : getRowStatusColor(order.status)}`}>
+                                                        <tr key={order.id} className={`transition-colors border-b border-white/20 ${selectedOrders.includes(order.id) ? 'bg-sky-50 border-sky-200' : getRowStatusColor(order.status)}`}>
                                                             <td className="align-top text-center"><input type="checkbox" className="custom-checkbox mx-auto mt-1" checked={selectedOrders.includes(order.id)} onChange={() => handleSelectOrder(order.id)} /></td>
                                                             <td className="align-top"><div className="font-black text-[11px] md:text-sm break-all">{order.id}</div></td>
                                                             <td className="align-top whitespace-normal break-words"><div className="font-bold text-xs md:text-sm">{order.customer}</div><div className="text-[10px] md:text-[11px] font-medium mt-1 leading-tight opacity-80" title={order.address}>{order.address}</div></td>
@@ -1345,7 +1471,7 @@
                                                             <td className="align-top"><div className="text-[9px] md:text-[11px] font-bold flex items-center gap-1 opacity-90 mb-1.5"><IconCalendar /> {order.date}</div>{order.trackingNumber ? (<div className="text-[9px] md:text-[11px] font-black flex items-center gap-1 bg-white/50 inline-flex px-1 py-0.5 rounded shadow-sm border border-white/40"><IconTruck /> {order.trackingNumber}</div>) : (<div className="text-[10px] font-medium opacity-60">-</div>)}</td>
                                                             <td className="align-top">
                                                                 <div className="flex flex-row md:flex-col gap-1 md:gap-1.5 flex-wrap">
-                                                                    <button onClick={() => openViewModal(order)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconEye /> <span className="hidden md:inline">عرض</span></button>
+                                                                    <button onClick={() => openViewModal(order)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-sky-600 hover:bg-sky-700 text-white border border-sky-700 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconEye /> <span className="hidden md:inline">عرض</span></button>
                                                                     <button onClick={() => openEditModal(order)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-white/70 hover:bg-white text-slate-800 border border-slate-300/50 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconEdit /> <span className="hidden md:inline">تعديل</span></button>
                                                                     {isSuperAdmin && (<button onClick={() => handleDeleteOrder(order.id)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-red-100 hover:bg-red-600 hover:text-white text-red-700 border border-red-200 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconTrash /> <span className="hidden md:inline">مسح</span></button>)}
                                                                 </div>
@@ -1355,10 +1481,11 @@
                                                 </tbody>
                                             </table>
                                         </div>
-                                        
+                                        </div>{/* end desktop table wrapper */}
+
                                         <div className="px-3 py-2 md:px-4 md:py-3 bg-slate-800 text-white text-[10px] md:text-sm font-bold shadow-inner flex flex-wrap justify-between items-center gap-2">
-                                            <div className="flex items-center gap-2 md:gap-4"><span>نتائج الفلتر: {filteredOrders.length} طلب</span>{selectedOrders.length > 0 && <span className="text-indigo-300 bg-indigo-900/50 px-2 py-0.5 rounded">محدد: {selectedOrders.length}</span>}</div>
-                                            <div className="flex items-center gap-2 md:gap-4 flex-wrap"><div className="flex items-center gap-1.5 md:gap-2"><label className="text-slate-300 text-[10px] md:text-xs">عرض:</label><select className="bg-slate-700 border border-slate-600 text-white rounded px-1 py-0.5 md:px-2 md:py-1 outline-none focus:ring-1 focus:ring-indigo-400" value={ordersPerPage} onChange={(e) => { setOrdersPerPage(e.target.value === 'All' ? 'All' : Number(e.target.value)); setCurrentPage(1); }}><option value={50}>50</option><option value={100}>100</option><option value={500}>500</option><option value="All">الكل</option></select></div>{ordersPerPage !== 'All' && totalPages > 1 && (<div className="flex items-center gap-1 bg-slate-700 rounded-lg p-1"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="px-2 py-1 md:px-3 md:py-1 bg-slate-600 hover:bg-slate-500 disabled:opacity-30 rounded text-[10px] md:text-xs transition-colors">السابق</button><span className="px-1 md:px-2 text-[10px] md:text-xs">صفحة {currentPage} من {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className="px-2 py-1 md:px-3 md:py-1 bg-slate-600 hover:bg-slate-500 disabled:opacity-30 rounded text-[10px] md:text-xs transition-colors">التالي</button></div>)}</div>
+                                            <div className="flex items-center gap-2 md:gap-4"><span>نتائج الفلتر: {filteredOrders.length} طلب</span>{selectedOrders.length > 0 && <span className="text-sky-300 bg-sky-900/50 px-2 py-0.5 rounded">محدد: {selectedOrders.length}</span>}</div>
+                                            <div className="flex items-center gap-2 md:gap-4 flex-wrap"><div className="flex items-center gap-1.5 md:gap-2"><label className="text-slate-300 text-[10px] md:text-xs">عرض:</label><select className="bg-slate-700 border border-slate-600 text-white rounded px-1 py-0.5 md:px-2 md:py-1 outline-none focus:ring-1 focus:ring-sky-400" value={ordersPerPage} onChange={(e) => { setOrdersPerPage(e.target.value === 'All' ? 'All' : Number(e.target.value)); setCurrentPage(1); }}><option value={50}>50</option><option value={100}>100</option><option value={500}>500</option><option value="All">الكل</option></select></div>{ordersPerPage !== 'All' && totalPages > 1 && (<div className="flex items-center gap-1 bg-slate-700 rounded-lg p-1"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="px-2 py-1 md:px-3 md:py-1 bg-slate-600 hover:bg-slate-500 disabled:opacity-30 rounded text-[10px] md:text-xs transition-colors">السابق</button><span className="px-1 md:px-2 text-[10px] md:text-xs">صفحة {currentPage} من {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className="px-2 py-1 md:px-3 md:py-1 bg-slate-600 hover:bg-slate-500 disabled:opacity-30 rounded text-[10px] md:text-xs transition-colors">التالي</button></div>)}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1366,7 +1493,7 @@
 
                             {currentTab === 'pages' && isSuperAdmin && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="glass-panel p-4 md:p-5 rounded-2xl shadow-sm border border-white flex flex-col md:flex-row items-center gap-3 md:gap-4 justify-between"><div className="flex items-center gap-2 font-bold text-sm md:text-base text-slate-700"><IconCalendar /> <span>تحديد فترة الإحصائيات:</span></div><div className="flex items-center gap-2 md:gap-3 w-full md:w-auto flex-wrap"><div className="flex items-center gap-2 flex-1 md:flex-none"><label className="text-xs md:text-sm text-slate-500">من:</label><input type="date" className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-xs md:text-sm font-bold w-full" value={statsDateFrom} onChange={e => setStatsDateFrom(e.target.value)} /></div><div className="flex items-center gap-2 flex-1 md:flex-none"><label className="text-xs md:text-sm text-slate-500">إلى:</label><input type="date" className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-xs md:text-sm font-bold w-full" value={statsDateTo} onChange={e => setStatsDateTo(e.target.value)} /></div>{(statsDateFrom || statsDateTo) && (<button onClick={() => { setStatsDateFrom(''); setStatsDateTo(''); }} className="w-full md:w-auto px-4 py-1.5 md:py-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs md:text-sm rounded-lg border border-red-200 transition-colors">إلغاء الفلتر ✖</button>)}</div></div>
+                                    <div className="glass-panel p-4 md:p-5 rounded-2xl shadow-sm border border-white flex flex-col md:flex-row items-center gap-3 md:gap-4 justify-between"><div className="flex items-center gap-2 font-bold text-sm md:text-base text-slate-700"><IconCalendar /> <span>تحديد فترة الإحصائيات:</span></div><div className="flex items-center gap-2 md:gap-3 w-full md:w-auto flex-wrap"><div className="flex items-center gap-2 flex-1 md:flex-none"><label className="text-xs md:text-sm text-slate-500">من:</label><input type="date" className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-xs md:text-sm font-bold w-full" value={statsDateFrom} onChange={e => setStatsDateFrom(e.target.value)} /></div><div className="flex items-center gap-2 flex-1 md:flex-none"><label className="text-xs md:text-sm text-slate-500">إلى:</label><input type="date" className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-xs md:text-sm font-bold w-full" value={statsDateTo} onChange={e => setStatsDateTo(e.target.value)} /></div>{(statsDateFrom || statsDateTo) && (<button onClick={() => { setStatsDateFrom(''); setStatsDateTo(''); }} className="w-full md:w-auto px-4 py-1.5 md:py-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs md:text-sm rounded-lg border border-red-200 transition-colors">إلغاء الفلتر ✖</button>)}</div></div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">{pages.map((page, idx) => {
                                         const pageOrders = statsFilteredOrders.filter(o => o.page === page);
                                         const activeStatus = selectedPageStatus[page] || 'تم';
@@ -1431,26 +1558,26 @@
                                             <div className="flex items-center justify-between mb-3">
                                                 <h3 className="font-bold text-xs md:text-sm text-slate-700 flex items-center gap-2"><IconFilter size={16}/> تصفية وبحث الحسابات</h3>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="font-black text-indigo-700 bg-indigo-100 px-3 py-1.5 rounded-lg text-[11px] md:text-sm shadow-sm border border-indigo-200">إجمالي الفلتر: {filteredFinanceTotal} ج.م</span>
+                                                    <span className="font-black text-sky-700 bg-sky-100 px-3 py-1.5 rounded-lg text-[11px] md:text-sm shadow-sm border border-sky-200">إجمالي الفلتر: {filteredFinanceTotal} ج.م</span>
                                                     <button onClick={() => openFinanceModal(financeSubTab)} className={`hidden md:flex px-4 py-1.5 rounded-lg font-bold text-white text-xs md:text-sm shadow-md items-center gap-1 transition-transform hover:-translate-y-0.5 ${financeSubTab === 'expense' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
                                                         <IconPlus size={16} /> إضافة {financeSubTab === 'expense' ? 'مصروف' : 'إيراد'}
                                                     </button>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
-                                                <div className="flex flex-col gap-1"><label className="text-[10px] md:text-xs text-slate-500 font-bold">من تاريخ</label><input type="date" className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none" value={financeDateFrom} onChange={e => setFinanceDateFrom(e.target.value)} /></div>
-                                                <div className="flex flex-col gap-1"><label className="text-[10px] md:text-xs text-slate-500 font-bold">إلى تاريخ</label><input type="date" className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none" value={financeDateTo} onChange={e => setFinanceDateTo(e.target.value)} /></div>
+                                                <div className="flex flex-col gap-1"><label className="text-[10px] md:text-xs text-slate-500 font-bold">من تاريخ</label><input type="date" className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-sky-500 outline-none" value={financeDateFrom} onChange={e => setFinanceDateFrom(e.target.value)} /></div>
+                                                <div className="flex flex-col gap-1"><label className="text-[10px] md:text-xs text-slate-500 font-bold">إلى تاريخ</label><input type="date" className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-sky-500 outline-none" value={financeDateTo} onChange={e => setFinanceDateTo(e.target.value)} /></div>
                                                 <div className="flex flex-col gap-1 relative z-20">
                                                     <label className="text-[10px] md:text-xs text-slate-500 font-bold">البنود (تحديد متعدد)</label>
                                                     <div onClick={() => setIsFinanceCatDropdownOpen(!isFinanceCatDropdownOpen)} className="border border-slate-300 rounded-lg p-2 bg-white min-h-[38px] max-h-24 overflow-y-auto cursor-pointer flex items-center justify-between">
                                                         {financeSelectedCategories.length === 0 ? <span className="text-slate-400 text-xs font-bold">كل البنود</span> : 
-                                                         <div className="flex flex-wrap gap-1">{financeSelectedCategories.map(c => <span key={c} className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 font-bold border border-indigo-200">{c} <IconX size={10} onClick={(e) => { e.stopPropagation(); toggleFinanceCategory(c); }} className="cursor-pointer hover:text-red-500"/></span>)}</div>
+                                                         <div className="flex flex-wrap gap-1">{financeSelectedCategories.map(c => <span key={c} className="bg-sky-100 text-sky-700 text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 font-bold border border-sky-200">{c} <IconX size={10} onClick={(e) => { e.stopPropagation(); toggleFinanceCategory(c); }} className="cursor-pointer hover:text-red-500"/></span>)}</div>
                                                         }
                                                         <IconChevronDown />
                                                     </div>
                                                     {isFinanceCatDropdownOpen && (
                                                         <div className="absolute top-full left-0 right-0 bg-white shadow-xl border border-slate-300 rounded-lg mt-1 p-2 z-50 flex flex-col gap-1 max-h-60 overflow-y-auto">
-                                                             <div className="flex justify-between items-center mb-2 pb-2 border-b"><span className="text-xs font-bold text-slate-500">اختر البنود:</span><button onClick={() => setIsFinanceCatDropdownOpen(false)} className="text-xs text-indigo-600 hover:underline font-bold">إغلاق</button></div>
+                                                             <div className="flex justify-between items-center mb-2 pb-2 border-b"><span className="text-xs font-bold text-slate-500">اختر البنود:</span><button onClick={() => setIsFinanceCatDropdownOpen(false)} className="text-xs text-sky-600 hover:underline font-bold">إغلاق</button></div>
                                                              {(financeSubTab === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => <label key={c} className="flex items-center gap-2 text-xs font-bold text-slate-700 p-1.5 hover:bg-slate-50 rounded cursor-pointer"><input type="checkbox" className="custom-checkbox !w-4 !h-4" checked={financeSelectedCategories.includes(c)} onChange={() => toggleFinanceCategory(c)} />{c}</label>)}
                                                         </div>
                                                     )}
@@ -1489,15 +1616,15 @@
 
                             {currentTab === 'products' && isSuperAdmin && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
-                                    <div className="bg-indigo-50 border border-indigo-200 p-4 md:p-6 rounded-2xl shadow-sm">
-                                        <h2 className="font-black text-indigo-900 text-base md:text-lg mb-4 flex items-center gap-2"><IconStore/> {editingProduct.id ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد للسيستم'}</h2>
+                                    <div className="bg-sky-50 border border-sky-200 p-4 md:p-6 rounded-2xl shadow-sm">
+                                        <h2 className="font-black text-sky-900 text-base md:text-lg mb-4 flex items-center gap-2"><IconStore/> {editingProduct.id ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد للسيستم'}</h2>
                                         <form onSubmit={saveProduct} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                                            <div className="lg:col-span-2"><label className="block text-xs font-bold text-slate-700 mb-1">اسم المنتج</label><input required type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={editingProduct.name} onChange={e=>setEditingProduct({...editingProduct, name: e.target.value})} placeholder="مثال: فستان صيفي مشجر" /></div>
-                                            <div><label className="block text-xs font-bold text-slate-700 mb-1">السعر (ج.م)</label><input required type="text" inputMode="decimal" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={editingProduct.price} onChange={e=>handleNumericChange(e.target.value, val => setEditingProduct({...editingProduct, price: val}))} placeholder="0" /></div>
+                                            <div className="lg:col-span-2"><label className="block text-xs font-bold text-slate-700 mb-1">اسم المنتج</label><input required type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 font-bold text-sm" value={editingProduct.name} onChange={e=>setEditingProduct({...editingProduct, name: e.target.value})} placeholder="مثال: فستان صيفي مشجر" /></div>
+                                            <div><label className="block text-xs font-bold text-slate-700 mb-1">السعر (ج.م)</label><input required type="text" inputMode="decimal" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 font-bold text-sm" value={editingProduct.price} onChange={e=>handleNumericChange(e.target.value, val => setEditingProduct({...editingProduct, price: val}))} placeholder="0" /></div>
                                             <div className="row-span-2 flex flex-col justify-end"><label className="block text-xs font-bold text-slate-700 mb-1">صورة مصغرة</label><input type="file" accept="image/*" onChange={handleProductImage} className="w-full border border-slate-300 p-1.5 rounded-lg text-xs bg-white cursor-pointer" />{editingProduct.image && <img src={editingProduct.image} className="h-12 w-12 object-cover rounded mt-2 shadow-sm border border-slate-200" />}</div>
-                                            <div className="lg:col-span-2"><label className="block text-xs font-bold text-slate-700 mb-1">الألوان المتاحة (افصل بفاصلة ,)</label><input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={editingProduct.colors} onChange={e=>setEditingProduct({...editingProduct, colors: e.target.value})} placeholder="أحمر,أسود,أبيض" /></div>
-                                            <div><label className="block text-xs font-bold text-slate-700 mb-1">المقاسات المتاحة (افصل بفاصلة ,)</label><input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={editingProduct.sizes} onChange={e=>setEditingProduct({...editingProduct, sizes: e.target.value})} placeholder="M,L,XL,XXL" /></div>
-                                            <div className="lg:col-span-4 flex gap-3 mt-2"><button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl shadow-md transition-colors">{editingProduct.id ? 'حفظ التعديلات' : 'إضافة المنتج'}</button>{editingProduct.id && <button type="button" onClick={()=>setEditingProduct({ id: null, name: '', price: '', colors: '', sizes: '', image: '' })} className="flex-none px-6 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl transition-colors">إلغاء التعديل</button>}</div>
+                                            <div className="lg:col-span-2"><label className="block text-xs font-bold text-slate-700 mb-1">الألوان المتاحة (افصل بفاصلة ,)</label><input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 font-bold text-sm" value={editingProduct.colors} onChange={e=>setEditingProduct({...editingProduct, colors: e.target.value})} placeholder="أحمر,أسود,أبيض" /></div>
+                                            <div><label className="block text-xs font-bold text-slate-700 mb-1">المقاسات المتاحة (افصل بفاصلة ,)</label><input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 font-bold text-sm" value={editingProduct.sizes} onChange={e=>setEditingProduct({...editingProduct, sizes: e.target.value})} placeholder="M,L,XL,XXL" /></div>
+                                            <div className="lg:col-span-4 flex gap-3 mt-2"><button type="submit" className="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 rounded-xl shadow-md transition-colors">{editingProduct.id ? 'حفظ التعديلات' : 'إضافة المنتج'}</button>{editingProduct.id && <button type="button" onClick={()=>setEditingProduct({ id: null, name: '', price: '', colors: '', sizes: '', image: '' })} className="flex-none px-6 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl transition-colors">إلغاء التعديل</button>}</div>
                                         </form>
                                     </div>
                                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -1548,12 +1675,12 @@
                                                             {groupedDisplayedLogs[dateStr].map(log => {
                                                                 const timeStr = new Date(log.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
                                                                 return (
-                                                                    <div key={log.id} className="relative bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:border-indigo-200 transition-colors mr-4 group">
-                                                                        <div className="absolute -right-[27px] md:-right-[33px] top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-indigo-100 border-2 border-indigo-500 group-hover:scale-125 transition-transform"></div>
+                                                                    <div key={log.id} className="relative bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:border-sky-200 transition-colors mr-4 group">
+                                                                        <div className="absolute -right-[27px] md:-right-[33px] top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-sky-100 border-2 border-sky-500 group-hover:scale-125 transition-transform"></div>
                                                                         <div className="flex items-start gap-3">
-                                                                            <div className="bg-indigo-50 p-2 rounded-lg text-indigo-500 shrink-0 mt-1 sm:mt-0"><IconBell size={18} /></div>
+                                                                            <div className="bg-sky-50 p-2 rounded-lg text-sky-500 shrink-0 mt-1 sm:mt-0"><IconBell size={18} /></div>
                                                                             <div>
-                                                                                <p className="text-xs md:text-sm font-bold text-slate-800 leading-relaxed">الموظف <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded mx-1">{log.user_name}</span> <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{log.action}</span></p>
+                                                                                <p className="text-xs md:text-sm font-bold text-slate-800 leading-relaxed">الموظف <span className="text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded mx-1">{log.user_name}</span> <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{log.action}</span></p>
                                                                                 {log.order_id && log.order_id !== 'متعدد' && <p className="text-[10px] md:text-xs text-slate-500 mt-1 font-mono bg-slate-50 inline-block px-2 py-0.5 rounded border border-slate-100">رقم الطلب: {log.order_id}</p>}
                                                                             </div>
                                                                         </div>
@@ -1590,7 +1717,7 @@
 
                             {currentTab === 'users' && (isSuperAdmin || isPageManager) && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="bg-indigo-50 border border-indigo-200 p-4 md:p-5 rounded-2xl"><h2 className="font-black text-indigo-900 text-base md:text-lg mb-2">إدارة حسابات الموظفين</h2><p className="text-xs md:text-sm text-indigo-800 font-bold mb-4 leading-relaxed">{isSuperAdmin ? 'يمكنك تحديد أكثر من صفحة وتغيير الأدوار بحرية تامة.' : 'صلاحياتك تسمح لك فقط بقبول وتحديد صلاحيات البنات المخصصات لصفحاتك.'}</p><button onClick={fetchUsersList} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs md:text-sm shadow-md w-full md:w-auto">تحديث القائمة 🔄</button></div>
+                                    <div className="bg-sky-50 border border-sky-200 p-4 md:p-5 rounded-2xl"><h2 className="font-black text-sky-900 text-base md:text-lg mb-2">إدارة حسابات الموظفين</h2><p className="text-xs md:text-sm text-sky-800 font-bold mb-4 leading-relaxed">{isSuperAdmin ? 'يمكنك تحديد أكثر من صفحة وتغيير الأدوار بحرية تامة.' : 'صلاحياتك تسمح لك فقط بقبول وتحديد صلاحيات البنات المخصصات لصفحاتك.'}</p><button onClick={fetchUsersList} className="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold text-xs md:text-sm shadow-md w-full md:w-auto">تحديث القائمة 🔄</button></div>
                                     <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-x-auto">
                                         <table className="w-full text-right dynamic-table min-w-[800px]">
                                             <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="font-bold w-1/6">الآي دي (ID)</th><th className="font-bold w-1/6">الاسم</th><th className="font-bold w-1/4">الدور والصلاحيات الإضافية</th><th className="font-bold">الصفحات المخصصة</th><th className="font-bold text-center w-24">حالة الحساب</th></tr></thead>
@@ -1605,7 +1732,7 @@
                                                             <td className="font-bold text-xs md:text-sm">{isSuperAdmin && canEditUser ? (<input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full" />) : (<span className="text-slate-800">{u.name}</span>)}</td>
                                                             <td className="font-bold text-xs md:text-sm">
                                                                 {isSuperAdmin && canEditUser ? (
-                                                                    <select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(SUPER_ADMIN_ROLES.includes(e.target.value)) await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full mb-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                                                                    <select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(SUPER_ADMIN_ROLES.includes(e.target.value)) await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full mb-2 outline-none focus:ring-2 focus:ring-sky-500">
                                                                         {Object.entries(ROLE_NAMES).map(([val, label]) => {
                                                                             if (!canAssignProtectedRoles && (val === 'admin' || val === 'owner') && u.role !== val) return null;
                                                                             return <option key={val} value={val}>{label}</option>;
@@ -1628,7 +1755,7 @@
                                                                         {availablePages.map(p => {
                                                                             const isChecked = u.assigned_page && u.assigned_page.includes(p);
                                                                             return (
-                                                                                <label key={p} className={`flex items-center gap-1.5 px-2 py-1.5 rounded border transition-colors ${!canEditUser ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${isChecked ? 'bg-indigo-50 border-indigo-300 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
+                                                                                <label key={p} className={`flex items-center gap-1.5 px-2 py-1.5 rounded border transition-colors ${!canEditUser ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${isChecked ? 'bg-sky-50 border-sky-300 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
                                                                                     <input type="checkbox" className={canEditUser ? 'cursor-pointer' : 'cursor-not-allowed'} checked={isChecked} disabled={!canEditUser} onChange={async (e) => {
                                                                                             let currentPages = u.assigned_page ? u.assigned_page.split(',').filter(Boolean) : [];
                                                                                             if (e.target.checked) { if (!currentPages.includes(p)) currentPages.push(p); } else { currentPages = currentPages.filter(page => page !== p); }
@@ -1665,12 +1792,12 @@
                     {/* Modals */}
                     {isSettingsOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm border-t-4 border-indigo-600 animate-in zoom-in-95">
-                                <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-indigo-900"><IconSettings/> إعدادات وتخصيص العرض</h3>
+                            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm border-t-4 border-sky-600 animate-in zoom-in-95">
+                                <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-sky-900"><IconSettings/> إعدادات وتخصيص العرض</h3>
                                 <div className="space-y-5">
                                     <div>
                                         <label className="block text-sm font-bold mb-2 text-slate-700">رابط ربط جوجل شيت (Webhook):</label>
-                                        <input type="url" placeholder="https://script.google.com/macros/s/.../exec" dir="ltr" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium" value={uiSettings.googleSheetWebhook || ''} onChange={e => setUiSettings({...uiSettings, googleSheetWebhook: e.target.value})} />
+                                        <input type="url" placeholder="https://script.google.com/macros/s/.../exec" dir="ltr" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 text-sm font-medium" value={uiSettings.googleSheetWebhook || ''} onChange={e => setUiSettings({...uiSettings, googleSheetWebhook: e.target.value})} />
                                         <p className="text-[10px] text-slate-500 mt-1 mb-2">يُستخدم لإرسال الأوردرات فوراً لجوجل شيت.</p>
                                     </div>
                                     <hr className="border-slate-100" />
@@ -1678,7 +1805,7 @@
                                         <label className="block text-sm font-bold mb-2 text-slate-700">حجم خط الجداول:</label>
                                         <div className="flex gap-2">
                                             {['12px', '14px', '16px'].map(sz => (
-                                                <button key={sz} onClick={() => setUiSettings({...uiSettings, fontSize: sz})} className={`flex-1 py-2 rounded-lg border font-bold text-sm transition-colors shadow-sm ${uiSettings.fontSize === sz ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}>{sz === '12px' ? 'صغير' : sz === '14px' ? 'متوسط' : 'كبير'}</button>
+                                                <button key={sz} onClick={() => setUiSettings({...uiSettings, fontSize: sz})} className={`flex-1 py-2 rounded-lg border font-bold text-sm transition-colors shadow-sm ${uiSettings.fontSize === sz ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}>{sz === '12px' ? 'صغير' : sz === '14px' ? 'متوسط' : 'كبير'}</button>
                                             ))}
                                         </div>
                                     </div>
@@ -1686,7 +1813,7 @@
                                         <label className="block text-sm font-bold mb-2 text-slate-700">توسعة مسافات الجداول:</label>
                                         <div className="flex gap-2">
                                             {['4px', '8px', '12px'].map(pd => (
-                                                <button key={pd} onClick={() => setUiSettings({...uiSettings, padding: pd})} className={`flex-1 py-2 rounded-lg border font-bold text-sm transition-colors shadow-sm ${uiSettings.padding === pd ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}>{pd === '4px' ? 'ضيق' : pd === '8px' ? 'عادي' : 'مريح'}</button>
+                                                <button key={pd} onClick={() => setUiSettings({...uiSettings, padding: pd})} className={`flex-1 py-2 rounded-lg border font-bold text-sm transition-colors shadow-sm ${uiSettings.padding === pd ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}>{pd === '4px' ? 'ضيق' : pd === '8px' ? 'عادي' : 'مريح'}</button>
                                             ))}
                                         </div>
                                     </div>
@@ -1699,13 +1826,13 @@
                     {isBulkModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[60] flex items-end md:items-center justify-center md:p-4">
                             <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full md:max-w-[95vw] h-[85vh] md:h-[90vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200">
-                                <div className="px-4 py-3 md:px-6 md:py-4 border-b bg-indigo-50 flex justify-between items-center">
-                                    <div className="flex items-center gap-2 md:gap-3 text-indigo-800"><IconTable /><h2 className="text-sm md:text-lg font-black">إضافة مجموعة أوردرات سريعة</h2></div>
+                                <div className="px-4 py-3 md:px-6 md:py-4 border-b bg-sky-50 flex justify-between items-center">
+                                    <div className="flex items-center gap-2 md:gap-3 text-sky-800"><IconTable /><h2 className="text-sm md:text-lg font-black">إضافة مجموعة أوردرات سريعة</h2></div>
                                     <button onClick={() => setIsBulkModalOpen(false)} className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={20} /></button>
                                 </div>
                                 <div className="p-3 md:p-4 bg-white border-b border-slate-200 flex flex-wrap items-center gap-2 md:gap-4">
                                     <label className="font-bold text-xs md:text-sm text-slate-700">الصفحة التابع لها هذه الأوردرات:</label>
-                                    <select className={`flex-1 md:flex-none px-3 py-1.5 md:px-4 md:py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs md:text-sm ${userRole?.role === 'agent' && availablePages.length === 1 ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`} value={bulkTargetPage} onChange={(e) => setBulkTargetPage(e.target.value)} disabled={userRole?.role === 'agent' && availablePages.length === 1}>
+                                    <select className={`flex-1 md:flex-none px-3 py-1.5 md:px-4 md:py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 font-bold text-xs md:text-sm ${userRole?.role === 'agent' && availablePages.length === 1 ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`} value={bulkTargetPage} onChange={(e) => setBulkTargetPage(e.target.value)} disabled={userRole?.role === 'agent' && availablePages.length === 1}>
                                         {availablePages.map(p => <option key={p} value={p}>{p}</option>)}
                                     </select>
                                 </div>
@@ -1721,9 +1848,9 @@
                                             </thead>
                                             <tbody className="divide-y divide-slate-200">
                                                 {bulkOrders.map((row, index) => (
-                                                    <tr key={index} className="hover:bg-indigo-50/30 transition-colors">
+                                                    <tr key={index} className="hover:bg-sky-50/30 transition-colors">
                                                         <td className="text-center text-[10px] md:text-xs font-bold text-slate-400 bg-slate-50">{index + 1}</td>
-                                                        <td><input type="text" className="excel-input text-indigo-700 font-bold" placeholder="تلقائي" value={row.id} onChange={(e) => handleBulkChange(index, 'id', e.target.value)} /></td>
+                                                        <td><input type="text" className="excel-input text-sky-700 font-bold" placeholder="تلقائي" value={row.id} onChange={(e) => handleBulkChange(index, 'id', e.target.value)} /></td>
                                                         <td><input type="text" className="excel-input font-bold text-slate-800" placeholder="اسم العميل..." value={row.customer} onChange={(e) => handleBulkChange(index, 'customer', e.target.value)} /></td>
                                                         <td><input type="text" className="excel-input text-slate-700" placeholder="العنوان..." value={row.address} onChange={(e) => handleBulkChange(index, 'address', e.target.value)} /></td>
                                                         <td><input type="text" className="excel-input text-slate-700" placeholder="وصف الصنف..." value={row.item} onChange={(e) => handleBulkChange(index, 'item', e.target.value)} /></td>
@@ -1739,11 +1866,11 @@
                                             </tbody>
                                         </table>
                                     </div>
-                                    <button onClick={addBulkRow} className="mt-3 md:mt-4 flex items-center justify-center gap-2 w-full py-2.5 md:py-3 border-2 border-dashed border-indigo-300 rounded-xl text-indigo-600 text-sm font-bold hover:bg-indigo-50 transition-colors"><IconPlus size={16} /> إضافة صف جديد</button>
+                                    <button onClick={addBulkRow} className="mt-3 md:mt-4 flex items-center justify-center gap-2 w-full py-2.5 md:py-3 border-2 border-dashed border-sky-300 rounded-xl text-sky-600 text-sm font-bold hover:bg-sky-50 transition-colors"><IconPlus size={16} /> إضافة صف جديد</button>
                                 </div>
                                 <div className="px-4 py-3 md:px-6 md:py-4 border-t bg-white flex gap-2 md:gap-3 justify-end">
                                     <button onClick={() => setIsBulkModalOpen(false)} className="px-4 md:px-6 py-2 md:py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs md:text-sm font-bold rounded-xl transition-colors">إلغاء</button>
-                                    <button disabled={isSubmitting} onClick={saveBulkOrders} className={`px-6 md:px-8 py-2 md:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs md:text-sm font-black rounded-xl shadow-md transition-transform hover:-translate-y-0.5 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>حفظ الأوردرات</button>
+                                    <button disabled={isSubmitting} onClick={saveBulkOrders} className={`px-6 md:px-8 py-2 md:py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs md:text-sm font-black rounded-xl shadow-md transition-transform hover:-translate-y-0.5 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>حفظ الأوردرات</button>
                                 </div>
                             </div>
                         </div>
@@ -1756,7 +1883,7 @@
                                 <div className="p-4 md:p-6 bg-slate-50/50 flex flex-col gap-3 md:gap-4">
                                     <textarea readOnly className="w-full h-32 md:h-48 p-3 md:p-4 bg-white border border-slate-200 rounded-xl outline-none resize-none font-semibold text-slate-800 shadow-inner leading-relaxed text-xs md:text-sm" value={generateCustomerMsg(successOrderMessage)} />
                                     <div className="flex gap-2 md:gap-3 mt-1 md:mt-2">
-                                        <button onClick={() => copyToClipboard(generateCustomerMsg(successOrderMessage), 'success_customer')} className={`flex-1 flex items-center justify-center gap-1.5 md:gap-2 py-2.5 md:py-3 rounded-xl font-bold text-xs md:text-sm transition-all ${copiedType === 'success_customer' ? 'bg-green-100 text-green-700 border border-green-300 copy-animation' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'}`}><IconCopy size={16} /> {copiedType === 'success_customer' ? 'تم النسخ بنجاح ✓' : 'نسخ للعميل'}</button>
+                                        <button onClick={() => copyToClipboard(generateCustomerMsg(successOrderMessage), 'success_customer')} className={`flex-1 flex items-center justify-center gap-1.5 md:gap-2 py-2.5 md:py-3 rounded-xl font-bold text-xs md:text-sm transition-all ${copiedType === 'success_customer' ? 'bg-green-100 text-green-700 border border-green-300 copy-animation' : 'bg-sky-600 hover:bg-sky-700 text-white shadow-md'}`}><IconCopy size={16} /> {copiedType === 'success_customer' ? 'تم النسخ بنجاح ✓' : 'نسخ للعميل'}</button>
                                         <button onClick={() => setSuccessOrderMessage(null)} className="px-4 md:px-6 py-2.5 md:py-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs md:text-sm rounded-xl transition-colors">إغلاق</button>
                                     </div>
                                 </div>
@@ -1766,12 +1893,12 @@
 
                     {isViewModalOpen && viewOrder && (
                         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[70] flex items-end md:items-center justify-center md:p-4">
-                            <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full md:max-w-lg overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border-4 border-indigo-600">
-                                <div className="px-4 py-3 md:px-6 md:py-4 border-b bg-indigo-600 flex justify-between items-center text-white"><div className="flex items-center gap-2 md:gap-3"><IconEye /><h2 className="text-sm md:text-lg font-black">تفاصيل الطلب: {viewOrder.id}</h2></div><button onClick={closeViewModal} className="text-indigo-200 hover:text-white transition-colors"><IconX size={20} /></button></div>
+                            <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full md:max-w-lg overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border-4 border-sky-600">
+                                <div className="px-4 py-3 md:px-6 md:py-4 border-b bg-sky-600 flex justify-between items-center text-white"><div className="flex items-center gap-2 md:gap-3"><IconEye /><h2 className="text-sm md:text-lg font-black">تفاصيل الطلب: {viewOrder.id}</h2></div><button onClick={closeViewModal} className="text-sky-200 hover:text-white transition-colors"><IconX size={20} /></button></div>
                                 <div className="p-4 md:p-6 bg-slate-50/50 overflow-y-auto max-h-[80vh]">
                                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 md:p-5 mb-4 md:mb-5 space-y-2 md:space-y-3">
                                         <div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">اسم العميل:</span><span className="text-slate-900 font-black text-sm md:text-lg">{viewOrder.customer}</span></div>
-                                        <div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">رقم الهاتف:</span><span className="text-indigo-700 font-black text-sm md:text-lg" dir="ltr">{viewOrder.phone}</span></div>
+                                        <div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">رقم الهاتف:</span><span className="text-sky-700 font-black text-sm md:text-lg" dir="ltr">{viewOrder.phone}</span></div>
                                         <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">العنوان:</span><span className="text-slate-800 font-semibold text-xs md:text-base">{viewOrder.address}</span></div>
                                         <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">المنتج:</span><span className="text-slate-800 font-semibold text-xs md:text-base whitespace-pre-wrap">{viewOrder.item}</span></div>
                                         <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">الملاحظات:</span><span className="text-red-600 font-bold text-xs md:text-base whitespace-pre-wrap">{viewOrder.notes || 'لا يوجد'}</span></div>
@@ -1779,7 +1906,7 @@
                                         <div className="flex justify-between bg-teal-50 border border-teal-100 p-2 md:p-3 rounded-lg mt-1.5 md:mt-2"><span className="font-bold text-teal-800 text-xs md:text-sm flex items-center gap-1"><IconTruck size={14}/> رقم البوليصة:</span><span className="font-black text-teal-900 text-xs md:text-sm">{viewOrder.trackingNumber || 'لم يتم تحديده'}</span></div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4 md:mb-6">
-                                        <button onClick={() => copyToClipboard(generateCustomerMsg(viewOrder), 'customer')} className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 py-3 md:py-4 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all ${copiedType === 'customer' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400'}`}><IconCopy size={20} />{copiedType === 'customer' ? 'تم النسخ ✓' : 'نسخ للعميل'}</button>
+                                        <button onClick={() => copyToClipboard(generateCustomerMsg(viewOrder), 'customer')} className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 py-3 md:py-4 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all ${copiedType === 'customer' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-white border-sky-200 text-sky-700 hover:bg-sky-50 hover:border-sky-400'}`}><IconCopy size={20} />{copiedType === 'customer' ? 'تم النسخ ✓' : 'نسخ للعميل'}</button>
                                         <button onClick={() => copyToClipboard(generateShippingMsg(viewOrder), 'shipping')} className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 py-3 md:py-4 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all ${copiedType === 'shipping' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-slate-800 border-slate-800 text-white hover:bg-slate-700'}`}><IconTruck size={20} />{copiedType === 'shipping' ? 'تم النسخ ✓' : 'نسخ لشركة الشحن'}</button>
                                     </div>
                                     
@@ -1812,18 +1939,18 @@
                     {/* نافذة الإضافة والتعديل لـ (الماليات / الحسابات) */}
                     {isFinanceModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border-t-4 border-indigo-600">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border-t-4 border-sky-600">
                                 <div className={`px-4 py-3 md:px-6 md:py-5 border-b flex justify-between items-center ${newFinanceRecord.type === 'expense' ? 'bg-red-50' : 'bg-green-50'}`}>
                                     <div className="flex items-center gap-2"><div className={`p-1.5 rounded-lg bg-white shadow-sm ${newFinanceRecord.type === 'expense' ? 'text-red-600' : 'text-green-600'}`}><IconCalc size={20} /></div><h2 className={`text-lg font-black ${newFinanceRecord.type === 'expense' ? 'text-red-800' : 'text-green-800'}`}>{newFinanceRecord.id ? 'تعديل سجل' : 'إضافة'} {newFinanceRecord.type === 'expense' ? 'مصروف جديد' : 'إيراد جديد'}</h2></div>
                                     <button onClick={() => setIsFinanceModalOpen(false)} className="p-1.5 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={20} /></button>
                                 </div>
                                 <form onSubmit={handleSaveFinance} className="p-4 md:p-6 space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="col-span-2 md:col-span-1"><label className="block text-sm font-black text-slate-700 mb-1">المبلغ (ج.م) <span className="text-red-500">*</span></label><input required type="text" inputMode="decimal" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-black text-lg" value={newFinanceRecord.amount} onChange={e => handleNumericChange(e.target.value, val => setNewFinanceRecord({...newFinanceRecord, amount: val}))} placeholder="0" /></div>
-                                        <div className="col-span-2 md:col-span-1"><label className="block text-sm font-black text-slate-700 mb-1">التاريخ <span className="text-red-500">*</span></label><input required type="date" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={newFinanceRecord.date} onChange={e => setNewFinanceRecord({...newFinanceRecord, date: e.target.value})} /></div>
-                                        <div className="col-span-2"><label className="block text-sm font-black text-slate-700 mb-1">{newFinanceRecord.type === 'expense' ? 'البند الرئيسي' : 'نوع التحصيل'} <span className="text-red-500">*</span></label><select className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={newFinanceRecord.category} onChange={e => setNewFinanceRecord({...newFinanceRecord, category: e.target.value})}>{(newFinanceRecord.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                                        {newFinanceRecord.type === 'expense' && <div className="col-span-2"><label className="block text-sm font-black text-slate-700 mb-1">القسم / تبع إيه؟ <span className="text-red-500">*</span></label><select className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" value={newFinanceRecord.department} onChange={e => setNewFinanceRecord({...newFinanceRecord, department: e.target.value})}>{DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}</select></div>}
-                                        <div className="col-span-2"><label className="block text-sm font-black text-slate-700 mb-1">التفاصيل (نسخ من الواتساب) <span className="text-red-500">*</span></label><textarea required rows="3" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm resize-none" placeholder="اكتب أو انسخ رسالة الواتس هنا..." value={newFinanceRecord.details} onChange={e => setNewFinanceRecord({...newFinanceRecord, details: e.target.value})}></textarea></div>
+                                        <div className="col-span-2 md:col-span-1"><label className="block text-sm font-black text-slate-700 mb-1">المبلغ (ج.م) <span className="text-red-500">*</span></label><input required type="text" inputMode="decimal" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 font-black text-lg" value={newFinanceRecord.amount} onChange={e => handleNumericChange(e.target.value, val => setNewFinanceRecord({...newFinanceRecord, amount: val}))} placeholder="0" /></div>
+                                        <div className="col-span-2 md:col-span-1"><label className="block text-sm font-black text-slate-700 mb-1">التاريخ <span className="text-red-500">*</span></label><input required type="date" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 font-bold text-sm" value={newFinanceRecord.date} onChange={e => setNewFinanceRecord({...newFinanceRecord, date: e.target.value})} /></div>
+                                        <div className="col-span-2"><label className="block text-sm font-black text-slate-700 mb-1">{newFinanceRecord.type === 'expense' ? 'البند الرئيسي' : 'نوع التحصيل'} <span className="text-red-500">*</span></label><select className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 font-bold text-sm" value={newFinanceRecord.category} onChange={e => setNewFinanceRecord({...newFinanceRecord, category: e.target.value})}>{(newFinanceRecord.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                                        {newFinanceRecord.type === 'expense' && <div className="col-span-2"><label className="block text-sm font-black text-slate-700 mb-1">القسم / تبع إيه؟ <span className="text-red-500">*</span></label><select className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 font-bold text-sm" value={newFinanceRecord.department} onChange={e => setNewFinanceRecord({...newFinanceRecord, department: e.target.value})}>{DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}</select></div>}
+                                        <div className="col-span-2"><label className="block text-sm font-black text-slate-700 mb-1">التفاصيل (نسخ من الواتساب) <span className="text-red-500">*</span></label><textarea required rows="3" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-sky-500 font-bold text-sm resize-none" placeholder="اكتب أو انسخ رسالة الواتس هنا..." value={newFinanceRecord.details} onChange={e => setNewFinanceRecord({...newFinanceRecord, details: e.target.value})}></textarea></div>
                                     </div>
                                     <div className="pt-2 flex gap-3">
                                         <button type="submit" disabled={isSubmitting} className={`flex-1 text-white font-black py-3 rounded-xl shadow-md transition-transform hover:-translate-y-0.5 ${newFinanceRecord.type === 'expense' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>{isSubmitting ? 'جاري الحفظ...' : 'تأكيد وحفظ'}</button>
@@ -1852,12 +1979,12 @@
                                     )}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5 bg-white/80 backdrop-blur-sm p-4 md:p-6 rounded-2xl border border-white shadow-md">
-                                        <div className="col-span-1"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الطلب</label><input type="text" disabled={isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status)} placeholder="يولد تلقائياً" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''} ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.id} onChange={e => setNewOrder({...newOrder, id: e.target.value})} />{isEditing && ['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) && (<p className="text-[10px] md:text-xs text-indigo-600 mt-1 font-bold">يمكن تعديله في هذه الحالة.</p>)}</div>
+                                        <div className="col-span-1"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الطلب</label><input type="text" disabled={isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status)} placeholder="يولد تلقائياً" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''} ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.id} onChange={e => setNewOrder({...newOrder, id: e.target.value})} />{isEditing && ['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) && (<p className="text-[10px] md:text-xs text-sky-600 mt-1 font-bold">يمكن تعديله في هذه الحالة.</p>)}</div>
                                         <div className="col-span-1"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">اسم العميل <span className="text-red-500">*</span></label><input required type="text" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.customer} onChange={e => setNewOrder({...newOrder, customer: e.target.value})} /></div>
                                         <div className="col-span-1"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">رقم الموبايل <span className="text-red-500">*</span></label><input required type="text" inputMode="numeric" dir="auto" lang="ar" placeholder="مثال: 01012345678" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border ${newOrder.phone && newOrder.phone.length !== 11 && newOrder.phone.length !== 8 ? 'border-red-400 bg-red-50' : 'border-slate-200'} rounded-lg outline-none text-right transition-shadow font-bold tracking-wider text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => handlePhoneChange(e.target.value, (val) => setNewOrder({...newOrder, phone: val}))} />{newOrder.phone && newOrder.phone.length !== 11 && newOrder.phone.length !== 8 && <p className="text-[10px] md:text-xs text-red-600 mt-1 font-bold">⚠️ يجب أن يكون 11 أو 8 أرقام</p>}</div>
                                         <div className="col-span-1"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">الصفحة (المصدر)</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2 ${userRole?.role === 'agent' ? 'opacity-70 cursor-not-allowed' : ''}`} value={newOrder.page} onChange={e => setNewOrder({...newOrder, page: e.target.value})} disabled={userRole?.role === 'agent'}>{availablePages.map(page => <option key={page} value={page}>{page}</option>)}</select></div>
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">العنوان التفصيلي <span className="text-red-500">*</span></label><input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-bold text-xs md:text-sm ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
-                                        <div className="md:col-span-2 bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-200 shadow-inner relative"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-2 flex justify-between items-center"><span>🛒 إضافة منتجات من المخزن</span></label><div className="relative"><input type="text" placeholder="اكتب للبحث عن منتج أو اضغط السهم لعرض الكل..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 pr-10 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 font-bold text-xs md:text-sm ${currentTheme.ringFocus}`} value={productSearchStr} onChange={(e) => { setProductSearchStr(e.target.value); setShowProductSuggestions(true); setSelectedProductDetails(null); }} onFocus={() => setShowProductSuggestions(true)} /><button type="button" onClick={() => { setShowProductSuggestions(!showProductSuggestions); setSelectedProductDetails(null); }} className="absolute left-2 top-1/2 transform -translate-y-1/2 p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 rounded-md transition-colors"><IconChevronDown /></button></div>{showProductSuggestions && !selectedProductDetails && (<div className="absolute z-20 left-4 right-4 mt-1 bg-white border border-slate-200 shadow-2xl rounded-xl max-h-60 overflow-y-auto divide-y divide-slate-100">{products.filter(p => p.name.toLowerCase().includes(productSearchStr.toLowerCase())).map(p => (<div key={p.id} onClick={() => setSelectedProductDetails({ product: p, color: '', size: '' })} className="p-3 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors">{p.image ? <img src={p.image} className="w-10 h-10 rounded border object-cover"/> : <div className="w-10 h-10 bg-slate-100 rounded flex items-center justify-center text-slate-400"><IconPackage size={16}/></div>}<div><div className="font-bold text-slate-800 text-xs md:text-sm">{p.name}</div><div className="text-[10px] md:text-xs text-green-600 font-black mt-0.5">{p.price} ج.م</div></div></div>))}{products.filter(p => p.name.toLowerCase().includes(productSearchStr.toLowerCase())).length === 0 && <div className="p-3 text-center text-slate-500 text-xs font-bold">لا توجد نتائج مطابقة</div>}</div>)}{selectedProductDetails && (<div className="mt-3 p-3 bg-white rounded-xl border border-indigo-200 shadow-sm animate-in fade-in slide-in-from-top-2"><div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2"><h4 className="font-black text-xs md:text-sm text-indigo-900">{selectedProductDetails.product.name}</h4><button type="button" onClick={()=>setSelectedProductDetails(null)} className="text-[10px] md:text-xs font-bold text-red-500 hover:underline">إلغاء التحديد</button></div>{selectedProductDetails.product.colors && (<div className="mb-3"><span className="block text-[10px] md:text-xs font-bold text-slate-500 mb-1.5">اختر اللون:</span><div className="flex flex-wrap gap-1.5 md:gap-2">{selectedProductDetails.product.colors.split(',').map(c => <button type="button" key={c} onClick={()=>setSelectedProductDetails({...selectedProductDetails, color: c})} className={`px-2 py-1 md:px-3 rounded-full text-[10px] md:text-xs font-bold border transition-colors ${selectedProductDetails.color === c ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'}`}>{c}</button>)}</div></div>)}{selectedProductDetails.product.sizes && (<div className="mb-4"><span className="block text-[10px] md:text-xs font-bold text-slate-500 mb-1.5">اختر المقاس:</span><div className="flex flex-wrap gap-1.5 md:gap-2">{selectedProductDetails.product.sizes.split(',').map(s => <label key={s} className={`cursor-pointer px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[10px] md:text-xs font-black border transition-colors flex items-center justify-center min-w-[35px] md:min-w-[40px] ${selectedProductDetails.size === s ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'}`}><input type="radio" className="hidden" name="prod_size" checked={selectedProductDetails.size === s} onChange={()=>setSelectedProductDetails({...selectedProductDetails, size: s})} />{s}</label>)}</div></div>)}<button type="button" onClick={applyProductToOrder} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-2 rounded-lg shadow-sm transition-colors text-xs md:text-sm">إضافة للمنتجات المختارة ➕</button></div>)}</div>
+                                        <div className="md:col-span-2 bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-200 shadow-inner relative"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-2 flex justify-between items-center"><span>🛒 إضافة منتجات من المخزن</span></label><div className="relative"><input type="text" placeholder="اكتب للبحث عن منتج أو اضغط السهم لعرض الكل..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 pr-10 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 font-bold text-xs md:text-sm ${currentTheme.ringFocus}`} value={productSearchStr} onChange={(e) => { setProductSearchStr(e.target.value); setShowProductSuggestions(true); setSelectedProductDetails(null); }} onFocus={() => setShowProductSuggestions(true)} /><button type="button" onClick={() => { setShowProductSuggestions(!showProductSuggestions); setSelectedProductDetails(null); }} className="absolute left-2 top-1/2 transform -translate-y-1/2 p-1.5 text-slate-400 hover:text-sky-600 bg-slate-100 hover:bg-sky-50 rounded-md transition-colors"><IconChevronDown /></button></div>{showProductSuggestions && !selectedProductDetails && (<div className="absolute z-20 left-4 right-4 mt-1 bg-white border border-slate-200 shadow-2xl rounded-xl max-h-60 overflow-y-auto divide-y divide-slate-100">{products.filter(p => p.name.toLowerCase().includes(productSearchStr.toLowerCase())).map(p => (<div key={p.id} onClick={() => setSelectedProductDetails({ product: p, color: '', size: '' })} className="p-3 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors">{p.image ? <img src={p.image} className="w-10 h-10 rounded border object-cover"/> : <div className="w-10 h-10 bg-slate-100 rounded flex items-center justify-center text-slate-400"><IconPackage size={16}/></div>}<div><div className="font-bold text-slate-800 text-xs md:text-sm">{p.name}</div><div className="text-[10px] md:text-xs text-green-600 font-black mt-0.5">{p.price} ج.م</div></div></div>))}{products.filter(p => p.name.toLowerCase().includes(productSearchStr.toLowerCase())).length === 0 && <div className="p-3 text-center text-slate-500 text-xs font-bold">لا توجد نتائج مطابقة</div>}</div>)}{selectedProductDetails && (<div className="mt-3 p-3 bg-white rounded-xl border border-sky-200 shadow-sm animate-in fade-in slide-in-from-top-2"><div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2"><h4 className="font-black text-xs md:text-sm text-sky-900">{selectedProductDetails.product.name}</h4><button type="button" onClick={()=>setSelectedProductDetails(null)} className="text-[10px] md:text-xs font-bold text-red-500 hover:underline">إلغاء التحديد</button></div>{selectedProductDetails.product.colors && (<div className="mb-3"><span className="block text-[10px] md:text-xs font-bold text-slate-500 mb-1.5">اختر اللون:</span><div className="flex flex-wrap gap-1.5 md:gap-2">{selectedProductDetails.product.colors.split(',').map(c => <button type="button" key={c} onClick={()=>setSelectedProductDetails({...selectedProductDetails, color: c})} className={`px-2 py-1 md:px-3 rounded-full text-[10px] md:text-xs font-bold border transition-colors ${selectedProductDetails.color === c ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'}`}>{c}</button>)}</div></div>)}{selectedProductDetails.product.sizes && (<div className="mb-4"><span className="block text-[10px] md:text-xs font-bold text-slate-500 mb-1.5">اختر المقاس:</span><div className="flex flex-wrap gap-1.5 md:gap-2">{selectedProductDetails.product.sizes.split(',').map(s => <label key={s} className={`cursor-pointer px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[10px] md:text-xs font-black border transition-colors flex items-center justify-center min-w-[35px] md:min-w-[40px] ${selectedProductDetails.size === s ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'}`}><input type="radio" className="hidden" name="prod_size" checked={selectedProductDetails.size === s} onChange={()=>setSelectedProductDetails({...selectedProductDetails, size: s})} />{s}</label>)}</div></div>)}<button type="button" onClick={applyProductToOrder} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-2 rounded-lg shadow-sm transition-colors text-xs md:text-sm">إضافة للمنتجات المختارة ➕</button></div>)}</div>
                                         <div className="md:col-span-2"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">المنتج / الوصف النهائي (يمكن التعديل يدوياً) <span className="text-red-500">*</span></label><textarea required rows="3" placeholder="اكتب تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none transition-shadow font-bold text-xs md:text-sm leading-relaxed whitespace-pre-wrap ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
                                         <div className="col-span-1"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر المنتجات (ج.م) <span className="text-red-500">*</span></label><input required type="text" inputMode="decimal" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.productPrice} onChange={e => handleNumericChange(e.target.value, val => setNewOrder({...newOrder, productPrice: val}))} onBlur={(e) => handleMathOnBlur('productPrice', e.target.value)} placeholder="مثال: 150+150" /></div>
                                         <div className="col-span-1"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1">سعر الشحن (ج.م) <span className="text-red-500">*</span></label><input required type="text" inputMode="decimal" className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-shadow font-black text-sm md:text-lg ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.shippingPrice} onChange={e => handleNumericChange(e.target.value, val => setNewOrder({...newOrder, shippingPrice: val}))} onBlur={(e) => handleMathOnBlur('shippingPrice', e.target.value)} placeholder="0" /></div>
@@ -1880,8 +2007,28 @@
                         </div>
                     )}
 
+                    {/* Bottom Navigation - Mobile Only */}
+                    <div className="bottom-nav">
+                        <button className={`bottom-nav-btn ${currentTab === 'dashboard' ? 'active' : ''}`} onClick={() => setCurrentTab('dashboard')}>
+                            <IconDashboard size={21}/><span>الرئيسية</span>
+                        </button>
+                        <button className={`bottom-nav-btn ${currentTab === 'orders' ? 'active' : ''}`} onClick={() => setCurrentTab('orders')}>
+                            <IconCart size={21}/><span>الطلبات</span>
+                        </button>
+                        <button className="bottom-nav-fab" onClick={openAddModal}>
+                            <IconPlus size={24}/><span>طلب جديد</span>
+                        </button>
+                        {canAccessFinance
+                            ? <button className={`bottom-nav-btn ${currentTab === 'finance' ? 'active' : ''}`} onClick={() => setCurrentTab('finance')}><IconCalc size={21}/><span>الحسابات</span></button>
+                            : <button className={`bottom-nav-btn ${currentTab === 'products' ? 'active' : ''}`} onClick={() => isSuperAdmin && setCurrentTab('products')}><IconStore size={21}/><span>المنتجات</span></button>
+                        }
+                        <button className={`bottom-nav-btn ${isSidebarOpen ? 'active' : ''}`} onClick={() => setIsSidebarOpen(true)}>
+                            <IconMenu size={21}/><span>المزيد</span>
+                        </button>
+                    </div>
+
                     {notifications.length > 0 && (
-                        <div className="fixed bottom-4 right-4 left-4 md:left-auto md:w-96 z-[200] flex flex-col gap-2">
+                        <div className="fixed bottom-20 md:bottom-4 right-4 left-4 md:left-auto md:w-96 z-[200] flex flex-col gap-2">
                             {notifications.map(n => (
                                 <div key={n.id} className={`animate-in slide-in-from-bottom-4 duration-300 px-4 py-3 rounded-2xl shadow-2xl flex items-start gap-3 ${
                                     n.type === 'success' ? 'bg-green-600 text-white' :
