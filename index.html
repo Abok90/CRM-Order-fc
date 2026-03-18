@@ -106,7 +106,6 @@
             background: #ffffff;
             border-top: 1px solid #e8eef4;
             box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
-            z-index: 60;
             display: flex; align-items: stretch;
             padding-bottom: env(safe-area-inset-bottom, 0);
         }
@@ -1970,9 +1969,9 @@
 
                     {/* نافذة الإضافة والتعديل للطلبات */}
                     {isAddModalOpen && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end md:items-center justify-center md:p-4">
-                            <div className={`bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full md:max-w-2xl max-h-[90vh] md:max-h-[95vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border-4 ${currentTheme.border}`}>
-                                <div className={`px-4 py-3 md:px-6 md:py-5 border-b flex justify-between items-center shrink-0 ${currentTheme.bgLight}`}><div className="flex items-center gap-2 md:gap-3"><div className={`p-1.5 md:p-2 rounded-lg bg-white shadow-sm ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit /> : <IconPlus />}</div><h2 className={`text-sm md:text-xl font-black ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2></div><button onClick={closeModal} className="p-1.5 md:p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={20} /></button></div>
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end md:items-center justify-center md:p-4 pb-[65px] md:pb-0">
+                            <div className={`bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full md:max-w-2xl max-h-[85vh] md:max-h-[95vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border-4 ${currentTheme.border}`}>
+                                <div className={`px-4 py-2.5 md:px-6 md:py-5 border-b flex justify-between items-center shrink-0 ${currentTheme.bgLight}`}><div className="flex items-center gap-2"><div className={`p-1.5 rounded-lg bg-white shadow-sm ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit size={16}/> : <IconPlus size={16}/>}</div><div><h2 className={`text-sm md:text-xl font-black leading-tight ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2><p className="text-[9px] text-slate-400 font-bold">v2.2</p></div></div><button onClick={closeModal} className="p-1.5 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={18} /></button></div>
                                 
                                 <form onSubmit={handleAddOrEditOrder} className={`flex flex-col flex-1 overflow-hidden ${currentTheme.bgLight}`}>
                                 <div className="p-3 md:p-5 space-y-3 overflow-y-auto flex-1">
