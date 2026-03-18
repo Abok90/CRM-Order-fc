@@ -118,6 +118,9 @@
         // ==========================================
         // 1. إعدادات قاعدة البيانات Supabase
         // ==========================================
+        // ملاحظة أمنية: مفتاح anon في Supabase مصمم ليكون public في كود الواجهة الأمامية.
+        // الأمان الحقيقي يعتمد على سياسات Row Level Security (RLS) في لوحة تحكم Supabase.
+        // تأكد من تفعيل RLS على جميع الجداول في: Supabase Dashboard > Authentication > Policies
         const SUPABASE_URL = 'https://tdprtlvogzfzfckpvkpa.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkcHJ0bHZvZ3pmemZja3B2a3BhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4OTUwMTcsImV4cCI6MjA4ODQ3MTAxN30.0TrcH65HQO5gboqsNfadSCGZQ95anY_0Bz97db5dPBg';
         
@@ -599,6 +602,44 @@
             const toEnglishDigits = (str) => {
                 const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
                 return String(str).replace(/[٠-٩]/g, w => arabicNumbers.indexOf(w));
+            };
+
+            // حساب العمليات الحسابية البسيطة بدون new Function() أو eval()
+            const safeMathEval = (expr) => {
+                const str = toEnglishDigits(expr).replace(/[^0-9+\-*/.]/g, '').trim();
+                if (!str) return NaN;
+                let i = 0;
+                const parseExpr = () => {
+                    let val = parseTerm();
+                    while (i < str.length && (str[i] === '+' || str[i] === '-')) {
+                        const op = str[i++];
+                        val = op === '+' ? val + parseTerm() : val - parseTerm();
+                    }
+                    return val;
+                };
+                const parseTerm = () => {
+                    let val = parseUnary();
+                    while (i < str.length && (str[i] === '*' || str[i] === '/')) {
+                        const op = str[i++];
+                        const right = parseUnary();
+                        if (op === '/' && right === 0) return NaN;
+                        val = op === '*' ? val * right : val / right;
+                    }
+                    return val;
+                };
+                const parseUnary = () => {
+                    if (str[i] === '-') { i++; return -parsePrimary(); }
+                    return parsePrimary();
+                };
+                const parsePrimary = () => {
+                    let numStr = '';
+                    while (i < str.length && /[0-9.]/.test(str[i])) numStr += str[i++];
+                    return numStr ? parseFloat(numStr) : NaN;
+                };
+                try {
+                    const result = parseExpr();
+                    return (i === str.length && !isNaN(result)) ? result : NaN;
+                } catch (e) { return NaN; }
             };
 
             const handleNumericChange = (val, updater) => {
@@ -1656,8 +1697,8 @@
                                                         <td><input type="text" className="excel-input text-slate-700" value={row.notes} onChange={(e) => handleBulkChange(index, 'notes', e.target.value)} /></td>
                                                         <td><input type="tel" dir="auto" lang="ar" className={`excel-input text-right font-bold ${row.phone && row.phone.length !== 11 && row.phone.length !== 8 ? 'bg-red-50 border border-red-400 text-red-700' : 'text-slate-700'}`} placeholder="010..." value={row.phone} onChange={(e) => handlePhoneChange(e.target.value, val => handleBulkChange(index, 'phone', val))} /></td>
                                                         <td><select className="excel-input font-bold text-slate-700 cursor-pointer" value={row.status} onChange={(e) => handleBulkChange(index, 'status', e.target.value)}>{orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}</select></td>
-                                                        <td><input type="text" inputMode="decimal" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleNumericChange(e.target.value, val => handleBulkChange(index, 'shippingPrice', val))} onBlur={(e) => { try { const res = new Function('return ' + toEnglishDigits(e.target.value).replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'shippingPrice', res); } catch(err){} }} /></td>
-                                                        <td><input type="text" inputMode="decimal" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleNumericChange(e.target.value, val => handleBulkChange(index, 'productPrice', val))} onBlur={(e) => { try { const res = new Function('return ' + toEnglishDigits(e.target.value).replace(/[^0-9+\-*/.]/g, ''))(); if(!isNaN(res)) handleBulkChange(index, 'productPrice', res); } catch(err){} }} /></td>
+                                                        <td><input type="text" inputMode="decimal" className="excel-input font-bold text-slate-800" placeholder="0" value={row.shippingPrice} onChange={(e) => handleNumericChange(e.target.value, val => handleBulkChange(index, 'shippingPrice', val))} onBlur={(e) => { const res = safeMathEval(e.target.value); if(!isNaN(res)) handleBulkChange(index, 'shippingPrice', res); }} /></td>
+                                                        <td><input type="text" inputMode="decimal" className="excel-input font-bold text-slate-800" placeholder="0" value={row.productPrice} onChange={(e) => handleNumericChange(e.target.value, val => handleBulkChange(index, 'productPrice', val))} onBlur={(e) => { const res = safeMathEval(e.target.value); if(!isNaN(res)) handleBulkChange(index, 'productPrice', res); }} /></td>
                                                         <td><input type="date" className="excel-input text-slate-700" value={row.date} onChange={(e) => handleBulkChange(index, 'date', e.target.value)} title="يترك فارغاً لتسجيل تاريخ اليوم" /></td>
                                                     </tr>
                                                 ))}
