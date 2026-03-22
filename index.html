@@ -894,13 +894,16 @@
                 try {
                     const formData = new URLSearchParams();
                     formData.append('payload', JSON.stringify({ action, order: orderData }));
-                    const res = await fetch(webhookUrl, { method: 'POST', body: formData, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-                    if (res.ok) {
-                        setSheetSyncStatus('ok');
-                        setTimeout(() => setSheetSyncStatus('idle'), 3000);
-                    } else {
-                        throw new Error(`HTTP ${res.status}`);
-                    }
+                    // mode: 'no-cors' مطلوب عشان Google Apps Script بيعمل redirect
+                    // مش هنقدر نقرأ الـ response لكن لو مفيش error = تم الإرسال
+                    await fetch(webhookUrl, {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        mode: 'no-cors'
+                    });
+                    setSheetSyncStatus('ok');
+                    setTimeout(() => setSheetSyncStatus('idle'), 3000);
                 } catch(err) {
                     console.error('Google Sheets sync failed:', err);
                     setSheetSyncStatus('error');
