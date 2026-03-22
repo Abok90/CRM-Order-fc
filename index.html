@@ -363,6 +363,8 @@
             const [hasDraft, setHasDraft] = useState(() => !!localStorage.getItem('crmOrderDraft'));
             const [swipedOrderId, setSwipedOrderId] = useState(null);
             const swipeStartXRef = useRef(0);
+            const [onlinePresence, setOnlinePresence] = useState({});
+            const [resetPwModal, setResetPwModal] = useState({ open: false, email: '', userName: '' });
 
             const pages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG'];
             const orderStatuses = ['جاري التحضير', 'تم', 'الشحن', 'مراجعة', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل', 'اعادة ارسال', 'خارجي'];
@@ -411,7 +413,7 @@
                         const role = isFirstUser ? 'admin' : 'agent';
                         const name = isFirstUser ? 'المدير' : (userEmail ? userEmail.split('@')[0] : 'موظف جديد');
                         
-                        const newRoleData = { id: userId, name, role, is_approved: isFirstUser };
+                        const newRoleData = { id: userId, name, role, is_approved: isFirstUser, email: userEmail || '' };
                         const { data: newRole } = await supabase.from('user_roles').insert([newRoleData]).select().maybeSingle();
                         setUserRole(newRole || newRoleData);
                     }
@@ -552,7 +554,16 @@
                         if(isSuperAdmin || isPageManager) setActivityLogs(prev => [newLog, ...prev]);
                     }).subscribe();
                     const prodSub = supabase.channel('products-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchProducts).subscribe();
-                    return () => { supabase.removeChannel(logSub); supabase.removeChannel(prodSub); };
+                    // تتبع الحضور والتواجد اللحظي
+                    const presenceCh = supabase.channel('crm-presence', { config: { presence: { key: user.id } } });
+                    presenceCh.on('presence', { event: 'sync' }, () => {
+                        setOnlinePresence({ ...presenceCh.presenceState() });
+                    }).subscribe(async (status) => {
+                        if (status === 'SUBSCRIBED') {
+                            await presenceCh.track({ user_id: user.id, name: userRole?.name || '', role: userRole?.role || '', at: Date.now() });
+                        }
+                    });
+                    return () => { supabase.removeChannel(logSub); supabase.removeChannel(prodSub); supabase.removeChannel(presenceCh); };
                 }
             }, [user, userRole, isSuperAdmin, isPageManager, canAccessFinance]);
 
@@ -641,13 +652,15 @@
                 };
             }, [filteredOrders]);
 
-            // عدد الأوردرات اللي عملها المستخدم الحالي في آخر 30 يوم
-            const myOrdersLast30 = useMemo(() => {
-                const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            // عدد الأوردرات اللي عملها المستخدم الحالي في الشهر الحالي (من أول الشهر لآخره)
+            const myOrdersThisMonth = useMemo(() => {
+                const now = new Date();
+                const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
                 return orders.filter(o => {
                     const d = o.date || (o.created_at ? o.created_at.split('T')[0] : '');
                     const inPages = isSuperAdmin ? true : (availablePages || []).includes(o.page);
-                    return inPages && d >= cutoff;
+                    return inPages && d >= firstOfMonth && d <= lastOfMonth;
                 }).length;
             }, [orders, isSuperAdmin, availablePages]);
 
@@ -668,6 +681,59 @@
                 });
                 return Object.values(stats).sort((a, b) => b.total - a.total);
             }, [filteredOrders, usersList, isSuperAdmin, isPageManager]);
+
+            // لوحة المنافسة بين الموظفين في نفس الصفحة (للعرض في داشبورد الموظف)
+            const agentLeaderboard = useMemo(() => {
+                if (!userRole || (userRole.role !== 'agent' && userRole.role !== 'page_manager')) return [];
+                const now = new Date();
+                const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                const userMap = {};
+                usersList.forEach(u => { userMap[u.id] = u.name; });
+                const stats = {};
+                orders.filter(o => {
+                    const d = o.date || (o.created_at ? o.created_at.split('T')[0] : '');
+                    return availablePages.includes(o.page) && d >= firstOfMonth && d <= lastOfMonth;
+                }).forEach(o => {
+                    const uid = o.user_id || 'unknown';
+                    const name = userMap[uid] || 'غير معروف';
+                    if (!stats[uid]) stats[uid] = { name, total: 0, delivered: 0, isMe: uid === user?.id };
+                    stats[uid].total++;
+                    if (o.status === 'تم') stats[uid].delivered++;
+                });
+                return Object.values(stats).sort((a, b) => b.total - a.total);
+            }, [orders, usersList, userRole, availablePages, user]);
+
+            // تقدير ساعات العمل هذا الشهر لكل موظف (بناءً على سجل النشاطات)
+            const agentMonthlyActivity = useMemo(() => {
+                if (!isSuperAdmin && !isPageManager) return {};
+                const now = new Date();
+                const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+                const result = {};
+                activityLogs.filter(log => log.created_at >= firstOfMonth).forEach(log => {
+                    const uname = log.user_name;
+                    if (!result[uname]) result[uname] = { count: 0, days: new Set() };
+                    result[uname].count++;
+                    result[uname].days.add(log.created_at.split('T')[0]);
+                });
+                const final = {};
+                Object.entries(result).forEach(([name, data]) => {
+                    // تقدير: كل 8 إجراءات ≈ ساعة عمل
+                    final[name] = { count: data.count, days: data.days.size, estimatedHours: Math.max(1, Math.round(data.count / 8)) };
+                });
+                return final;
+            }, [activityLogs, isSuperAdmin, isPageManager]);
+
+            // حالة التواجد اللحظي لكل مستخدم
+            const getPresenceStatus = (userId) => {
+                const all = Object.values(onlinePresence).flat();
+                const found = all.find(p => p.user_id === userId);
+                if (!found) return 'offline';
+                const age = Date.now() - (found.at || 0);
+                if (age < 5 * 60 * 1000) return 'online';
+                if (age < 30 * 60 * 1000) return 'idle';
+                return 'offline';
+            };
 
             // الإيرادات الشهرية لآخر 6 شهور للرسم البياني
             const monthlyRevenue = useMemo(() => {
@@ -1470,11 +1536,13 @@
 
                             {currentTab === 'dashboard' && (
                                 <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                                    <div className={`grid gap-3 md:gap-4 ${userRole?.role === 'agent' ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}`}>
                                         <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow stat-card-accent" style={{borderTop: '3px solid #0ea5e9'}}><div className="p-2.5 bg-sky-50 text-sky-500 rounded-xl shrink-0"><IconCart size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">إجمالي الطلبات</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{globalStats.total}</p></div></div>
                                         <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #f59e0b'}}><div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl shrink-0"><IconClock size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">قيد المعالجة</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{globalStats.new}</p></div></div>
                                         <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #22c55e'}}><div className="p-2.5 bg-green-50 text-green-500 rounded-xl shrink-0"><IconCheck size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">تم التوصيل</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{globalStats.delivered}</p></div></div>
-                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #8b5cf6'}}><div className="p-2.5 bg-purple-50 text-purple-500 rounded-xl shrink-0"><IconStore size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">الإيرادات</p><p className="text-lg md:text-2xl font-black text-sky-700 leading-none">{globalStats.revenue}<span className="text-[10px] font-bold text-slate-400 mr-0.5">ج.م</span></p></div></div>
+                                        {userRole?.role !== 'agent' && (
+                                            <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #8b5cf6'}}><div className="p-2.5 bg-purple-50 text-purple-500 rounded-xl shrink-0"><IconStore size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">الإيرادات</p><p className="text-lg md:text-2xl font-black text-sky-700 leading-none">{globalStats.revenue}<span className="text-[10px] font-bold text-slate-400 mr-0.5">ج.م</span></p></div></div>
+                                        )}
                                     </div>
                                     {availablePages.length > 0 && (
                                     <div>
@@ -1504,8 +1572,40 @@
                                     </div>
                                     )}
 
-                                    {/* الرسم البياني للإيرادات الشهرية */}
-                                    {monthlyRevenue.length >= 2 && (
+                                    {/* لوحة المنافسة الشهرية للموظفين */}
+                                    {(userRole?.role === 'agent' || userRole?.role === 'page_manager') && agentLeaderboard.length > 0 && (
+                                    <div>
+                                        <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 md:mb-4 flex items-center gap-2">
+                                            🏆 لوحة المنافسة
+                                            <span className="text-[10px] md:text-sm font-bold text-slate-500">(أوردرات {new Date().toLocaleDateString('ar-EG', {month:'long'})})</span>
+                                        </h2>
+                                        <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-hidden">
+                                            {agentLeaderboard.map((agent, i) => {
+                                                const medals = ['🥇','🥈','🥉'];
+                                                const maxTotal = agentLeaderboard[0]?.total || 1;
+                                                const pct = Math.round((agent.total / maxTotal) * 100);
+                                                return (
+                                                    <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-0 ${agent.isMe ? 'bg-sky-50' : ''}`}>
+                                                        <div className="text-xl w-8 text-center shrink-0">{medals[i] || `${i+1}`}</div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex justify-between items-center mb-1">
+                                                                <span className={`font-black text-sm truncate ${agent.isMe ? 'text-sky-700' : 'text-slate-800'}`}>{agent.name}{agent.isMe ? ' (أنا)' : ''}</span>
+                                                                <span className="font-black text-sm text-slate-700 shrink-0 mr-2">{agent.total} طلب</span>
+                                                            </div>
+                                                            <div className="w-full bg-slate-100 rounded-full h-1.5">
+                                                                <div className="h-1.5 rounded-full transition-all" style={{width: pct + '%', background: i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#0ea5e9'}}/>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-[10px] font-bold text-green-600 shrink-0">{agent.delivered} تم</div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    )}
+
+                                    {/* الرسم البياني للإيرادات الشهرية (للإدارة فقط) */}
+                                    {userRole?.role !== 'agent' && monthlyRevenue.length >= 2 && (
                                     <div>
                                         <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 md:mb-4 flex items-center gap-2">
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -1547,8 +1647,8 @@
                                     </div>
                                     )}
 
-                                    {/* إحصائيات الموظفين (Operations) */}
-                                    {(isSuperAdmin || isPageManager) && agentStats.length > 0 && (
+                                    {/* إحصائيات الموظفين (Operations) - للإدارة فقط */}
+                                    {(isSuperAdmin || isPageManager) && userRole?.role !== 'agent' && agentStats.length > 0 && (
                                     <div>
                                         <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 md:mb-4 flex items-center gap-2">
                                             <IconUsers /> Agent Statistics
@@ -1987,73 +2087,153 @@
                             )}
 
                             {currentTab === 'users' && (isSuperAdmin || isPageManager) && (
-                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="bg-sky-50 border border-sky-200 p-4 md:p-5 rounded-2xl"><h2 className="font-black text-sky-900 text-base md:text-lg mb-2">Staff Account Management</h2><p className="text-xs md:text-sm text-sky-800 font-bold mb-4 leading-relaxed">{isSuperAdmin ? 'You can assign multiple pages and change roles freely.' : 'Your permissions only allow you to approve and set permissions for agents on your pages.'}</p><button onClick={fetchUsersList} className="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold text-xs md:text-sm shadow-md w-full md:w-auto">Refresh List 🔄</button></div>
-                                    <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-x-auto">
-                                        <table className="w-full text-right dynamic-table min-w-[800px]">
-                                            <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="font-bold w-1/6">User ID</th><th className="font-bold w-1/6">Name</th><th className="font-bold w-1/4">Role & Permissions</th><th className="font-bold">Assigned Pages</th><th className="font-bold text-center w-24">Status</th></tr></thead>
-                                            <tbody className="divide-y divide-slate-100/50">
-                                                {visibleUsers.map(u => {
-                                                    const isProtectedAccount = u.id === 'd24dd1d7-696d-47d0-be55-185a1aae0c59' || u.id === '6323bb6e-8f56-4e94-a44f-af45322d3fd8';
-                                                    const canEditUser = !isProtectedAccount || userRole?.role === 'admin';
-                                                    const canAssignProtectedRoles = userRole?.role === 'admin';
-                                                    return (
-                                                        <tr key={u.id} className="hover:bg-slate-50 align-top">
-                                                            <td className="text-[10px] md:text-xs font-mono text-slate-400 break-all">{u.id}</td>
-                                                            <td className="font-bold text-xs md:text-sm">{isSuperAdmin && canEditUser ? (<input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full" />) : (<span className="text-slate-800">{u.name}</span>)}</td>
-                                                            <td className="font-bold text-xs md:text-sm">
+                                <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    {/* Header */}
+                                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-gradient-to-l from-sky-50 to-indigo-50 border border-sky-200 p-4 md:p-5 rounded-2xl">
+                                        <div>
+                                            <h2 className="font-black text-sky-900 text-base md:text-lg flex items-center gap-2"><IconUsers /> Staff Account Management</h2>
+                                            <p className="text-[11px] md:text-sm text-sky-700 font-bold mt-1">{isSuperAdmin ? 'Full control — assign pages, change roles, reset passwords.' : 'Approve agents and set permissions for your pages.'}</p>
+                                        </div>
+                                        <button onClick={fetchUsersList} className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center gap-2 w-full md:w-auto justify-center"><IconRefresh size={16}/> Refresh</button>
+                                    </div>
+
+                                    {/* Legend */}
+                                    <div className="flex items-center gap-4 text-[11px] font-bold text-slate-500">
+                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Online (last 5 min)</span>
+                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Idle (5–30 min)</span>
+                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block"></span> Offline</span>
+                                    </div>
+
+                                    {/* User Cards */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        {visibleUsers.map(u => {
+                                            const isProtectedAccount = u.id === 'd24dd1d7-696d-47d0-be55-185a1aae0c59' || u.id === '6323bb6e-8f56-4e94-a44f-af45322d3fd8';
+                                            const canEditUser = !isProtectedAccount || userRole?.role === 'admin';
+                                            const canAssignProtectedRoles = userRole?.role === 'admin';
+                                            const presenceStatus = getPresenceStatus(u.id);
+                                            const presenceDot = presenceStatus === 'online' ? 'bg-green-500' : presenceStatus === 'idle' ? 'bg-amber-400' : 'bg-red-400';
+                                            const presenceLabel = presenceStatus === 'online' ? 'Online' : presenceStatus === 'idle' ? 'Idle' : 'Offline';
+                                            // إحصائيات الشهر الحالي لهذا الموظف
+                                            const now = new Date();
+                                            const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                                            const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                                            const uOrders = orders.filter(o => {
+                                                const d = o.date || (o.created_at ? o.created_at.split('T')[0] : '');
+                                                return o.user_id === u.id && d >= firstOfMonth && d <= lastOfMonth;
+                                            });
+                                            const monthActivity = agentMonthlyActivity[u.name] || { count: 0, days: 0, estimatedHours: 0 };
+                                            return (
+                                                <div key={u.id} className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all hover:shadow-md ${u.is_approved ? 'border-slate-200' : 'border-amber-300'}`}>
+                                                    {/* Card Header */}
+                                                    <div className={`px-4 py-3 flex items-center justify-between ${u.is_approved ? 'bg-slate-50' : 'bg-amber-50'}`}>
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className="relative shrink-0">
+                                                                <div className="w-10 h-10 rounded-full bg-sky-600 flex items-center justify-center text-white font-black text-base">{(u.name || '?')[0].toUpperCase()}</div>
+                                                                <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${presenceDot}`} title={presenceLabel}></span>
+                                                            </div>
+                                                            <div className="min-w-0">
                                                                 {isSuperAdmin && canEditUser ? (
-                                                                    <select defaultValue={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(SUPER_ADMIN_ROLES.includes(e.target.value)) await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="border p-1.5 rounded text-xs md:text-sm w-full mb-2 outline-none focus:ring-2 focus:ring-sky-500">
-                                                                        {Object.entries(ROLE_NAMES).map(([val, label]) => {
-                                                                            if (!canAssignProtectedRoles && (val === 'admin' || val === 'owner') && u.role !== val) return null;
-                                                                            return <option key={val} value={val}>{label}</option>;
-                                                                        })}
-                                                                    </select>
-                                                                ) : (<div className="mb-2 text-slate-700 bg-slate-100 px-2 py-1 rounded font-bold">{ROLE_NAMES[u.role]}</div>)}
-                                                                {(!SUPER_ADMIN_ROLES.includes(u.role)) && (
-                                                                    <div className="flex flex-col gap-1.5 text-[10px] md:text-[11px] text-slate-700 font-semibold bg-slate-50 p-2 rounded border border-slate-200 shadow-inner">
-                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_add_bulk || false} onChange={e => togglePerm(u.id, 'can_add_bulk', e.target.checked)}/> Bulk Add</label>
-                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_import_excel || false} onChange={e => togglePerm(u.id, 'can_import_excel', e.target.checked)}/> Import Excel</label>
-                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_export_shipping || false} onChange={e => togglePerm(u.id, 'can_export_shipping', e.target.checked)}/> Export Shipping</label>
-                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_edit_after_shipping || false} onChange={e => togglePerm(u.id, 'can_edit_after_shipping', e.target.checked)}/> Edit After Shipping</label>
-                                                                    </div>
+                                                                    <input type="text" defaultValue={u.name} onBlur={async (e) => { await supabase.from('user_roles').update({name: e.target.value}).eq('id', u.id); fetchUsersList(); }} className="font-black text-sm text-slate-800 bg-transparent border-b border-dashed border-slate-300 outline-none focus:border-sky-500 w-full" />
+                                                                ) : (
+                                                                    <div className="font-black text-sm text-slate-800 truncate">{u.name}</div>
                                                                 )}
-                                                                {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-slate-400 text-center mt-2">Full Admin Access</div>}
-                                                            </td>
-                                                            <td className="font-bold text-xs md:text-sm">
-                                                                {SUPER_ADMIN_ROLES.includes(u.role) ? <span className="text-slate-400 text-xs mt-2 inline-block">All Pages Access</span> : (
-                                                                    <div className="flex flex-wrap gap-1.5">
-                                                                        {availablePages.map(p => {
-                                                                            const isChecked = u.assigned_page && u.assigned_page.includes(p);
-                                                                            return (
-                                                                                <label key={p} className={`flex items-center gap-1.5 px-2 py-1.5 rounded border transition-colors ${!canEditUser ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${isChecked ? 'bg-sky-50 border-sky-300 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
-                                                                                    <input type="checkbox" className={canEditUser ? 'cursor-pointer' : 'cursor-not-allowed'} checked={isChecked} disabled={!canEditUser} onChange={async (e) => {
-                                                                                            let currentPages = u.assigned_page ? u.assigned_page.split(',').filter(Boolean) : [];
-                                                                                            if (e.target.checked) { if (!currentPages.includes(p)) currentPages.push(p); } else { currentPages = currentPages.filter(page => page !== p); }
-                                                                                            await supabase.from('user_roles').update({assigned_page: currentPages.join(',')}).eq('id', u.id);
-                                                                                            fetchUsersList();
-                                                                                        }} />
-                                                                                    <span className="text-[10px] md:text-xs font-bold text-slate-700">{p}</span>
-                                                                                </label>
-                                                                            )
-                                                                        })}
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                            <td className="text-center align-middle">
-                                                                <label className={`flex flex-col items-center gap-1 ${canEditUser && !SUPER_ADMIN_ROLES.includes(u.role) ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-                                                                    <div className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${u.is_approved ? 'bg-green-500' : 'bg-slate-300'} ${(!canEditUser || SUPER_ADMIN_ROLES.includes(u.role)) ? 'opacity-70' : ''}`}>
-                                                                        <input type="checkbox" className="sr-only" checked={u.is_approved || false} onChange={e => togglePerm(u.id, 'is_approved', e.target.checked)} disabled={!canEditUser || SUPER_ADMIN_ROLES.includes(u.role)} />
-                                                                        <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${u.is_approved ? 'translate-x-1' : '-translate-x-6'}`}/>
-                                                                    </div>
-                                                                    <span className={`text-[10px] font-bold ${u.is_approved ? 'text-green-600' : 'text-amber-500'}`}>{u.is_approved ? 'Active' : 'Pending'}</span>
-                                                                </label>
-                                                            </td>
-                                                        </tr>
-                                                    )
-                                                })}
-                                            </tbody>
-                                        </table>
+                                                                <div className="text-[10px] text-slate-400 font-bold truncate">{u.email || 'No email stored'}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${presenceStatus === 'online' ? 'bg-green-100 text-green-700' : presenceStatus === 'idle' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>{presenceLabel}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="p-4 space-y-3">
+                                                        {/* Stats row */}
+                                                        <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-xl p-2.5">
+                                                            <div className="text-center"><div className="font-black text-lg text-sky-700">{uOrders.length}</div><div className="text-[9px] font-bold text-slate-400">Orders (Month)</div></div>
+                                                            <div className="text-center border-x border-slate-200"><div className="font-black text-lg text-green-600">{uOrders.filter(o => o.status === 'تم').length}</div><div className="text-[9px] font-bold text-slate-400">Delivered</div></div>
+                                                            <div className="text-center"><div className="font-black text-lg text-slate-700">{monthActivity.estimatedHours}h</div><div className="text-[9px] font-bold text-slate-400">Activity Est.</div></div>
+                                                        </div>
+
+                                                        {/* Role */}
+                                                        <div className="flex items-center gap-2">
+                                                            <label className="text-[10px] font-black text-slate-500 w-12 shrink-0">Role</label>
+                                                            {isSuperAdmin && canEditUser ? (
+                                                                <select value={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(SUPER_ADMIN_ROLES.includes(e.target.value)) await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="flex-1 border border-slate-200 px-2 py-1.5 rounded-lg text-[11px] outline-none focus:ring-2 focus:ring-sky-500 font-bold bg-white">
+                                                                    {Object.entries(ROLE_NAMES).map(([val, label]) => {
+                                                                        if (!canAssignProtectedRoles && (val === 'admin' || val === 'owner') && u.role !== val) return null;
+                                                                        return <option key={val} value={val}>{label}</option>;
+                                                                    })}
+                                                                </select>
+                                                            ) : (
+                                                                <span className="text-[11px] font-black text-slate-700 bg-slate-100 px-2 py-1 rounded-lg">{ROLE_NAMES[u.role]}</span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Pages */}
+                                                        {!SUPER_ADMIN_ROLES.includes(u.role) && (
+                                                        <div>
+                                                            <div className="text-[10px] font-black text-slate-500 mb-1.5">Assigned Pages</div>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {availablePages.map(p => {
+                                                                    const isChecked = u.assigned_page && u.assigned_page.includes(p);
+                                                                    return (
+                                                                        <label key={p} className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold transition-colors cursor-pointer ${isChecked ? 'bg-sky-100 border-sky-400 text-sky-800' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'} ${!canEditUser ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}>
+                                                                            <input type="checkbox" className="w-3 h-3" checked={isChecked} disabled={!canEditUser} onChange={async (e) => {
+                                                                                let cur = u.assigned_page ? u.assigned_page.split(',').filter(Boolean) : [];
+                                                                                if (e.target.checked) { if (!cur.includes(p)) cur.push(p); } else { cur = cur.filter(pg => pg !== p); }
+                                                                                await supabase.from('user_roles').update({assigned_page: cur.join(',')}).eq('id', u.id);
+                                                                                fetchUsersList();
+                                                                            }} /> {p}
+                                                                        </label>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                        )}
+                                                        {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-slate-400 font-bold bg-slate-50 rounded-lg px-3 py-2 text-center">Full Admin — All Pages Access</div>}
+
+                                                        {/* Permissions */}
+                                                        {!SUPER_ADMIN_ROLES.includes(u.role) && canEditUser && (
+                                                        <div className="grid grid-cols-2 gap-1.5 bg-slate-50 rounded-xl p-2.5">
+                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5" checked={u.can_add_bulk || false} onChange={e => togglePerm(u.id, 'can_add_bulk', e.target.checked)}/> Bulk Add</label>
+                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5" checked={u.can_import_excel || false} onChange={e => togglePerm(u.id, 'can_import_excel', e.target.checked)}/> Import Excel</label>
+                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5" checked={u.can_export_shipping || false} onChange={e => togglePerm(u.id, 'can_export_shipping', e.target.checked)}/> Export Shipping</label>
+                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5" checked={u.can_edit_after_shipping || false} onChange={e => togglePerm(u.id, 'can_edit_after_shipping', e.target.checked)}/> Edit After Ship</label>
+                                                        </div>
+                                                        )}
+
+                                                        {/* Action buttons */}
+                                                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                                                            {/* Approve toggle */}
+                                                            {!SUPER_ADMIN_ROLES.includes(u.role) && canEditUser && (
+                                                                <button onClick={() => togglePerm(u.id, 'is_approved', !u.is_approved)} className={`flex items-center gap-1.5 text-[10px] font-black px-3 py-1.5 rounded-lg border transition-colors ${u.is_approved ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'}`}>
+                                                                    <span className={`w-2 h-2 rounded-full inline-block ${u.is_approved ? 'bg-green-500' : 'bg-amber-400'}`}></span>
+                                                                    {u.is_approved ? 'Active' : 'Pending'}
+                                                                </button>
+                                                            )}
+                                                            <div className="flex-1"/>
+                                                            {/* Reset Password */}
+                                                            {isSuperAdmin && canEditUser && (
+                                                                <button onClick={() => setResetPwModal({ open: true, email: u.email || '', userName: u.name })} className="text-[10px] font-black px-2.5 py-1.5 rounded-lg border border-sky-200 text-sky-600 bg-sky-50 hover:bg-sky-100 transition-colors flex items-center gap-1">
+                                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                                                                    Reset PW
+                                                                </button>
+                                                            )}
+                                                            {/* Delete account */}
+                                                            {isSuperAdmin && canEditUser && u.id !== userRole?.id && (
+                                                                <button onClick={async () => {
+                                                                    if (!window.confirm(`Delete "${u.name}" account? They will need to re-register.`)) return;
+                                                                    await supabase.from('user_roles').delete().eq('id', u.id);
+                                                                    fetchUsersList();
+                                                                    notify(`Account "${u.name}" deleted.`, 'success');
+                                                                }} className="text-[10px] font-black px-2.5 py-1.5 rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition-colors flex items-center gap-1">
+                                                                    <IconTrash size={11}/> Delete
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
@@ -2409,6 +2589,59 @@
                                     </div>
                                 </div>
                                 </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Reset Password Modal */}
+                    {resetPwModal.open && (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setResetPwModal({ open: false, email: '', userName: '' })}>
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                                <div className="text-center mb-5">
+                                    <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-3">
+                                        <svg className="w-7 h-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                                    </div>
+                                    <h3 className="text-lg font-black text-slate-800">إعادة تعيين كلمة المرور</h3>
+                                    <p className="text-sm text-slate-500 mt-1">سيتم إرسال رابط إعادة التعيين إلى البريد الإلكتروني</p>
+                                </div>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-bold text-slate-600 mb-1.5">الاسم</label>
+                                    <div className="px-4 py-2.5 bg-slate-50 rounded-xl text-slate-700 font-bold">{resetPwModal.userName}</div>
+                                </div>
+                                <div className="mb-6">
+                                    <label className="block text-sm font-bold text-slate-600 mb-1.5">البريد الإلكتروني</label>
+                                    <input
+                                        type="email"
+                                        value={resetPwModal.email}
+                                        onChange={e => setResetPwModal(p => ({ ...p, email: e.target.value }))}
+                                        className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 text-sm"
+                                        placeholder="example@email.com"
+                                        dir="ltr"
+                                    />
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={async () => {
+                                            if (!resetPwModal.email) return;
+                                            const { error } = await supabase.auth.resetPasswordForEmail(resetPwModal.email, { redirectTo: window.location.origin });
+                                            if (error) {
+                                                addNotification('فشل إرسال رابط إعادة التعيين: ' + error.message, 'error');
+                                            } else {
+                                                addNotification('تم إرسال رابط إعادة تعيين كلمة المرور بنجاح', 'success');
+                                                setResetPwModal({ open: false, email: '', userName: '' });
+                                            }
+                                        }}
+                                        className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all active:scale-95 text-sm"
+                                    >
+                                        إرسال الرابط
+                                    </button>
+                                    <button
+                                        onClick={() => setResetPwModal({ open: false, email: '', userName: '' })}
+                                        className="flex-none px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black rounded-2xl transition-all active:scale-95 text-sm"
+                                    >
+                                        إلغاء
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
