@@ -264,6 +264,14 @@
             const [authPassword, setAuthPassword] = useState('');
             const [authLoading, setAuthLoading] = useState(true);
             const [authError, setAuthError] = useState('');
+            const [authView, setAuthView] = useState('login');
+            const [signupName, setSignupName] = useState('');
+            const [signupEmail, setSignupEmail] = useState('');
+            const [signupPassword, setSignupPassword] = useState('');
+            const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
+            const [signupSuccess, setSignupSuccess] = useState(false);
+            const [signupError, setSignupError] = useState('');
+            const [signupLoading, setSignupLoading] = useState(false);
             const [notifications, setNotifications] = useState([]);
             const notify = (message, type = 'error') => {
                 const id = Date.now() + Math.random();
@@ -408,12 +416,8 @@
                             setBulkTargetPage(firstPage);
                         }
                     } else {
-                        const { count } = await supabase.from('user_roles').select('*', { count: 'exact', head: true });
-                        const isFirstUser = count === 0;
-                        const role = isFirstUser ? 'admin' : 'agent';
-                        const name = isFirstUser ? 'المدير' : (userEmail ? userEmail.split('@')[0] : 'موظف جديد');
-                        
-                        const newRoleData = { id: userId, name, role, is_approved: isFirstUser, email: userEmail || '' };
+                        const name = userEmail ? userEmail.split('@')[0] : 'موظف جديد';
+                        const newRoleData = { id: userId, name, role: 'agent', is_approved: false, email: userEmail || '' };
                         const { data: newRole } = await supabase.from('user_roles').insert([newRoleData]).select().maybeSingle();
                         setUserRole(newRole || newRoleData);
                     }
@@ -1102,7 +1106,25 @@
                 try {
                     const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
                     if (error) throw error;
-                } catch (error) { setAuthError(error.message === 'Invalid login credentials' ? 'الإيميل أو كلمة المرور غير صحيحة.' : 'خطأ: ' + error.message); setAuthLoading(false); } 
+                } catch (error) { setAuthError(error.message === 'Invalid login credentials' ? 'الإيميل أو كلمة المرور غير صحيحة.' : 'خطأ: ' + error.message); setAuthLoading(false); }
+            };
+
+            const handleSignup = async (e) => {
+                e.preventDefault();
+                setSignupError('');
+                if (!signupName.trim()) { setSignupError('يرجى إدخال اسمك بالكامل.'); return; }
+                if (signupPassword !== signupConfirmPassword) { setSignupError('كلمة المرور غير متطابقة!'); return; }
+                if (signupPassword.length < 6) { setSignupError('كلمة المرور يجب أن تكون 6 أحرف على الأقل.'); return; }
+                setSignupLoading(true);
+                try {
+                    const { data, error } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword });
+                    if (error) { setSignupError(error.message); setSignupLoading(false); return; }
+                    if (data?.user) {
+                        await supabase.from('user_roles').insert([{ id: data.user.id, name: signupName.trim(), role: 'agent', is_approved: false, email: signupEmail }]);
+                    }
+                    setSignupSuccess(true);
+                } catch (err) { setSignupError(err.message); }
+                setSignupLoading(false);
             };
 
             const handleLogout = async () => { 
@@ -1379,37 +1401,111 @@
 
             if (!user) {
                 return (
-                    <div className="h-screen flex flex-col items-center justify-center p-4" style={{background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f1f5f9 100%)'}}>
-                        <div className="mb-6 text-center">
-                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg" style={{background: 'linear-gradient(135deg, #0284c7, #38bdf8)'}}><IconPackage size={32} /></div>
-                            <h1 className="text-2xl font-black text-slate-800">نظام المبيعات</h1>
-                            <p className="text-sky-600 font-bold text-sm">CRM Pro</p>
-                        </div>
-                        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl w-full max-w-sm border border-sky-100/50">
-                            <h2 className="text-lg font-black text-slate-800 mb-1">تسجيل الدخول</h2>
-                            <p className="text-slate-400 font-bold mb-5 text-xs">مرحباً، أدخل بياناتك للمتابعة.</p>
-                            {authError && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold mb-4 border border-red-100">{authError}</div>}
-                            <form onSubmit={handleLogin} className="space-y-3">
-                                <div><label className="block text-xs font-black text-slate-600 mb-1.5 text-right">البريد الإلكتروني</label><input type="email" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 font-medium text-sm text-left transition-all" dir="ltr" placeholder="example@email.com" value={authEmail} onChange={e => setAuthEmail(e.target.value)} /></div>
-                                <div><label className="block text-xs font-black text-slate-600 mb-1.5 text-right">كلمة المرور</label><input type="password" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 font-medium text-sm text-left transition-all" dir="ltr" placeholder="••••••••" value={authPassword} onChange={e => setAuthPassword(e.target.value)} /></div>
-                                <button type="submit" className="w-full text-white font-black py-3.5 rounded-xl transition-all shadow-md text-sm mt-1 hover:opacity-90 active:scale-[0.98]" style={{background: 'linear-gradient(135deg, #0284c7, #38bdf8)'}}>دخول إلى النظام</button>
-                            </form>
-                            <div className="mt-4 pt-4 border-t border-slate-100">
-                                <button type="button" onClick={async () => {
-                                    const email = prompt("أدخل إيميل الموظف الجديد (مثال: ali@crm.com):");
-                                    if(!email || !email.includes('@')) return alert("يرجى كتابة إيميل بصيغة صحيحة!");
-                                    const password = prompt("أدخل باسورد (6 أحرف أو أرقام على الأقل):");
-                                    if(!password || password.length < 6) return alert("الباسورد ضعيف! يجب أن يكون 6 أحرف على الأقل.");
-                                    setAuthLoading(true);
-                                    const {data, error} = await supabase.auth.signUp({email, password});
-                                    setAuthLoading(false);
-                                    if(error) alert("لم يتم إنشاء الحساب بسبب: " + error.message);
-                                    else if(data?.session) { alert("تم إنشاء الحساب بنجاح! سيتم تحويلك الآن."); window.location.reload(); } 
-                                    else alert("⚠️ تنبيه هام: تم تسجيل البيانات، ولكن الحساب معلق!\n\nيجب إيقاف خيار (Confirm email) من إعدادات Supabase ثم إعادة المحاولة ليعمل الحساب فوراً.");
-                                }} className="text-xs font-bold text-sky-600 hover:text-sky-800 py-2.5 px-4 bg-sky-50 rounded-xl transition-colors w-full border border-sky-100 hover:bg-sky-100">إنشاء حساب جديد</button>
+                    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{background: 'linear-gradient(135deg, #0f172a 0%, #0c2340 55%, #0f172a 100%)'}}>
+                        {/* Decorative orbs */}
+                        <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none" style={{background: 'radial-gradient(circle, rgba(56,189,248,0.12) 0%, transparent 70%)', transform: 'translate(20%, -30%)'}}></div>
+                        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full pointer-events-none" style={{background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)', transform: 'translate(-20%, 30%)'}}></div>
+                        <div className="absolute top-1/2 left-1/2 w-[600px] h-[600px] rounded-full pointer-events-none" style={{background: 'radial-gradient(circle, rgba(14,165,233,0.05) 0%, transparent 70%)', transform: 'translate(-50%, -50%)'}}></div>
+
+                        <div className="w-full max-w-sm relative z-10">
+                            {/* Logo */}
+                            <div className="text-center mb-8">
+                                <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-2xl" style={{background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', boxShadow: '0 20px 60px rgba(2,132,199,0.4)'}}>
+                                    <IconPackage size={40} />
+                                </div>
+                                <h1 className="text-3xl font-black text-white tracking-tight">نظام المبيعات</h1>
+                                <p className="text-sky-400 font-bold text-sm mt-1 tracking-widest uppercase">CRM Pro</p>
                             </div>
+
+                            {/* Card */}
+                            <div className="rounded-3xl overflow-hidden shadow-2xl" style={{background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.12)'}}>
+                                {/* Tabs */}
+                                <div className="flex border-b" style={{borderColor: 'rgba(255,255,255,0.1)'}}>
+                                    <button onClick={() => { setAuthView('login'); setAuthError(''); }} className={`flex-1 py-4 text-sm font-black transition-all ${authView === 'login' ? 'text-white border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
+                                        تسجيل الدخول
+                                    </button>
+                                    <button onClick={() => { setAuthView('signup'); setSignupError(''); setSignupSuccess(false); }} className={`flex-1 py-4 text-sm font-black transition-all ${authView === 'signup' ? 'text-white border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'}`}>
+                                        إنشاء حساب
+                                    </button>
+                                </div>
+
+                                <div className="p-6">
+                                    {authView === 'login' ? (
+                                        <div>
+                                            <p className="text-slate-300 font-bold mb-5 text-xs text-center">مرحباً بك، أدخل بياناتك للمتابعة</p>
+                                            {authError && <div className="bg-red-500/20 text-red-300 p-3 rounded-xl text-xs font-bold mb-4 border border-red-500/30 flex items-center gap-2"><span>⚠️</span>{authError}</div>}
+                                            <form onSubmit={handleLogin} className="space-y-4">
+                                                <div>
+                                                    <label className="block text-xs font-black text-slate-300 mb-1.5">البريد الإلكتروني</label>
+                                                    <input type="email" required dir="ltr" placeholder="example@email.com" value={authEmail} onChange={e => setAuthEmail(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none text-sm font-medium text-white placeholder-slate-500 transition-all" style={{background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)'}} onFocus={e => e.target.style.borderColor='rgba(56,189,248,0.6)'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.15)'} />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-black text-slate-300 mb-1.5">كلمة المرور</label>
+                                                    <input type="password" required dir="ltr" placeholder="••••••••" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none text-sm font-medium text-white placeholder-slate-500 transition-all" style={{background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)'}} onFocus={e => e.target.style.borderColor='rgba(56,189,248,0.6)'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.15)'} />
+                                                </div>
+                                                <button type="submit" className="w-full text-white font-black py-3.5 rounded-xl transition-all text-sm mt-1 hover:opacity-90 active:scale-[0.98]" style={{background: 'linear-gradient(135deg, #0284c7, #38bdf8)', boxShadow: '0 8px 24px rgba(2,132,199,0.4)'}}>
+                                                    دخول إلى النظام ←
+                                                </button>
+                                            </form>
+                                        </div>
+                                    ) : signupSuccess ? (
+                                        <div className="text-center py-4">
+                                            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{background: 'rgba(34,197,94,0.15)', border: '2px solid rgba(34,197,94,0.4)'}}>
+                                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                            </div>
+                                            <h3 className="text-lg font-black text-white mb-2">تم إنشاء حسابك! 🎉</h3>
+                                            <p className="text-slate-300 text-sm font-bold mb-4 leading-relaxed">حسابك في انتظار موافقة المدير.<br/>هيتم إشعارك فور التفعيل.</p>
+                                            <div className="rounded-xl p-4 text-right space-y-2 mb-4" style={{background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.2)'}}>
+                                                <p className="text-sky-300 text-xs font-black">📋 الخطوات القادمة:</p>
+                                                <p className="text-slate-300 text-xs font-bold">١. انتظر موافقة المدير على حسابك</p>
+                                                <p className="text-slate-300 text-xs font-bold">٢. سيحدد لك المدير الصفحات اللي هتشتغل عليها</p>
+                                                <p className="text-slate-300 text-xs font-bold">٣. بعدها تقدر تدخل بنفس الإيميل والباسورد</p>
+                                            </div>
+                                            <button onClick={() => { setAuthView('login'); setSignupSuccess(false); setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword(''); }} className="w-full py-3 rounded-xl font-black text-sm text-white transition-all" style={{background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)'}}>
+                                                الرجوع لتسجيل الدخول
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {/* Info box */}
+                                            <div className="rounded-xl p-3 mb-5" style={{background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.25)'}}>
+                                                <p className="text-sky-300 text-xs font-black mb-1.5 flex items-center gap-1.5">
+                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                                    قبل ما تسجل، اعرف الآتي:
+                                                </p>
+                                                <p className="text-slate-300 text-[11px] font-bold leading-relaxed">✅ بعد التسجيل، حسابك هيبقى <span className="text-amber-400">في انتظار موافقة المدير</span></p>
+                                                <p className="text-slate-300 text-[11px] font-bold leading-relaxed">✅ المدير هيحدد صلاحياتك والصفحات اللي هتشوفها</p>
+                                                <p className="text-slate-300 text-[11px] font-bold leading-relaxed">✅ احفظ الإيميل والباسورد كويس عشان تدخل بيهم</p>
+                                            </div>
+                                            {signupError && <div className="bg-red-500/20 text-red-300 p-3 rounded-xl text-xs font-bold mb-4 border border-red-500/30">⚠️ {signupError}</div>}
+                                            <form onSubmit={handleSignup} className="space-y-3">
+                                                <div>
+                                                    <label className="block text-xs font-black text-slate-300 mb-1.5">اسمك بالكامل</label>
+                                                    <input type="text" required placeholder="مثال: سارة محمد" value={signupName} onChange={e => setSignupName(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none text-sm font-medium text-white placeholder-slate-500" style={{background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)'}} onFocus={e => e.target.style.borderColor='rgba(56,189,248,0.6)'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.15)'} />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-black text-slate-300 mb-1.5">البريد الإلكتروني</label>
+                                                    <input type="email" required dir="ltr" placeholder="example@email.com" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none text-sm font-medium text-white placeholder-slate-500" style={{background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)'}} onFocus={e => e.target.style.borderColor='rgba(56,189,248,0.6)'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.15)'} />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-black text-slate-300 mb-1.5">كلمة المرور</label>
+                                                    <input type="password" required dir="ltr" placeholder="6 أحرف على الأقل" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none text-sm font-medium text-white placeholder-slate-500" style={{background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)'}} onFocus={e => e.target.style.borderColor='rgba(56,189,248,0.6)'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.15)'} />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-black text-slate-300 mb-1.5">تأكيد كلمة المرور</label>
+                                                    <input type="password" required dir="ltr" placeholder="أعد كتابة كلمة المرور" value={signupConfirmPassword} onChange={e => setSignupConfirmPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none text-sm font-medium text-white placeholder-slate-500" style={{background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)'}} onFocus={e => e.target.style.borderColor='rgba(56,189,248,0.6)'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.15)'} />
+                                                </div>
+                                                <button type="submit" disabled={signupLoading} className="w-full text-white font-black py-3.5 rounded-xl transition-all text-sm mt-1 hover:opacity-90 active:scale-[0.98] disabled:opacity-60" style={{background: 'linear-gradient(135deg, #0284c7, #38bdf8)', boxShadow: '0 8px 24px rgba(2,132,199,0.4)'}}>
+                                                    {signupLoading ? 'جاري إنشاء الحساب...' : 'إنشاء الحساب ✓'}
+                                                </button>
+                                            </form>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <p className="text-center text-slate-600 text-[11px] font-bold mt-6">© 2025 CRM Pro — جميع الحقوق محفوظة</p>
                         </div>
-                        <p className="text-[10px] text-slate-400 font-bold mt-4">أول حساب يُنشأ سيكون مدير النظام تلقائياً</p>
                     </div>
                 );
             }
