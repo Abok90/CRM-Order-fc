@@ -416,6 +416,12 @@
                     const { data, error } = await supabase.from('user_roles').select('*').eq('id', userId).maybeSingle();
                     if (error) console.error('fetchUserRole SELECT error:', error.message);
                     if (data) {
+                        // حماية مدير النظام الأساسي — يظل admin دايماً حتى لو تغيّر في DB
+                        if (userEmail === 'ahmedsayed328@gmail.com' && data.role !== 'admin') {
+                            await supabase.from('user_roles').update({ role: 'admin', is_approved: true }).eq('id', userId);
+                            data.role = 'admin';
+                            data.is_approved = true;
+                        }
                         setUserRole(data);
                         if (!SUPER_ADMIN_ROLES.includes(data.role) && data.assigned_page) {
                             setFilterPage('الكل');
@@ -2450,8 +2456,9 @@
                                         </div>
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                         {visibleUsers.map(u => {
+                                            const isOwnerAccount = u.email === 'ahmedsayed328@gmail.com'; // مدير النظام الأساسي — محمي بالكامل
                                             const isProtectedAccount = u.id === 'd24dd1d7-696d-47d0-be55-185a1aae0c59' || u.id === '6323bb6e-8f56-4e94-a44f-af45322d3fd8';
-                                            const canEditUser = !isProtectedAccount || userRole?.role === 'admin';
+                                            const canEditUser = isOwnerAccount ? false : (!isProtectedAccount || userRole?.role === 'admin');
                                             const canAssignProtectedRoles = userRole?.role === 'admin';
                                             const presenceStatus = getPresenceStatus(u.id);
                                             const presenceDot = presenceStatus === 'online' ? 'bg-green-500' : presenceStatus === 'idle' ? 'bg-amber-400' : 'bg-red-400';
@@ -2481,6 +2488,7 @@
                                                                     <div className="font-black text-sm text-slate-800 truncate">{u.name}</div>
                                                                 )}
                                                                 <div className="text-[10px] text-slate-400 font-bold truncate">{u.email || 'بدون إيميل'}</div>
+                                                                {isOwnerAccount && <div className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 w-fit flex items-center gap-1">🔒 مدير النظام الأساسي</div>}
                                                             </div>
                                                         </div>
                                                         <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${presenceLabelColor}`}>{presenceLabel}</span>
