@@ -892,14 +892,11 @@
                 if (!webhookUrl) return;
                 setSheetSyncStatus('syncing');
                 try {
-                    const formData = new URLSearchParams();
-                    formData.append('payload', JSON.stringify({ action, order: orderData }));
-                    // mode: 'no-cors' مطلوب عشان Google Apps Script بيعمل redirect
-                    // مش هنقدر نقرأ الـ response لكن لو مفيش error = تم الإرسال
+                    // إرسال JSON مباشرة كـ text/plain — أضمن مع no-cors
+                    // Apps Script يقرأ البيانات من e.postData.contents
                     await fetch(webhookUrl, {
                         method: 'POST',
-                        body: formData,
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: JSON.stringify({ action, order: orderData }),
                         mode: 'no-cors'
                     });
                     setSheetSyncStatus('ok');
