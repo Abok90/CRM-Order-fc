@@ -887,27 +887,9 @@
 
             const filteredFinanceTotal = useMemo(() => filteredFinanceRecords.reduce((sum, r) => sum + Number(r.amount || 0), 0), [filteredFinanceRecords]);
 
-            const syncToGoogleSheet = async (action, orderData) => {
-                const webhookUrl = uiSettings.googleSheetWebhook?.trim();
-                if (!webhookUrl) return;
-                setSheetSyncStatus('syncing');
-                try {
-                    // GET + query params — يتجنب مشكلة redirect 302 اللي بتمسح body الـ POST
-                    // Apps Script يقرأ البيانات من e.parameter.payload في doGet
-                    const params = new URLSearchParams();
-                    params.set('payload', JSON.stringify({ action, order: orderData }));
-                    await fetch(`${webhookUrl}?${params.toString()}`, {
-                        method: 'GET',
-                        mode: 'no-cors'
-                    });
-                    setSheetSyncStatus('ok');
-                    setTimeout(() => setSheetSyncStatus('idle'), 3000);
-                } catch(err) {
-                    console.error('Google Sheets sync failed:', err);
-                    setSheetSyncStatus('error');
-                    setTimeout(() => setSheetSyncStatus('idle'), 5000);
-                }
-            };
+            // syncToGoogleSheet محذوفة — المزامنة بتتم عبر Supabase Database Webhook مباشرةً
+            // CRM → Supabase → Webhook → Apps Script (server-to-server, بدون CORS)
+            const syncToGoogleSheet = async (_action, _orderData) => { /* no-op */ };
 
             const toEnglishDigits = (str) => {
                 const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
