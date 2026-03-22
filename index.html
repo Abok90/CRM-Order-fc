@@ -892,15 +892,12 @@
                 if (!webhookUrl) return;
                 setSheetSyncStatus('syncing');
                 try {
-                    // إرسال كـ application/x-www-form-urlencoded (simple request)
-                    // يضمن عدم إسقاط الـ body على redirect مع no-cors
-                    // Apps Script يقرأ البيانات من e.parameter.payload
-                    const body = new URLSearchParams();
-                    body.set('payload', JSON.stringify({ action, order: orderData }));
-                    await fetch(webhookUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: body.toString(),
+                    // GET + query params — يتجنب مشكلة redirect 302 اللي بتمسح body الـ POST
+                    // Apps Script يقرأ البيانات من e.parameter.payload في doGet
+                    const params = new URLSearchParams();
+                    params.set('payload', JSON.stringify({ action, order: orderData }));
+                    await fetch(`${webhookUrl}?${params.toString()}`, {
+                        method: 'GET',
                         mode: 'no-cors'
                     });
                     setSheetSyncStatus('ok');
