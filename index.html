@@ -413,6 +413,7 @@
             const fetchUserRole = async (userId, userEmail) => {
                 try {
                     const { data, error } = await supabase.from('user_roles').select('*').eq('id', userId).maybeSingle();
+                    if (error) console.error('fetchUserRole SELECT error:', error.message);
                     if (data) {
                         setUserRole(data);
                         if (!SUPER_ADMIN_ROLES.includes(data.role) && data.assigned_page) {
@@ -426,17 +427,27 @@
                         // مستخدم سجّل لكن مفيش record في user_roles — نعمله تلقائياً
                         const name = userEmail ? userEmail.split('@')[0] : 'موظف جديد';
                         const newRoleData = { id: userId, name, role: 'agent', is_approved: false, email: userEmail || '' };
+                        // محاولة INSERT
                         const { data: newRole, error: insertError } = await supabase.from('user_roles').insert([newRoleData]).select().maybeSingle();
                         if (insertError) {
-                            // ربما RLS تمنع الإدخال — نحاول upsert
-                            const { data: upserted } = await supabase.from('user_roles').upsert([newRoleData], { onConflict: 'id' }).select().maybeSingle();
-                            setUserRole(upserted || newRoleData);
+                            console.warn('fetchUserRole INSERT failed:', insertError.message, '— trying UPSERT');
+                            const { data: upserted, error: upsertError } = await supabase.from('user_roles').upsert([newRoleData], { onConflict: 'id' }).select().maybeSingle();
+                            if (upsertError) {
+                                console.error('fetchUserRole UPSERT also failed:', upsertError.message);
+                                // محاولة أخيرة بعد تأخير قصير
+                                await new Promise(r => setTimeout(r, 1000));
+                                const { data: retried, error: retryErr } = await supabase.from('user_roles').upsert([newRoleData], { onConflict: 'id' }).select().maybeSingle();
+                                if (retryErr) console.error('fetchUserRole FINAL RETRY failed:', retryErr.message);
+                                setUserRole(retried || newRoleData);
+                            } else {
+                                setUserRole(upserted || newRoleData);
+                            }
                         } else {
                             setUserRole(newRole || newRoleData);
                         }
                     }
                 } catch (error) {
-                    // fallback طوارئ — لا يعطي صلاحيات admin
+                    console.error('fetchUserRole CATCH:', error);
                     setUserRole({ id: userId, name: userEmail?.split('@')[0] || 'مستخدم', role: 'agent', is_approved: false });
                 } finally {
                     setAuthLoading(false);
@@ -650,6 +661,14 @@
             useEffect(() => {
                 if (currentTab === 'users' && (isSuperAdmin || isPageManager)) fetchUsersList();
             }, [currentTab]);
+
+            // تحديث تلقائي لقائمة المستخدمين كل 15 ثانية
+            useEffect(() => {
+                if (!user || !userRole?.is_approved || !(isSuperAdmin || isPageManager)) return;
+                fetchUsersList();
+                const interval = setInterval(fetchUsersList, 15000);
+                return () => clearInterval(interval);
+            }, [user, userRole?.is_approved, isSuperAdmin, isPageManager]);
 
             const phoneCounts = useMemo(() => {
                 const counts = {};
@@ -1182,22 +1201,35 @@
                 try {
                     const { data, error } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword });
                     if (error) { setSignupError(error.message); setSignupLoading(false); return; }
-                    // إذا في session فوري (Email Confirmation معطّل) → ندخل البيانات مباشرة
-                    if (data?.session && data?.user) {
-                        await supabase.from('user_roles').upsert([{ id: data.user.id, name: signupName.trim(), role: 'agent', is_approved: false, email: signupEmail }], { onConflict: 'id' });
+                    const userId = data?.user?.id;
+                    if (!userId) { setSignupError('حدث خطأ غير متوقع. حاول مرة أخرى.'); setSignupLoading(false); return; }
+                    const roleRecord = { id: userId, name: signupName.trim(), role: 'agent', is_approved: false, email: signupEmail };
+                    // محاولة إنشاء سجل user_roles بطرق متعددة لضمان النجاح
+                    let recordCreated = false;
+                    // المحاولة 1: INSERT مباشر
+                    const { error: insertErr } = await supabase.from('user_roles').insert([roleRecord]);
+                    if (!insertErr) { recordCreated = true; console.log('✅ user_roles record created via INSERT'); }
+                    // المحاولة 2: UPSERT
+                    if (!recordCreated) {
+                        console.warn('⚠️ INSERT failed, trying UPSERT:', insertErr?.message);
+                        const { error: upsertErr } = await supabase.from('user_roles').upsert([roleRecord], { onConflict: 'id' });
+                        if (!upsertErr) { recordCreated = true; console.log('✅ user_roles record created via UPSERT'); }
+                        else { console.error('❌ UPSERT also failed:', upsertErr?.message); }
                     }
-                    // إذا مفيش session (Email Confirmation شغّال) → نخزّن الاسم مؤقتاً
-                    // fetchUserRole هيعمل الـ insert لما المستخدم يدخل بعد ما يأكد الإيميل
+                    // المحاولة 3: إذا الاثنين فشلوا، ننتظر ثانية ونحاول تاني (بعد ما الـ session تتفعل)
+                    if (!recordCreated) {
+                        await new Promise(r => setTimeout(r, 1500));
+                        const { error: retryErr } = await supabase.from('user_roles').upsert([roleRecord], { onConflict: 'id' });
+                        if (!retryErr) { recordCreated = true; console.log('✅ user_roles record created via RETRY UPSERT'); }
+                        else { console.error('❌ All attempts to create user_roles failed:', retryErr?.message); }
+                    }
                     if (data?.user && !data?.session) {
                         setSignupNeedsEmailConfirm(true);
-                        try {
-                            await supabase.from('user_roles').upsert([{ id: data.user.id, name: signupName.trim(), role: 'agent', is_approved: false, email: signupEmail }], { onConflict: 'id' });
-                        } catch (_) { /* RLS قد تمنع هذا — fetchUserRole سيكمل التسجيل لاحقاً */ }
                     } else {
                         setSignupNeedsEmailConfirm(false);
                     }
                     setSignupSuccess(true);
-                } catch (err) { setSignupError(err.message); }
+                } catch (err) { setSignupError(err.message); console.error('Signup error:', err); }
                 setSignupLoading(false);
             };
 
@@ -2317,43 +2349,80 @@
                             )}
 
                             {currentTab === 'users' && (isSuperAdmin || isPageManager) && (
-                                <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    {/* Header */}
-                                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-gradient-to-l from-sky-50 to-indigo-50 border border-sky-200 p-4 md:p-5 rounded-2xl">
-                                        <div>
-                                            <h2 className="font-black text-sky-900 text-base md:text-lg flex items-center gap-2"><IconUsers /> إدارة حسابات الفريق</h2>
-                                            <p className="text-[11px] md:text-sm text-sky-700 font-bold mt-1">{isSuperAdmin ? 'تحكم كامل — صلاحيات، صفحات، كلمات المرور.' : 'وافق على الموظفين وحدد صلاحياتهم.'}</p>
+                                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    {/* ===== هيدر الصفحة ===== */}
+                                    <div className="bg-gradient-to-l from-slate-900 via-sky-900 to-indigo-900 rounded-2xl p-5 md:p-6 shadow-xl text-white">
+                                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                            <div>
+                                                <h2 className="font-black text-xl md:text-2xl flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center"><IconUsers size={22}/></div>
+                                                    إدارة فريق العمل
+                                                </h2>
+                                                <p className="text-sky-200 text-sm font-bold mt-2">{isSuperAdmin ? 'إدارة كاملة — الموافقات، الصلاحيات، الصفحات، وكلمات المرور' : 'وافق على الموظفين الجدد وحدد صلاحياتهم'}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-2.5 text-center">
+                                                    <div className="font-black text-2xl">{usersList.length}</div>
+                                                    <div className="text-[10px] text-sky-200 font-bold">إجمالي الأعضاء</div>
+                                                </div>
+                                                <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-2.5 text-center">
+                                                    <div className="font-black text-2xl text-green-400">{usersList.filter(u => u.is_approved).length}</div>
+                                                    <div className="text-[10px] text-sky-200 font-bold">نشط</div>
+                                                </div>
+                                                <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-2.5 text-center">
+                                                    <div className="font-black text-2xl text-amber-400">{usersList.filter(u => !u.is_approved && !SUPER_ADMIN_ROLES.includes(u.role)).length}</div>
+                                                    <div className="text-[10px] text-sky-200 font-bold">بانتظار الموافقة</div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <button onClick={fetchUsersList} className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center gap-2 w-full md:w-auto justify-center"><IconRefresh size={16}/> تحديث القائمة</button>
+                                        <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/10">
+                                            <button onClick={fetchUsersList} className="bg-white/15 hover:bg-white/25 backdrop-blur text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors flex items-center gap-2"><IconRefresh size={15}/> تحديث</button>
+                                            <div className="flex items-center gap-2 text-[10px] text-sky-300 font-bold">
+                                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block"></span> متصل</span>
+                                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> خامل</span>
+                                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block"></span> غير متصل</span>
+                                            </div>
+                                            <div className="text-[10px] text-sky-400 font-bold mr-auto">تحديث تلقائي كل 15 ثانية</div>
+                                        </div>
                                     </div>
 
-                                    {/* ===== حسابات تنتظر الموافقة — قسم بارز ===== */}
+                                    {/* ===== قسم طلبات الانضمام المعلقة ===== */}
                                     {(() => {
                                         const pendingList = usersList.filter(u => !u.is_approved && !SUPER_ADMIN_ROLES.includes(u.role));
                                         if (pendingList.length === 0) return null;
                                         return (
-                                            <div className="rounded-2xl border-2 border-amber-400 overflow-hidden shadow-lg">
-                                                <div className="bg-amber-500 px-4 py-3 flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse inline-block"></span>
-                                                        <span className="text-white font-black text-sm">⏳ {pendingList.length} حساب {pendingList.length === 1 ? 'ينتظر' : 'ينتظرون'} موافقتك</span>
+                                            <div className="rounded-2xl border-2 border-amber-400 overflow-hidden shadow-lg animate-in zoom-in-95 duration-300">
+                                                <div className="bg-gradient-to-l from-amber-500 to-orange-500 px-5 py-4 flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                                                            <span className="text-white text-lg">⏳</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-white font-black text-sm block">{pendingList.length} {pendingList.length === 1 ? 'طلب انضمام جديد' : 'طلبات انضمام جديدة'}</span>
+                                                            <span className="text-amber-100 text-[10px] font-bold">يمكنك الموافقة أو الرفض مباشرة</span>
+                                                        </div>
                                                     </div>
-                                                    <span className="text-amber-100 text-xs font-bold">وافق أو ارفض مباشرة 👇</span>
+                                                    <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse inline-block"></span>
                                                 </div>
-                                                <div className="bg-amber-50 p-3 space-y-2">
+                                                <div className="bg-amber-50/50 p-4 space-y-3">
                                                     {pendingList.map(u => (
-                                                        <div key={u.id} className="bg-white rounded-xl border border-amber-200 p-3 flex items-center gap-3 shadow-sm">
-                                                            <div className="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center text-amber-800 font-black text-base shrink-0">{(u.name || '?')[0].toUpperCase()}</div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="font-black text-slate-800 text-sm truncate">{u.name || 'موظف جديد'}</p>
-                                                                <p className="text-[11px] text-slate-400 font-bold truncate">{u.email || 'بدون إيميل'}</p>
+                                                        <div key={u.id} className="bg-white rounded-xl border border-amber-200 p-4 flex flex-col sm:flex-row sm:items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
+                                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center text-white font-black text-lg shrink-0 shadow-md">{(u.name || '?')[0].toUpperCase()}</div>
+                                                                <div className="min-w-0">
+                                                                    <p className="font-black text-slate-800 text-sm truncate">{u.name || 'موظف جديد'}</p>
+                                                                    <p className="text-[11px] text-slate-400 font-bold truncate">{u.email || 'بدون إيميل'}</p>
+                                                                    <p className="text-[10px] text-amber-600 font-bold mt-0.5">بانتظار موافقتك للدخول</p>
+                                                                </div>
                                                             </div>
                                                             <div className="flex gap-2 shrink-0">
-                                                                <button onClick={async () => { await togglePerm(u.id, 'is_approved', true); notify(`✅ تم تفعيل حساب ${u.name}`, 'success'); }} className="bg-green-600 hover:bg-green-700 text-white font-black text-xs px-4 py-2 rounded-xl transition-colors shadow">
-                                                                    ✓ موافقة
+                                                                <button onClick={async () => { await togglePerm(u.id, 'is_approved', true); notify(`تم تفعيل حساب ${u.name} بنجاح`, 'success'); }} className="bg-green-600 hover:bg-green-700 text-white font-black text-xs px-5 py-2.5 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center gap-1.5">
+                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                                                    موافقة
                                                                 </button>
-                                                                <button onClick={async () => { if (!window.confirm(`رفض حساب "${u.name}"؟`)) return; await supabase.from('user_roles').delete().eq('id', u.id); fetchUsersList(); notify(`تم رفض حساب ${u.name}`); }} className="bg-red-50 border border-red-300 hover:bg-red-100 text-red-600 font-black text-xs px-3 py-2 rounded-xl transition-colors">
-                                                                    ✕
+                                                                <button onClick={async () => { if (!window.confirm(`هل تريد رفض طلب "${u.name}"؟ سيتم حذف حسابه.`)) return; await supabase.from('user_roles').delete().eq('id', u.id); fetchUsersList(); notify(`تم رفض طلب ${u.name}`); }} className="bg-white border-2 border-red-300 hover:bg-red-50 text-red-600 font-black text-xs px-4 py-2.5 rounded-xl transition-colors flex items-center gap-1.5">
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                                    رفض
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -2363,23 +2432,36 @@
                                         );
                                     })()}
 
-                                    {/* Legend */}
-                                    <div className="flex items-center gap-4 text-[11px] font-bold text-slate-500">
-                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> متصل (آخر 5 دقائق)</span>
-                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> خامل (5-30 د)</span>
-                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block"></span> غير متصل</span>
-                                    </div>
+                                    {/* ===== لا يوجد أعضاء بانتظار الموافقة ===== */}
+                                    {usersList.filter(u => !u.is_approved && !SUPER_ADMIN_ROLES.includes(u.role)).length === 0 && (
+                                        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center text-green-600 shrink-0">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-green-800 text-sm">لا توجد طلبات انضمام معلقة</p>
+                                                <p className="text-[10px] text-green-600 font-bold mt-0.5">ستظهر الطلبات الجديدة هنا تلقائياً فور التسجيل</p>
+                                            </div>
+                                        </div>
+                                    )}
 
-                                    {/* User Cards */}
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {/* ===== قائمة أعضاء الفريق ===== */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                                أعضاء الفريق ({visibleUsers.length})
+                                            </h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                         {visibleUsers.map(u => {
                                             const isProtectedAccount = u.id === 'd24dd1d7-696d-47d0-be55-185a1aae0c59' || u.id === '6323bb6e-8f56-4e94-a44f-af45322d3fd8';
                                             const canEditUser = !isProtectedAccount || userRole?.role === 'admin';
                                             const canAssignProtectedRoles = userRole?.role === 'admin';
                                             const presenceStatus = getPresenceStatus(u.id);
                                             const presenceDot = presenceStatus === 'online' ? 'bg-green-500' : presenceStatus === 'idle' ? 'bg-amber-400' : 'bg-red-400';
-                                            const presenceLabel = presenceStatus === 'online' ? 'Online' : presenceStatus === 'idle' ? 'Idle' : 'Offline';
-                                            // إحصائيات الشهر الحالي لهذا الموظف
+                                            const presenceLabel = presenceStatus === 'online' ? 'متصل' : presenceStatus === 'idle' ? 'خامل' : 'غير متصل';
+                                            const presenceLabelColor = presenceStatus === 'online' ? 'bg-green-100 text-green-700' : presenceStatus === 'idle' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500';
                                             const now = new Date();
                                             const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
                                             const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
@@ -2389,13 +2471,13 @@
                                             });
                                             const monthActivity = agentMonthlyActivity[u.name] || { count: 0, days: 0, estimatedHours: 0 };
                                             return (
-                                                <div key={u.id} className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all hover:shadow-md ${u.is_approved ? 'border-slate-200' : 'border-amber-300'}`}>
-                                                    {/* Card Header */}
-                                                    <div className={`px-4 py-3 flex items-center justify-between ${u.is_approved ? 'bg-slate-50' : 'bg-amber-50'}`}>
+                                                <div key={u.id} className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all hover:shadow-lg ${u.is_approved ? 'border-slate-200' : 'border-amber-300 ring-2 ring-amber-100'}`}>
+                                                    {/* رأس البطاقة */}
+                                                    <div className={`px-4 py-3.5 flex items-center justify-between ${u.is_approved ? 'bg-gradient-to-l from-slate-50 to-white' : 'bg-gradient-to-l from-amber-50 to-orange-50'}`}>
                                                         <div className="flex items-center gap-3 min-w-0">
                                                             <div className="relative shrink-0">
-                                                                <div className="w-10 h-10 rounded-full bg-sky-600 flex items-center justify-center text-white font-black text-base">{(u.name || '?')[0].toUpperCase()}</div>
-                                                                <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${presenceDot}`} title={presenceLabel}></span>
+                                                                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md">{(u.name || '?')[0].toUpperCase()}</div>
+                                                                <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${presenceDot} shadow-sm`} title={presenceLabel}></span>
                                                             </div>
                                                             <div className="min-w-0">
                                                                 {isSuperAdmin && canEditUser ? (
@@ -2403,46 +2485,53 @@
                                                                 ) : (
                                                                     <div className="font-black text-sm text-slate-800 truncate">{u.name}</div>
                                                                 )}
-                                                                <div className="text-[10px] text-slate-400 font-bold truncate">{u.email || 'No email stored'}</div>
+                                                                <div className="text-[10px] text-slate-400 font-bold truncate">{u.email || 'بدون إيميل'}</div>
                                                             </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2 shrink-0">
-                                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${presenceStatus === 'online' ? 'bg-green-100 text-green-700' : presenceStatus === 'idle' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>{presenceLabel}</span>
-                                                        </div>
+                                                        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${presenceLabelColor}`}>{presenceLabel}</span>
                                                     </div>
 
                                                     <div className="p-4 space-y-3">
-                                                        {/* Stats row */}
-                                                        <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-xl p-2.5">
-                                                            <div className="text-center"><div className="font-black text-lg text-sky-700">{uOrders.length}</div><div className="text-[9px] font-bold text-slate-400">Orders (Month)</div></div>
-                                                            <div className="text-center border-x border-slate-200"><div className="font-black text-lg text-green-600">{uOrders.filter(o => o.status === 'تم').length}</div><div className="text-[9px] font-bold text-slate-400">Delivered</div></div>
-                                                            <div className="text-center"><div className="font-black text-lg text-slate-700">{monthActivity.estimatedHours}h</div><div className="text-[9px] font-bold text-slate-400">Activity Est.</div></div>
+                                                        {/* إحصائيات الشهر */}
+                                                        <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-xl p-3">
+                                                            <div className="text-center">
+                                                                <div className="font-black text-lg text-sky-700">{uOrders.length}</div>
+                                                                <div className="text-[9px] font-bold text-slate-400">طلبات الشهر</div>
+                                                            </div>
+                                                            <div className="text-center border-x border-slate-200">
+                                                                <div className="font-black text-lg text-green-600">{uOrders.filter(o => o.status === 'تم').length}</div>
+                                                                <div className="text-[9px] font-bold text-slate-400">تم التسليم</div>
+                                                            </div>
+                                                            <div className="text-center">
+                                                                <div className="font-black text-lg text-slate-700">{monthActivity.estimatedHours}س</div>
+                                                                <div className="text-[9px] font-bold text-slate-400">ساعات النشاط</div>
+                                                            </div>
                                                         </div>
 
-                                                        {/* Role */}
+                                                        {/* الدور */}
                                                         <div className="flex items-center gap-2">
-                                                            <label className="text-[10px] font-black text-slate-500 w-12 shrink-0">Role</label>
+                                                            <label className="text-[10px] font-black text-slate-500 w-14 shrink-0">الدور</label>
                                                             {isSuperAdmin && canEditUser ? (
-                                                                <select value={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(SUPER_ADMIN_ROLES.includes(e.target.value)) await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="flex-1 border border-slate-200 px-2 py-1.5 rounded-lg text-[11px] outline-none focus:ring-2 focus:ring-sky-500 font-bold bg-white">
+                                                                <select value={u.role} onChange={async (e) => { await supabase.from('user_roles').update({role: e.target.value}).eq('id', u.id); if(SUPER_ADMIN_ROLES.includes(e.target.value)) await supabase.from('user_roles').update({assigned_page: null, is_approved: true}).eq('id', u.id); fetchUsersList(); }} className="flex-1 border border-slate-200 px-3 py-1.5 rounded-lg text-[11px] outline-none focus:ring-2 focus:ring-sky-500 font-bold bg-white">
                                                                     {Object.entries(ROLE_NAMES).map(([val, label]) => {
                                                                         if (!canAssignProtectedRoles && (val === 'admin' || val === 'owner') && u.role !== val) return null;
                                                                         return <option key={val} value={val}>{label}</option>;
                                                                     })}
                                                                 </select>
                                                             ) : (
-                                                                <span className="text-[11px] font-black text-slate-700 bg-slate-100 px-2 py-1 rounded-lg">{ROLE_NAMES[u.role]}</span>
+                                                                <span className="text-[11px] font-black text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg">{ROLE_NAMES[u.role]}</span>
                                                             )}
                                                         </div>
 
-                                                        {/* Pages */}
+                                                        {/* الصفحات المخصصة */}
                                                         {!SUPER_ADMIN_ROLES.includes(u.role) && (
                                                         <div>
-                                                            <div className="text-[10px] font-black text-slate-500 mb-1.5">Assigned Pages</div>
+                                                            <div className="text-[10px] font-black text-slate-500 mb-2">الصفحات المخصصة</div>
                                                             <div className="flex flex-wrap gap-1.5">
                                                                 {availablePages.map(p => {
                                                                     const isChecked = u.assigned_page && u.assigned_page.includes(p);
                                                                     return (
-                                                                        <label key={p} className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold transition-colors cursor-pointer ${isChecked ? 'bg-sky-100 border-sky-400 text-sky-800' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'} ${!canEditUser ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}>
+                                                                        <label key={p} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${isChecked ? 'bg-sky-100 border-sky-400 text-sky-800 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'} ${!canEditUser ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}>
                                                                             <input type="checkbox" className="w-3 h-3" checked={isChecked} disabled={!canEditUser} onChange={async (e) => {
                                                                                 let cur = u.assigned_page ? u.assigned_page.split(',').filter(Boolean) : [];
                                                                                 if (e.target.checked) { if (!cur.includes(p)) cur.push(p); } else { cur = cur.filter(pg => pg !== p); }
@@ -2455,44 +2544,44 @@
                                                             </div>
                                                         </div>
                                                         )}
-                                                        {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-slate-400 font-bold bg-slate-50 rounded-lg px-3 py-2 text-center">Full Admin — All Pages Access</div>}
+                                                        {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-indigo-600 font-black bg-indigo-50 rounded-lg px-3 py-2 text-center border border-indigo-200">مدير — وصول كامل لجميع الصفحات</div>}
 
-                                                        {/* Permissions */}
+                                                        {/* الصلاحيات */}
                                                         {!SUPER_ADMIN_ROLES.includes(u.role) && canEditUser && (
-                                                        <div className="grid grid-cols-2 gap-1.5 bg-slate-50 rounded-xl p-2.5">
-                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5" checked={u.can_add_bulk || false} onChange={e => togglePerm(u.id, 'can_add_bulk', e.target.checked)}/> Bulk Add</label>
-                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5" checked={u.can_import_excel || false} onChange={e => togglePerm(u.id, 'can_import_excel', e.target.checked)}/> Import Excel</label>
-                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5" checked={u.can_export_shipping || false} onChange={e => togglePerm(u.id, 'can_export_shipping', e.target.checked)}/> Export Shipping</label>
-                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5" checked={u.can_edit_after_shipping || false} onChange={e => togglePerm(u.id, 'can_edit_after_shipping', e.target.checked)}/> Edit After Ship</label>
+                                                        <div>
+                                                            <div className="text-[10px] font-black text-slate-500 mb-2">الصلاحيات الإضافية</div>
+                                                            <div className="grid grid-cols-2 gap-1.5 bg-slate-50 rounded-xl p-3">
+                                                                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5 accent-sky-600" checked={u.can_add_bulk || false} onChange={e => togglePerm(u.id, 'can_add_bulk', e.target.checked)}/> إضافة جماعية</label>
+                                                                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5 accent-sky-600" checked={u.can_import_excel || false} onChange={e => togglePerm(u.id, 'can_import_excel', e.target.checked)}/> استيراد Excel</label>
+                                                                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5 accent-sky-600" checked={u.can_export_shipping || false} onChange={e => togglePerm(u.id, 'can_export_shipping', e.target.checked)}/> تصدير الشحن</label>
+                                                                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600"><input type="checkbox" className="w-3.5 h-3.5 accent-sky-600" checked={u.can_edit_after_shipping || false} onChange={e => togglePerm(u.id, 'can_edit_after_shipping', e.target.checked)}/> تعديل بعد الشحن</label>
+                                                            </div>
                                                         </div>
                                                         )}
 
-                                                        {/* Action buttons */}
-                                                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                                                            {/* Approve toggle */}
+                                                        {/* أزرار التحكم */}
+                                                        <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                                                             {!SUPER_ADMIN_ROLES.includes(u.role) && canEditUser && (
-                                                                <button onClick={() => togglePerm(u.id, 'is_approved', !u.is_approved)} className={`flex items-center gap-1.5 text-[10px] font-black px-3 py-1.5 rounded-lg border transition-colors ${u.is_approved ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'}`}>
-                                                                    <span className={`w-2 h-2 rounded-full inline-block ${u.is_approved ? 'bg-green-500' : 'bg-amber-400'}`}></span>
-                                                                    {u.is_approved ? 'Active' : 'Pending'}
+                                                                <button onClick={() => togglePerm(u.id, 'is_approved', !u.is_approved)} className={`flex items-center gap-1.5 text-[10px] font-black px-3 py-1.5 rounded-lg border transition-all ${u.is_approved ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'}`}>
+                                                                    <span className={`w-2 h-2 rounded-full inline-block ${u.is_approved ? 'bg-green-500' : 'bg-amber-400 animate-pulse'}`}></span>
+                                                                    {u.is_approved ? 'نشط' : 'معلّق'}
                                                                 </button>
                                                             )}
                                                             <div className="flex-1"/>
-                                                            {/* Reset Password */}
                                                             {isSuperAdmin && canEditUser && (
                                                                 <button onClick={() => setResetPwModal({ open: true, email: u.email || '', userName: u.name })} className="text-[10px] font-black px-2.5 py-1.5 rounded-lg border border-sky-200 text-sky-600 bg-sky-50 hover:bg-sky-100 transition-colors flex items-center gap-1">
                                                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                                                                    Reset PW
+                                                                    تغيير كلمة المرور
                                                                 </button>
                                                             )}
-                                                            {/* Delete account */}
                                                             {isSuperAdmin && canEditUser && u.id !== userRole?.id && (
                                                                 <button onClick={async () => {
-                                                                    if (!window.confirm(`Delete "${u.name}" account? They will need to re-register.`)) return;
+                                                                    if (!window.confirm(`هل تريد حذف حساب "${u.name}"؟ سيحتاج لإعادة التسجيل.`)) return;
                                                                     await supabase.from('user_roles').delete().eq('id', u.id);
                                                                     fetchUsersList();
-                                                                    notify(`Account "${u.name}" deleted.`, 'success');
+                                                                    notify(`تم حذف حساب "${u.name}"`, 'success');
                                                                 }} className="text-[10px] font-black px-2.5 py-1.5 rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition-colors flex items-center gap-1">
-                                                                    <IconTrash size={11}/> Delete
+                                                                    <IconTrash size={11}/> حذف
                                                                 </button>
                                                             )}
                                                         </div>
@@ -2500,6 +2589,7 @@
                                                 </div>
                                             );
                                         })}
+                                    </div>
                                     </div>
                                 </div>
                             )}
