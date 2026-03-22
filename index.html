@@ -297,8 +297,10 @@
             const [isImportModalOpen, setIsImportModalOpen] = useState(false);
             const [isBulkModalOpen, setIsBulkModalOpen] = useState(false); 
             
-            const [successOrderMessage, setSuccessOrderMessage] = useState(null); 
+            const [successOrderMessage, setSuccessOrderMessage] = useState(null);
             const [copiedType, setCopiedType] = useState('');
+            const [isAccountEditOpen, setIsAccountEditOpen] = useState(false);
+            const [accountEditName, setAccountEditName] = useState('');
             
             const [quickTracking, setQuickTracking] = useState(''); 
             const [quickStatus, setQuickStatus] = useState(''); 
@@ -503,6 +505,12 @@
                 try { await supabase.from('activity_logs').insert([{ user_name: userRole.name, action: actionDesc, order_id: relatedOrderId }]); } catch(e) { console.error('Activity log failed:', e); }
             };
 
+            const generateCustomerMsg = (order) => {
+                if (!order) return '';
+                const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
+                return `✅ تم استلام طلبك بنجاح!\n${'─'.repeat(24)}\n📦 رقم الطلب: ${order.id}\n👤 الاسم: ${order.customer}\n📱 الموبايل: ${order.phone}\n🛍️ المنتج: ${order.item}\n📍 العنوان: ${order.address}\n${'─'.repeat(24)}\n💰 سعر المنتجات: ${Number(order.productPrice) || 0} ج.م\n🚚 سعر الشحن: ${Number(order.shippingPrice) || 0} ج.م\n💵 الإجمالي: ${total} ج.م${order.trackingNumber ? `\n\n📬 رقم البوليصة: ${order.trackingNumber}` : ''}\n${'─'.repeat(24)}\nشكراً لتعاملك معنا 🙏`;
+            };
+
             useEffect(() => {
                 let mounted = true;
                 const initSession = async () => {
@@ -618,6 +626,16 @@
                     revenue: delivered.reduce((sum, o) => sum + (Number(o.productPrice) || 0) + (Number(o.shippingPrice) || 0), 0)
                 };
             }, [filteredOrders]);
+
+            // عدد الأوردرات اللي عملها المستخدم الحالي في آخر 30 يوم
+            const myOrdersLast30 = useMemo(() => {
+                const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                return orders.filter(o => {
+                    const d = o.date || (o.created_at ? o.created_at.split('T')[0] : '');
+                    const inPages = isSuperAdmin ? true : (availablePages || []).includes(o.page);
+                    return inPages && d >= cutoff;
+                }).length;
+            }, [orders, isSuperAdmin, availablePages]);
 
             const filteredLogs = useMemo(() => {
                 return activityLogs.filter(log => {
@@ -763,7 +781,7 @@
                 setNewOrder(order); setIsEditing(true); setOriginalOrderId(order.id); setIsAddModalOpen(true); 
             };
             
-            const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); setDuplicateWarnings([]); };
+            const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); setDuplicateWarnings([]); setProductSearchStr(''); setShowProductSuggestions(false); setSelectedProductDetails(null); };
             const openViewModal = (order) => { setViewOrder(order); setQuickTracking(order.trackingNumber || ''); setQuickStatus(order.status || 'جاري التحضير'); setIsViewModalOpen(true); };
             const closeViewModal = () => { setIsViewModalOpen(false); setViewOrder(null); setCopiedType(''); setQuickTracking(''); };
 
@@ -910,7 +928,13 @@
                 if(!selectedProductDetails) return;
                 const p = selectedProductDetails.product;
                 const finalDesc = `${p.name}${selectedProductDetails.color ? ` - اللون: ${selectedProductDetails.color}` : ''}${selectedProductDetails.size ? ` - المقاس: ${selectedProductDetails.size}` : ''}`;
-                setNewOrder(prev => ({ ...prev, item: (prev.item ? prev.item + '\n' : '') + `- ${finalDesc}`, productPrice: (Number(prev.productPrice) || 0) + Number(p.price) }));
+                setNewOrder(prev => {
+                    // استبدال أول سطر (اللي كانت بتكتبه) بالمنتج المختار، مع الاحتفاظ بأي منتجات سبق إضافتها
+                    const lines = prev.item.split('\n');
+                    const rest = lines.slice(1).filter(l => l.trim() !== '');
+                    const newItem = `- ${finalDesc}${rest.length ? '\n' + rest.join('\n') : ''}`;
+                    return { ...prev, item: newItem, productPrice: (Number(prev.productPrice) || 0) + Number(p.price) };
+                });
                 setProductSearchStr(''); setShowProductSuggestions(false); setSelectedProductDetails(null);
             };
 
@@ -1277,10 +1301,22 @@
                             </div>
                             <button className="md:hidden text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors" onClick={() => setIsSidebarOpen(false)}><IconX size={18}/></button>
                         </div>
-                        <div className="px-4 py-3 border-b border-slate-800 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-sky-600 flex items-center justify-center text-white font-black text-sm shrink-0">{(userRole.name || 'م')[0]}</div>
-                            <div className="flex-1 min-w-0"><div className="text-sm font-bold text-white truncate">{userRole.name || 'مستخدم'}</div><div className="text-[10px] text-sky-400 font-bold truncate">{ROLE_NAMES[userRole.role] || 'موظف'}</div></div>
-                            <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors shrink-0" title="تسجيل خروج"><IconLogOut /></button>
+                        <div className="px-3 py-3 border-b border-slate-800">
+                            <div className="flex items-center gap-2.5">
+                                <div className="relative shrink-0">
+                                    <div className="w-10 h-10 rounded-full bg-sky-600 flex items-center justify-center text-white font-black text-sm">{(userRole.name || 'م')[0]}</div>
+                                    <div className="absolute -bottom-1 -left-1 bg-green-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">{myOrdersLast30}</div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-bold text-white truncate">{userRole.name || 'مستخدم'}</div>
+                                    <div className="text-[10px] text-sky-400 font-bold">{ROLE_NAMES[userRole.role] || 'Operations'}</div>
+                                    <div className="text-[9px] text-slate-500 font-bold">{myOrdersLast30} orders · last 30d</div>
+                                </div>
+                                <div className="flex flex-col gap-1 shrink-0">
+                                    <button onClick={() => { setAccountEditName(userRole.name || ''); setIsAccountEditOpen(true); }} className="text-slate-500 hover:text-sky-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors" title="Edit Profile"><IconEdit size={14}/></button>
+                                    <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors" title="Logout"><IconLogOut size={14}/></button>
+                                </div>
+                            </div>
                         </div>
                         <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
                             <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest px-3 pt-2 pb-1">القائمة الرئيسية</p>
@@ -1298,7 +1334,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v2.5</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v2.6</span>
                             </div>
                         </nav>
                     </aside>
@@ -1751,10 +1787,10 @@
 
                             {currentTab === 'users' && (isSuperAdmin || isPageManager) && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="bg-sky-50 border border-sky-200 p-4 md:p-5 rounded-2xl"><h2 className="font-black text-sky-900 text-base md:text-lg mb-2">إدارة حسابات الموظفين</h2><p className="text-xs md:text-sm text-sky-800 font-bold mb-4 leading-relaxed">{isSuperAdmin ? 'يمكنك تحديد أكثر من صفحة وتغيير الأدوار بحرية تامة.' : 'صلاحياتك تسمح لك فقط بقبول وتحديد صلاحيات البنات المخصصات لصفحاتك.'}</p><button onClick={fetchUsersList} className="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold text-xs md:text-sm shadow-md w-full md:w-auto">تحديث القائمة 🔄</button></div>
+                                    <div className="bg-sky-50 border border-sky-200 p-4 md:p-5 rounded-2xl"><h2 className="font-black text-sky-900 text-base md:text-lg mb-2">Staff Account Management</h2><p className="text-xs md:text-sm text-sky-800 font-bold mb-4 leading-relaxed">{isSuperAdmin ? 'You can assign multiple pages and change roles freely.' : 'Your permissions only allow you to approve and set permissions for agents on your pages.'}</p><button onClick={fetchUsersList} className="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold text-xs md:text-sm shadow-md w-full md:w-auto">Refresh List 🔄</button></div>
                                     <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-x-auto">
                                         <table className="w-full text-right dynamic-table min-w-[800px]">
-                                            <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="font-bold w-1/6">الآي دي (ID)</th><th className="font-bold w-1/6">الاسم</th><th className="font-bold w-1/4">الدور والصلاحيات الإضافية</th><th className="font-bold">الصفحات المخصصة</th><th className="font-bold text-center w-24">حالة الحساب</th></tr></thead>
+                                            <thead className="bg-slate-800 text-white text-xs md:text-sm"><tr><th className="font-bold w-1/6">User ID</th><th className="font-bold w-1/6">Name</th><th className="font-bold w-1/4">Role & Permissions</th><th className="font-bold">Assigned Pages</th><th className="font-bold text-center w-24">Status</th></tr></thead>
                                             <tbody className="divide-y divide-slate-100/50">
                                                 {visibleUsers.map(u => {
                                                     const isProtectedAccount = u.id === 'd24dd1d7-696d-47d0-be55-185a1aae0c59' || u.id === '6323bb6e-8f56-4e94-a44f-af45322d3fd8';
@@ -1775,16 +1811,16 @@
                                                                 ) : (<div className="mb-2 text-slate-700 bg-slate-100 px-2 py-1 rounded font-bold">{ROLE_NAMES[u.role]}</div>)}
                                                                 {(!SUPER_ADMIN_ROLES.includes(u.role)) && (
                                                                     <div className="flex flex-col gap-1.5 text-[10px] md:text-[11px] text-slate-700 font-semibold bg-slate-50 p-2 rounded border border-slate-200 shadow-inner">
-                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_add_bulk || false} onChange={e => togglePerm(u.id, 'can_add_bulk', e.target.checked)}/> إضافة مجموعة</label>
-                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_import_excel || false} onChange={e => togglePerm(u.id, 'can_import_excel', e.target.checked)}/> رفع شيت إكسيل</label>
-                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_export_shipping || false} onChange={e => togglePerm(u.id, 'can_export_shipping', e.target.checked)}/> تنزيل شيت الشحن</label>
-                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_edit_after_shipping || false} onChange={e => togglePerm(u.id, 'can_edit_after_shipping', e.target.checked)}/> السماح بالتعديل بعد الشحن</label>
+                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_add_bulk || false} onChange={e => togglePerm(u.id, 'can_add_bulk', e.target.checked)}/> Bulk Add</label>
+                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_import_excel || false} onChange={e => togglePerm(u.id, 'can_import_excel', e.target.checked)}/> Import Excel</label>
+                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_export_shipping || false} onChange={e => togglePerm(u.id, 'can_export_shipping', e.target.checked)}/> Export Shipping</label>
+                                                                        <label className={`flex items-center gap-1.5 ${canEditUser ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}><input type="checkbox" disabled={!canEditUser} checked={u.can_edit_after_shipping || false} onChange={e => togglePerm(u.id, 'can_edit_after_shipping', e.target.checked)}/> Edit After Shipping</label>
                                                                     </div>
                                                                 )}
-                                                                {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-slate-400 text-center mt-2">صلاحيات إدارة كاملة</div>}
+                                                                {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-slate-400 text-center mt-2">Full Admin Access</div>}
                                                             </td>
                                                             <td className="font-bold text-xs md:text-sm">
-                                                                {SUPER_ADMIN_ROLES.includes(u.role) ? <span className="text-slate-400 text-xs mt-2 inline-block">مفتوح لكل الصفحات</span> : (
+                                                                {SUPER_ADMIN_ROLES.includes(u.role) ? <span className="text-slate-400 text-xs mt-2 inline-block">All Pages Access</span> : (
                                                                     <div className="flex flex-wrap gap-1.5">
                                                                         {availablePages.map(p => {
                                                                             const isChecked = u.assigned_page && u.assigned_page.includes(p);
@@ -1809,7 +1845,7 @@
                                                                         <input type="checkbox" className="sr-only" checked={u.is_approved || false} onChange={e => togglePerm(u.id, 'is_approved', e.target.checked)} disabled={!canEditUser || SUPER_ADMIN_ROLES.includes(u.role)} />
                                                                         <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${u.is_approved ? 'translate-x-1' : '-translate-x-6'}`}/>
                                                                     </div>
-                                                                    <span className={`text-[10px] font-bold ${u.is_approved ? 'text-green-600' : 'text-amber-500'}`}>{u.is_approved ? 'مفعل' : 'معلق'}</span>
+                                                                    <span className={`text-[10px] font-bold ${u.is_approved ? 'text-green-600' : 'text-amber-500'}`}>{u.is_approved ? 'Active' : 'Pending'}</span>
                                                                 </label>
                                                             </td>
                                                         </tr>
@@ -1822,6 +1858,38 @@
                             )}
                         </div>
                     </main>
+
+                    {/* Account Edit Modal */}
+                    {isAccountEditOpen && (
+                        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[95] flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border-t-4 border-sky-500 animate-in zoom-in-95 duration-200">
+                                <div className="px-5 py-4 border-b flex justify-between items-center">
+                                    <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-sky-600 flex items-center justify-center text-white font-black text-sm">{(userRole.name || 'م')[0]}</div><h3 className="font-black text-slate-800">Edit My Account</h3></div>
+                                    <button onClick={() => setIsAccountEditOpen(false)} className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition-colors"><IconX size={18}/></button>
+                                </div>
+                                <div className="p-5 space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-600 mb-1.5">Display Name</label>
+                                        <input type="text" className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 font-bold text-sm" value={accountEditName} onChange={e => setAccountEditName(e.target.value)} placeholder="Your display name..." />
+                                    </div>
+                                    <div className="bg-slate-50 rounded-xl p-3 space-y-1.5 text-xs text-slate-500 font-bold">
+                                        <div className="flex justify-between"><span>Role:</span><span className="text-slate-700">{ROLE_NAMES[userRole.role] || 'Operations'}</span></div>
+                                        <div className="flex justify-between"><span>Pages:</span><span className="text-slate-700 text-left">{isSuperAdmin ? 'All Pages' : (userRole.assigned_page || 'Not assigned')}</span></div>
+                                        <div className="flex justify-between"><span>Orders (30d):</span><span className="text-green-600 font-black">{myOrdersLast30}</span></div>
+                                    </div>
+                                    <button onClick={async () => {
+                                        if (!accountEditName.trim()) return;
+                                        await supabase.from('user_roles').update({ name: accountEditName.trim() }).eq('id', userRole.id);
+                                        notify('✅ تم تحديث الاسم بنجاح!', 'success');
+                                        setIsAccountEditOpen(false);
+                                        await fetchUsersList();
+                                    }} className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-black rounded-xl transition-colors text-sm shadow-md">
+                                        Save Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Modals */}
                     {isSettingsOpen && (
