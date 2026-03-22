@@ -432,22 +432,18 @@
                 } catch (e) { notify('تعذر تحميل المنتجات. تحقق من الاتصال وأعد المحاولة.'); }
             };
 
+            const DISPLAY_LIMIT = 3000; // آخر عدد أوردر يُحمَّل في الذاكرة للعرض العادي - البحث يشمل كل الأوردرات
+
             const fetchOrdersData = useCallback(async () => {
                 if (!user) return;
                 try {
-                    const PAGE_SIZE = 1000;
-                    let allOrders = [];
-                    let from = 0;
-                    while (true) {
-                        const { data, error } = await supabase.from('orders').select('*').range(from, from + PAGE_SIZE - 1);
-                        if (error) throw error;
-                        if (!data || data.length === 0) break;
-                        allOrders = allOrders.concat(data);
-                        if (data.length < PAGE_SIZE) break;
-                        from += PAGE_SIZE;
-                    }
-                    const sortedData = allOrders.sort((a, b) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
-                    const safeOrders = sortedData.map(o => ({ ...o, productPrice: Number(o.productPrice) || 0, shippingPrice: Number(o.shippingPrice) || 0 }));
+                    const { data, error } = await supabase
+                        .from('orders')
+                        .select('*')
+                        .order('created_at', { ascending: false })
+                        .limit(DISPLAY_LIMIT);
+                    if (error) throw error;
+                    const safeOrders = (data || []).map(o => ({ ...o, productPrice: Number(o.productPrice) || 0, shippingPrice: Number(o.shippingPrice) || 0 }));
                     setOrders(safeOrders);
                     ordersRef.current = safeOrders;
                 } catch (error) { notify('تعذر تحميل الأوردرات. تحقق من الاتصال وأعد المحاولة.'); }
@@ -492,9 +488,11 @@
                 if (!user || String(searchText).trim() === '') { setSearchResults([]); return; }
                 setIsSearchingDb(true);
                 try {
+                    // البحث يشمل كل قاعدة البيانات بدون حد (مش بس آخر 3000)
                     const { data, error } = await supabase.from('orders').select('*')
-                        .or(`customer.ilike.%${searchText}%,phone.ilike.%${searchText}%,id.ilike.%${searchText}%,"trackingNumber".ilike.%${searchText}%`)
-                        .limit(1000); 
+                        .or(`customer.ilike.%${searchText}%,phone.ilike.%${searchText}%,id.ilike.%${searchText}%,"trackingNumber".ilike.%${searchText}%,item.ilike.%${searchText}%`)
+                        .order('created_at', { ascending: false })
+                        .limit(500);
                     if (error) throw error;
                     setSearchResults(data || []);
                 } catch (err) { notify('حدث خطأ أثناء البحث. حاول مرة أخرى.'); } finally { setIsSearchingDb(false); }
@@ -1300,7 +1298,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v2.4</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v2.5</span>
                             </div>
                         </nav>
                     </aside>
@@ -1396,7 +1394,22 @@
                                             )}
                                         </div>
                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
-                                            <div className="col-span-2 relative"><div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400"><IconSearch size={14} /></div><input type="text" placeholder="بحث بالاسم، هاتف، طلب..." className="block w-full pl-2 pr-8 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none transition-shadow text-[11px] md:text-sm font-semibold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
+                                            <div className="col-span-2 relative">
+                                                <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400">
+                                                    {isSearchingDb ? <svg className="animate-spin w-3.5 h-3.5 text-sky-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : <IconSearch size={14} />}
+                                                </div>
+                                                <input type="text" placeholder="بحث بالاسم، هاتف، رقم طلب... (يبحث في كل الأوردرات)" className="block w-full pl-2 pr-8 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none transition-shadow text-[11px] md:text-sm font-semibold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                                                {searchQuery.length === 0 && orders.length >= DISPLAY_LIMIT && (
+                                                    <div className="absolute left-0 right-0 -bottom-5 text-[9px] text-slate-400 font-bold text-center pointer-events-none">
+                                                        يعرض آخر {DISPLAY_LIMIT.toLocaleString()} أوردر • ابحث للوصول للأوردرات الأقدم
+                                                    </div>
+                                                )}
+                                                {searchQuery.length > 0 && searchResults.length > 0 && !isSearchingDb && (
+                                                    <div className="absolute left-0 right-0 -bottom-5 text-[9px] text-sky-600 font-black text-center pointer-events-none">
+                                                        🔍 البحث يشمل كل قاعدة البيانات • وجد {searchResults.length} نتيجة إضافية
+                                                    </div>
+                                                )}
+                                            </div>
                                             <div><select className="w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none text-[11px] md:text-sm font-semibold" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="الكل">جميع الحالات</option>{orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
                                             <div><select className={`w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none text-[11px] md:text-sm font-semibold ${userRole.role === 'agent' && availablePages.length === 1 ? 'opacity-70 bg-slate-100 cursor-not-allowed' : ''}`} value={filterPage} onChange={(e) => setFilterPage(e.target.value)} disabled={userRole.role === 'agent' && availablePages.length === 1}><option value="الكل">{isSuperAdmin ? 'جميع الصفحات' : 'كل صفحاتك'}</option>{availablePages.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
                                             <div className="col-span-2 md:col-span-1 flex gap-2">
