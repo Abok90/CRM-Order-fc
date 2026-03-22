@@ -366,7 +366,7 @@
             const INCOME_CATEGORIES = ['شحن عايده', 'شحن اوفر', 'شحن مكتب', 'أخرى'];
             const DEPARTMENTS = ['أونلاين', 'مصنع'];
 
-            const ROLE_NAMES = { admin: 'مدير النظام', owner: 'صاحب البراندات', social_manager: 'مديرة السوشيال ميديا', media_buyer: 'مدير الميديا باير', page_manager: 'مدير البيدجات', agent: 'موظفة (بنت)' };
+            const ROLE_NAMES = { admin: 'مدير النظام', owner: 'صاحب البراندات', social_manager: 'مديرة السوشيال ميديا', media_buyer: 'مدير الميديا باير', page_manager: 'مدير البيدجات', agent: 'Operations' };
             const SUPER_ADMIN_ROLES = ['admin', 'owner', 'social_manager', 'media_buyer'];
             const FINANCE_ROLES = ['admin', 'owner'];
             
@@ -432,22 +432,18 @@
                 } catch (e) { notify('تعذر تحميل المنتجات. تحقق من الاتصال وأعد المحاولة.'); }
             };
 
+            const DISPLAY_LIMIT = 3000; // آخر عدد أوردر يُحمَّل في الذاكرة للعرض العادي - البحث يشمل كل الأوردرات
+
             const fetchOrdersData = useCallback(async () => {
                 if (!user) return;
                 try {
-                    const PAGE_SIZE = 1000;
-                    let allOrders = [];
-                    let from = 0;
-                    while (true) {
-                        const { data, error } = await supabase.from('orders').select('*').range(from, from + PAGE_SIZE - 1);
-                        if (error) throw error;
-                        if (!data || data.length === 0) break;
-                        allOrders = allOrders.concat(data);
-                        if (data.length < PAGE_SIZE) break;
-                        from += PAGE_SIZE;
-                    }
-                    const sortedData = allOrders.sort((a, b) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
-                    const safeOrders = sortedData.map(o => ({ ...o, productPrice: Number(o.productPrice) || 0, shippingPrice: Number(o.shippingPrice) || 0 }));
+                    const { data, error } = await supabase
+                        .from('orders')
+                        .select('*')
+                        .order('created_at', { ascending: false })
+                        .limit(DISPLAY_LIMIT);
+                    if (error) throw error;
+                    const safeOrders = (data || []).map(o => ({ ...o, productPrice: Number(o.productPrice) || 0, shippingPrice: Number(o.shippingPrice) || 0 }));
                     setOrders(safeOrders);
                     ordersRef.current = safeOrders;
                 } catch (error) { notify('تعذر تحميل الأوردرات. تحقق من الاتصال وأعد المحاولة.'); }
@@ -492,9 +488,11 @@
                 if (!user || String(searchText).trim() === '') { setSearchResults([]); return; }
                 setIsSearchingDb(true);
                 try {
+                    // البحث يشمل كل قاعدة البيانات بدون حد (مش بس آخر 3000)
                     const { data, error } = await supabase.from('orders').select('*')
-                        .or(`customer.ilike.%${searchText}%,phone.ilike.%${searchText}%,id.ilike.%${searchText}%,"trackingNumber".ilike.%${searchText}%`)
-                        .limit(1000); 
+                        .or(`customer.ilike.%${searchText}%,phone.ilike.%${searchText}%,id.ilike.%${searchText}%,"trackingNumber".ilike.%${searchText}%,item.ilike.%${searchText}%`)
+                        .order('created_at', { ascending: false })
+                        .limit(500);
                     if (error) throw error;
                     setSearchResults(data || []);
                 } catch (err) { notify('حدث خطأ أثناء البحث. حاول مرة أخرى.'); } finally { setIsSearchingDb(false); }
@@ -741,6 +739,13 @@
 
             const resetFilters = () => { setSearchQuery(''); setFilterStatus('الكل'); setFilterPage('الكل'); setDateFrom(''); setDateTo(''); setShowDuplicatesOnly(false); setSearchResults([]); setCurrentPage(1); };
             const resetLogFilters = () => { setLogSearchQuery(''); setLogFilterUser('الكل'); setLogDateFrom(''); setLogDateTo(''); setLogCurrentPage(1); };
+
+            // إعادة تعيين الفلاتر تلقائياً عند مغادرة صفحة الطلبات
+            const prevTabRef = React.useRef(currentTab);
+            useEffect(() => {
+                if (prevTabRef.current === 'orders' && currentTab !== 'orders') resetFilters();
+                prevTabRef.current = currentTab;
+            }, [currentTab]);
             const navigateToFilteredOrders = (page, status) => { setFilterPage(page); setFilterStatus(status); setCurrentTab('orders'); };
             const handleSelectAll = (e) => { e.target.checked ? setSelectedOrders(displayedOrders.map(o => o.id)) : setSelectedOrders([]); };
             const handleSelectOrder = (id) => { selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); };
@@ -941,10 +946,15 @@
                 const isShipped = isEditing && (originalOrderData?.status === 'الشحن' || originalOrderData?.trackingNumber);
                 
                 let finalNotes = newOrder.notes || '';
-                if (isEditing && userRole?.role === 'agent' && isShipped) {
-                    if (!userRole.can_edit_after_shipping) { setIsSubmitting(false); notify("عفواً، لا تملك صلاحية تعديل طلب تم تحويله إلى الشحن."); return; }
-                    if (!editReason || editReason.trim() === '') { setIsSubmitting(false); notify("يرجى كتابة سبب التعديل في الخانة الحمراء لكي يتم حفظ الأوردر.", 'warning'); return; }
-                    finalNotes = (finalNotes ? finalNotes + '\n' : '') + `[تعديل بعد الشحن - ${new Date().toLocaleString('ar-EG')}]: ${editReason}`;
+                if (isEditing) {
+                    if (userRole?.role === 'agent' && isShipped) {
+                        if (!userRole.can_edit_after_shipping) { setIsSubmitting(false); notify("عفواً، لا تملك صلاحية تعديل طلب تم تحويله إلى الشحن."); return; }
+                        if (!editReason || editReason.trim() === '') { setIsSubmitting(false); notify("يرجى كتابة سبب التعديل في الخانة الحمراء لكي يتم حفظ الأوردر.", 'warning'); return; }
+                    }
+                    if (editReason && editReason.trim() !== '') {
+                        const tag = isShipped ? 'تعديل بعد الشحن' : 'تعديل';
+                        finalNotes = (finalNotes ? finalNotes + '\n' : '') + `[${tag} - ${new Date().toLocaleString('ar-EG')}]: ${editReason}`;
+                    }
                 }
 
                 const orderPayload = { 
@@ -1287,6 +1297,9 @@
                             <div className="pt-4 mt-4 border-t border-slate-800">
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
+                            <div className="pt-3 pb-1 text-center">
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v2.5</span>
+                            </div>
                         </nav>
                     </aside>
 
@@ -1381,7 +1394,22 @@
                                             )}
                                         </div>
                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
-                                            <div className="col-span-2 relative"><div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400"><IconSearch size={14} /></div><input type="text" placeholder="بحث بالاسم، هاتف، طلب..." className="block w-full pl-2 pr-8 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none transition-shadow text-[11px] md:text-sm font-semibold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
+                                            <div className="col-span-2 relative">
+                                                <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400">
+                                                    {isSearchingDb ? <svg className="animate-spin w-3.5 h-3.5 text-sky-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> : <IconSearch size={14} />}
+                                                </div>
+                                                <input type="text" placeholder="بحث بالاسم، هاتف، رقم طلب... (يبحث في كل الأوردرات)" className="block w-full pl-2 pr-8 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none transition-shadow text-[11px] md:text-sm font-semibold" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                                                {searchQuery.length === 0 && orders.length >= DISPLAY_LIMIT && (
+                                                    <div className="absolute left-0 right-0 -bottom-5 text-[9px] text-slate-400 font-bold text-center pointer-events-none">
+                                                        يعرض آخر {DISPLAY_LIMIT.toLocaleString()} أوردر • ابحث للوصول للأوردرات الأقدم
+                                                    </div>
+                                                )}
+                                                {searchQuery.length > 0 && searchResults.length > 0 && !isSearchingDb && (
+                                                    <div className="absolute left-0 right-0 -bottom-5 text-[9px] text-sky-600 font-black text-center pointer-events-none">
+                                                        🔍 البحث يشمل كل قاعدة البيانات • وجد {searchResults.length} نتيجة إضافية
+                                                    </div>
+                                                )}
+                                            </div>
                                             <div><select className="w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none text-[11px] md:text-sm font-semibold" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="الكل">جميع الحالات</option>{orderStatuses.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
                                             <div><select className={`w-full px-2 py-1.5 md:py-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-sky-500 outline-none text-[11px] md:text-sm font-semibold ${userRole.role === 'agent' && availablePages.length === 1 ? 'opacity-70 bg-slate-100 cursor-not-allowed' : ''}`} value={filterPage} onChange={(e) => setFilterPage(e.target.value)} disabled={userRole.role === 'agent' && availablePages.length === 1}><option value="الكل">{isSuperAdmin ? 'جميع الصفحات' : 'كل صفحاتك'}</option>{availablePages.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
                                             <div className="col-span-2 md:col-span-1 flex gap-2">
@@ -1971,7 +1999,7 @@
                     {isAddModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end md:items-center justify-center md:p-4 pb-[65px] md:pb-0">
                             <div className={`bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full md:max-w-2xl max-h-[85vh] md:max-h-[95vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border-4 ${currentTheme.border}`}>
-                                <div className={`px-4 py-2.5 md:px-6 md:py-5 border-b flex justify-between items-center shrink-0 ${currentTheme.bgLight}`}><div className="flex items-center gap-2"><div className={`p-1.5 rounded-lg bg-white shadow-sm ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit size={16}/> : <IconPlus size={16}/>}</div><div><h2 className={`text-sm md:text-xl font-black leading-tight ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2><p className="text-[9px] text-slate-400 font-bold">v2.3</p></div></div><button onClick={closeModal} className="p-1.5 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={18} /></button></div>
+                                <div className={`px-4 py-2.5 md:px-6 md:py-5 border-b flex justify-between items-center shrink-0 ${currentTheme.bgLight}`}><div className="flex items-center gap-2"><div className={`p-1.5 rounded-lg bg-white shadow-sm ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit size={16}/> : <IconPlus size={16}/>}</div><div><h2 className={`text-sm md:text-xl font-black leading-tight ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2></div></div><button onClick={closeModal} className="p-1.5 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={18} /></button></div>
                                 
                                 <form onSubmit={handleAddOrEditOrder} className={`flex flex-col flex-1 overflow-hidden ${currentTheme.bgLight}`}>
                                 <div className="p-3 md:p-5 space-y-3 overflow-y-auto flex-1">
@@ -1993,10 +2021,27 @@
                                         <div><label className="block text-[11px] font-black text-slate-600 mb-1">الصفحة</label><select className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs ${currentTheme.ringFocus} focus:ring-2 ${userRole?.role === 'agent' ? 'opacity-70 cursor-not-allowed' : ''}`} value={newOrder.page} onChange={e => setNewOrder({...newOrder, page: e.target.value})} disabled={userRole?.role === 'agent'}>{availablePages.map(page => <option key={page} value={page}>{page}</option>)}</select></div>
                                         <div className="col-span-2"><label className="block text-[11px] font-black text-slate-600 mb-1">العنوان <span className="text-red-500">*</span></label><input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
 
-                                        {/* قسم إضافة المنتجات */}
-                                        <div className="col-span-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 relative"><label className="block text-[11px] font-black text-slate-600 mb-1.5">🛒 إضافة من المخزن</label><div className="relative"><input type="text" placeholder="ابحث عن منتج..." className={`w-full px-3 py-2 pr-9 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 font-bold text-xs ${currentTheme.ringFocus}`} value={productSearchStr} onChange={(e) => { setProductSearchStr(e.target.value); setShowProductSuggestions(true); setSelectedProductDetails(null); }} onFocus={() => setShowProductSuggestions(true)} /><button type="button" onClick={() => { setShowProductSuggestions(!showProductSuggestions); setSelectedProductDetails(null); }} className="absolute left-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-sky-600 bg-slate-100 hover:bg-sky-50 rounded transition-colors"><IconChevronDown /></button></div>{showProductSuggestions && !selectedProductDetails && (<div className="absolute z-20 left-2 right-2 mt-1 bg-white border border-slate-200 shadow-2xl rounded-xl max-h-48 overflow-y-auto divide-y divide-slate-100">{products.filter(p => p.name.toLowerCase().includes(productSearchStr.toLowerCase())).map(p => (<div key={p.id} onClick={() => setSelectedProductDetails({ product: p, color: '', size: '' })} className="p-2.5 flex items-center gap-2.5 hover:bg-slate-50 cursor-pointer transition-colors">{p.image ? <img src={p.image} className="w-9 h-9 rounded border object-cover flex-shrink-0"/> : <div className="w-9 h-9 bg-slate-100 rounded flex items-center justify-center text-slate-400 flex-shrink-0"><IconPackage size={14}/></div>}<div><div className="font-bold text-slate-800 text-xs">{p.name}</div><div className="text-[10px] text-green-600 font-black">{p.price} ج.م</div></div></div>))}{products.filter(p => p.name.toLowerCase().includes(productSearchStr.toLowerCase())).length === 0 && <div className="p-3 text-center text-slate-500 text-xs font-bold">لا توجد نتائج</div>}</div>)}{selectedProductDetails && (<div className="mt-2 p-2.5 bg-white rounded-xl border border-sky-200 shadow-sm animate-in fade-in slide-in-from-top-2"><div className="flex items-center justify-between mb-2 border-b border-slate-100 pb-1.5"><h4 className="font-black text-xs text-sky-900">{selectedProductDetails.product.name}</h4><button type="button" onClick={()=>setSelectedProductDetails(null)} className="text-[10px] font-bold text-red-500 hover:underline">إلغاء</button></div>{selectedProductDetails.product.colors && (<div className="mb-2"><span className="block text-[10px] font-bold text-slate-500 mb-1">اللون:</span><div className="flex flex-wrap gap-1">{selectedProductDetails.product.colors.split(',').map(c => <button type="button" key={c} onClick={()=>setSelectedProductDetails({...selectedProductDetails, color: c})} className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${selectedProductDetails.color === c ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 border-slate-200'}`}>{c}</button>)}</div></div>)}{selectedProductDetails.product.sizes && (<div className="mb-2.5"><span className="block text-[10px] font-bold text-slate-500 mb-1">المقاس:</span><div className="flex flex-wrap gap-1">{selectedProductDetails.product.sizes.split(',').map(s => <label key={s} className={`cursor-pointer px-2 py-0.5 rounded-lg text-[10px] font-black border transition-colors flex items-center justify-center min-w-[32px] ${selectedProductDetails.size === s ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 border-slate-200'}`}><input type="radio" className="hidden" name="prod_size" checked={selectedProductDetails.size === s} onChange={()=>setSelectedProductDetails({...selectedProductDetails, size: s})} />{s}</label>)}</div></div>)}<button type="button" onClick={applyProductToOrder} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-1.5 rounded-lg transition-colors text-xs">إضافة ➕</button></div>)}</div>
-
-                                        <div className="col-span-2"><label className="block text-[11px] font-black text-slate-600 mb-1">المنتج / الوصف <span className="text-red-500">*</span></label><textarea required rows="2" placeholder="تفاصيل المنتجات والمقاسات والألوان..." className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none font-bold text-xs leading-relaxed whitespace-pre-wrap ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => setNewOrder({...newOrder, item: e.target.value})}></textarea></div>
+                                        {/* حقل المنتج الذكي - يبحث في المخزن تلقائياً */}
+                                        <div className="col-span-2 relative">
+                                            <label className="block text-[11px] font-black text-slate-600 mb-1">🛒 المنتج / الوصف <span className="text-red-500">*</span> <span className="text-[9px] text-slate-400 font-bold">(اكتب اسم المنتج، لو موجود في المخزن هيظهر تلقائي)</span></label>
+                                            <textarea required rows="2" placeholder="اكتب اسم المنتج أو وصفه بحرية..." className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none font-bold text-xs leading-relaxed whitespace-pre-wrap ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.item} onChange={e => { const val = e.target.value; setNewOrder({...newOrder, item: val}); setProductSearchStr(val.split('\n')[0]); setShowProductSuggestions(val.trim().length > 0); setSelectedProductDetails(null); }}></textarea>
+                                            {showProductSuggestions && !selectedProductDetails && products.filter(p => p.name.toLowerCase().includes(newOrder.item.split('\n')[0].toLowerCase().trim()) && newOrder.item.split('\n')[0].trim().length > 0).length > 0 && (
+                                                <div className="absolute z-20 left-0 right-0 mt-0.5 bg-white border border-slate-200 shadow-2xl rounded-xl max-h-44 overflow-y-auto divide-y divide-slate-100">
+                                                    <div className="px-3 py-1.5 bg-slate-50 border-b text-[10px] font-black text-slate-500 flex justify-between items-center"><span>📦 نتائج من المخزن</span><button type="button" onClick={() => setShowProductSuggestions(false)} className="text-slate-400 hover:text-red-500"><IconX size={12}/></button></div>
+                                                    {products.filter(p => p.name.toLowerCase().includes(newOrder.item.split('\n')[0].toLowerCase().trim())).map(p => (<div key={p.id} onClick={() => { setSelectedProductDetails({ product: p, color: '', size: '' }); setShowProductSuggestions(false); }} className="p-2.5 flex items-center gap-2.5 hover:bg-sky-50 cursor-pointer transition-colors">{p.image ? <img src={p.image} className="w-9 h-9 rounded border object-cover flex-shrink-0"/> : <div className="w-9 h-9 bg-slate-100 rounded flex items-center justify-center text-slate-400 flex-shrink-0"><IconPackage size={14}/></div>}<div><div className="font-bold text-slate-800 text-xs">{p.name}</div><div className="text-[10px] text-green-600 font-black">{p.price} ج.م</div></div></div>))}
+                                                </div>
+                                            )}
+                                            {selectedProductDetails && (
+                                                <div className="mt-1.5 p-2.5 bg-sky-50 border border-sky-200 rounded-xl animate-in fade-in slide-in-from-top-1">
+                                                    <div className="flex items-center justify-between mb-2"><span className="text-xs font-black text-sky-800">✅ {selectedProductDetails.product.name}</span><button type="button" onClick={() => setSelectedProductDetails(null)} className="text-[10px] font-bold text-red-500 hover:underline">إلغاء</button></div>
+                                                    <div className="flex flex-wrap gap-3 mb-2">
+                                                        {selectedProductDetails.product.colors && (<div><span className="block text-[10px] font-bold text-slate-500 mb-1">اللون:</span><div className="flex flex-wrap gap-1">{selectedProductDetails.product.colors.split(',').map(c => <button type="button" key={c} onClick={() => setSelectedProductDetails({...selectedProductDetails, color: c})} className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${selectedProductDetails.color === c ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 border-slate-200'}`}>{c}</button>)}</div></div>)}
+                                                        {selectedProductDetails.product.sizes && (<div><span className="block text-[10px] font-bold text-slate-500 mb-1">المقاس:</span><div className="flex flex-wrap gap-1">{selectedProductDetails.product.sizes.split(',').map(s => <button type="button" key={s} onClick={() => setSelectedProductDetails({...selectedProductDetails, size: s})} className={`px-2 py-0.5 rounded-lg text-[10px] font-black border transition-colors min-w-[28px] text-center ${selectedProductDetails.size === s ? `${currentTheme.btnPrimary} border-transparent` : 'bg-white text-slate-700 border-slate-200'}`}>{s}</button>)}</div></div>)}
+                                                    </div>
+                                                    <button type="button" onClick={applyProductToOrder} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-1.5 rounded-lg transition-colors text-xs">تأكيد الإضافة ✓</button>
+                                                </div>
+                                            )}
+                                        </div>
 
                                         {/* كروت الأسعار */}
                                         <div className="col-span-2">
@@ -2027,17 +2072,23 @@
                                                 <div className="col-span-2 md:col-span-1"><label className="block text-[11px] md:text-sm font-black text-slate-700 mb-1.5">تغيير حالة الطلب</label><select className={`w-full px-3 py-2 md:px-4 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs md:text-sm`} value={newOrder.status} onChange={e => setNewOrder({...newOrder, status: e.target.value})}>{orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}</select></div>
                                             </div>
                                         )}
-                                        {isEditing && userRole?.role === 'agent' && (orders.find(o => o.id === originalOrderId)?.status === 'الشحن' || orders.find(o => o.id === originalOrderId)?.trackingNumber) && (
-                                            <div className="col-span-2 animate-in fade-in slide-in-from-bottom-2">
-                                                <div className="p-3 bg-red-50 border-2 border-red-400 rounded-2xl shadow-sm">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <span className="text-lg">⚠️</span>
-                                                        <label className="text-xs font-black text-red-700">الطلب ده اتشحن — لازم تكتبي سبب التعديل <span className="text-red-500">*</span></label>
+                                        {isEditing && (() => {
+                                            const isShippedOrder = orders.find(o => o.id === originalOrderId)?.status === 'الشحن' || orders.find(o => o.id === originalOrderId)?.trackingNumber;
+                                            const mustReason = userRole?.role === 'agent' && isShippedOrder;
+                                            return (
+                                                <div className="col-span-2 animate-in fade-in slide-in-from-bottom-2">
+                                                    <div className={`p-3 rounded-2xl border-2 ${mustReason ? 'bg-red-50 border-red-400' : 'bg-amber-50 border-amber-300'}`}>
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-base">{mustReason ? '⚠️' : '📝'}</span>
+                                                            <label className={`text-xs font-black ${mustReason ? 'text-red-700' : 'text-amber-700'}`}>
+                                                                {mustReason ? <>سبب التعديل (إجباري لأن الطلب اتشحن) <span className="text-red-500">*</span></> : 'سبب / ملاحظة التعديل (اختياري)'}
+                                                            </label>
+                                                        </div>
+                                                        <input type="text" required={mustReason} className={`w-full px-3 py-2.5 bg-white border-2 rounded-xl focus:ring-2 outline-none text-xs font-bold text-slate-800 ${mustReason ? 'border-red-300 focus:ring-red-500 placeholder:text-red-300' : 'border-amber-200 focus:ring-amber-400 placeholder:text-slate-300'}`} value={editReason} onChange={e => setEditReason(e.target.value)} placeholder={mustReason ? 'اكتبي سبب التعديل هنا...' : 'اكتب ملاحظة أو سبب التعديل (اختياري)...'} />
                                                     </div>
-                                                    <input type="text" required className="w-full px-3 py-2.5 bg-white border-2 border-red-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-xs font-bold text-slate-800 placeholder:text-red-300" value={editReason} onChange={e => setEditReason(e.target.value)} placeholder="اكتبي سبب التعديل هنا..." />
                                                 </div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
                                     </div>
                                 </div>
 
