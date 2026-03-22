@@ -495,7 +495,8 @@
 
             const fetchUsersList = async () => {
                 try {
-                    const { data, error } = await supabase.from('user_roles').select('*');
+                    const { data, error } = await supabase.from('user_roles')
+                        .select('id,name,role,email,is_approved,assigned_page,can_add_bulk,can_delete,can_edit,can_export');
                     if (!error && data) setUsersList(data);
                 } catch (error) { notify('تعذر تحميل قائمة المستخدمين.'); }
             };
@@ -503,7 +504,9 @@
             const fetchActivityLogs = async () => {
                 if(!isSuperAdmin && !isPageManager) return;
                 try {
-                    const { data, error } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(2000);
+                    const { data, error } = await supabase.from('activity_logs')
+                        .select('id,action,order_id,user_name,created_at')
+                        .order('created_at', { ascending: false }).limit(500);
                     if (!error && data) setActivityLogs(data);
                 } catch(e) { notify('تعذر تحميل سجل النشاطات.'); }
             };
@@ -511,21 +514,21 @@
             const fetchFinanceRecords = async () => {
                 if (!user || !canAccessFinance) return;
                 try {
-                    const { data, error } = await supabase.from('finance_records').select('*').order('date', { ascending: false });
+                    const { data, error } = await supabase.from('finance_records')
+                        .select('*').order('date', { ascending: false }).limit(1000);
                     if (!error && data) setFinanceRecords(data);
                 } catch(e) { notify('تعذر تحميل السجلات المالية.'); }
             };
-            
+
             const handleRefreshData = async () => {
                 setLoadingDB(true);
-                await Promise.all([
-                    fetchOrdersData(),
-                    fetchProducts(),
-                    (isSuperAdmin || isPageManager) ? fetchUsersList() : Promise.resolve(),
-                    (isSuperAdmin || isPageManager) ? fetchActivityLogs() : Promise.resolve(),
-                    canAccessFinance ? fetchFinanceRecords() : Promise.resolve()
-                ]);
+                // أوردرات ومنتجات أولاً — الأهم للمستخدم
+                await Promise.all([fetchOrdersData(), fetchProducts()]);
                 setLoadingDB(false);
+                // باقي البيانات في الخلفية بعد ما الصفحة تظهر
+                if (isSuperAdmin || isPageManager) fetchUsersList();
+                if (isSuperAdmin || isPageManager) fetchActivityLogs();
+                if (canAccessFinance) fetchFinanceRecords();
             };
 
             const searchDatabase = async (searchText) => {
@@ -669,12 +672,10 @@
                 if (currentTab === 'users' && (isSuperAdmin || isPageManager)) fetchUsersList();
             }, [currentTab]);
 
-            // تحديث تلقائي لقائمة المستخدمين كل 15 ثانية
+            // قائمة المستخدمين — بدون polling، الـ real-time يتولى التحديث
             useEffect(() => {
                 if (!user || !userRole?.is_approved || !(isSuperAdmin || isPageManager)) return;
                 fetchUsersList();
-                const interval = setInterval(fetchUsersList, 15000);
-                return () => clearInterval(interval);
             }, [user, userRole?.is_approved, isSuperAdmin, isPageManager]);
 
             const phoneCounts = useMemo(() => {
