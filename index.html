@@ -495,8 +495,7 @@
 
             const fetchUsersList = async () => {
                 try {
-                    const { data, error } = await supabase.from('user_roles')
-                        .select('id,name,role,email,is_approved,assigned_page,can_add_bulk,can_delete,can_edit,can_export');
+                    const { data, error } = await supabase.from('user_roles').select('*');
                     if (!error && data) setUsersList(data);
                 } catch (error) { notify('تعذر تحميل قائمة المستخدمين.'); }
             };
@@ -1747,7 +1746,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v3.1</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.0</span>
                             </div>
                         </nav>
                     </aside>
