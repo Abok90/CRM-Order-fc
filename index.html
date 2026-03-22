@@ -511,7 +511,7 @@
             const generateCustomerMsg = (order) => {
                 if (!order) return '';
                 const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
-                return `✅ تم استلام طلبك بنجاح!\n${'─'.repeat(24)}\n📦 رقم الطلب: ${order.id}\n👤 الاسم: ${order.customer}\n📱 الموبايل: ${order.phone}\n🛍️ المنتج: ${order.item}\n📍 العنوان: ${order.address}\n${'─'.repeat(24)}\n💰 سعر المنتجات: ${Number(order.productPrice) || 0} ج.م\n🚚 سعر الشحن: ${Number(order.shippingPrice) || 0} ج.م\n💵 الإجمالي: ${total} ج.م${order.trackingNumber ? `\n\n📬 رقم البوليصة: ${order.trackingNumber}` : ''}\n${'─'.repeat(24)}\nشكراً لتعاملك معنا 🙏`;
+                return `✅ تم استلام طلبك بنجاح!\n${'─'.repeat(24)}\n🏪 ${order.page || ''}\n📦 رقم الطلب: ${order.id}\n👤 الاسم: ${order.customer}\n📱 الموبايل: ${order.phone}\n🛍️ المنتج: ${order.item}\n📍 العنوان: ${order.address}\n${'─'.repeat(24)}\n💰 سعر المنتجات: ${Number(order.productPrice) || 0} ج.م\n🚚 سعر الشحن: ${Number(order.shippingPrice) || 0} ج.م\n💵 الإجمالي: ${total} ج.م${order.trackingNumber ? `\n\n📬 رقم البوليصة: ${order.trackingNumber}` : ''}\n${'─'.repeat(24)}\nشكراً لتعاملك معنا 🙏`;
             };
 
             useEffect(() => {
@@ -818,11 +818,24 @@
                 setIsAddModalOpen(true);
             };
 
-            // فتح واتساب مع رسالة مسبقة التجهيز
+            // فتح واتساب مع رسالة مسبقة التجهيز (متوافق مع iOS PWA)
             const openWhatsApp = (phone, message) => {
                 if (!phone) return;
                 const intlPhone = phone.startsWith('0') ? '2' + phone : phone;
-                window.open('https://wa.me/' + intlPhone + '?text=' + encodeURIComponent(message), '_blank');
+                const url = 'https://wa.me/' + intlPhone + '?text=' + encodeURIComponent(message);
+                // window.open مش بيشتغل في iOS PWA standalone mode — نستخدم location.href
+                window.location.href = url;
+            };
+
+            // جلب آخر رقم أوردر في الصفحة وإرجاع الرقم التالي
+            const getNextOrderId = (page) => {
+                const pageOrders = orders.filter(o => o.page === page);
+                if (pageOrders.length === 0) return '';
+                // orders مرتبة بالأحدث أول (limit+desc)
+                const lastId = pageOrders[0]?.id || '';
+                const numMatch = lastId.match(/(\d+)$/);
+                if (numMatch) return String(parseInt(numMatch[1]) + 1);
+                return '';
             };
 
             // إعادة تعيين الفلاتر تلقائياً عند مغادرة صفحة الطلبات
@@ -838,6 +851,7 @@
             // === MODAL OPEN/CLOSE FUNCTIONS ===
             const openAddModal = () => {
                 setEditReason(''); setProductSearchStr(''); setSelectedProductDetails(null); setShowProductSuggestions(false);
+                const selectedPage = (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0];
                 // استرجاع المسودة إن وجدت
                 const draftRaw = localStorage.getItem('crmOrderDraft');
                 if (draftRaw) {
@@ -846,10 +860,10 @@
                         setNewOrder(draft);
                         setHasDraft(true);
                     } catch(e) {
-                        setNewOrder({ id: '', customer: '', address: '', phone: '', notes: '', page: (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' });
+                        setNewOrder({ id: getNextOrderId(selectedPage), customer: '', address: '', phone: '', notes: '', page: selectedPage, item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' });
                     }
                 } else {
-                    setNewOrder({ id: '', customer: '', address: '', phone: '', notes: '', page: (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' });
+                    setNewOrder({ id: getNextOrderId(selectedPage), customer: '', address: '', phone: '', notes: '', page: selectedPage, item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' });
                 }
                 setIsEditing(false); setOriginalOrderId(null); setDuplicateWarnings([]); setIsAddModalOpen(true);
             };
@@ -1043,7 +1057,7 @@
                 if (!newOrder.item || String(newOrder.item).trim() === '') { notify('يرجى إدخال تفاصيل المنتج.', 'warning'); return; }
 
                 setIsSubmitting(true);
-                const finalOrderId = newOrder.id && String(newOrder.id).trim() !== '' ? String(newOrder.id).trim() : `ORD-${Date.now().toString().slice(-6)}`;
+                const finalOrderId = newOrder.id && String(newOrder.id).trim() !== '' ? String(newOrder.id).trim() : (getNextOrderId(newOrder.page) || `ORD-${Date.now().toString().slice(-6)}`);
                 const finalDate = newOrder.date && String(newOrder.date).trim() !== '' ? newOrder.date : new Date().toISOString().split('T')[0];
                 const originalOrderData = isEditing ? orders.find(o => o.id === originalOrderId) : null;
                 const isShipped = isEditing && (originalOrderData?.status === 'الشحن' || originalOrderData?.trackingNumber);
@@ -1098,8 +1112,9 @@
                         if (error) throw error;
                         logActivity('إضافة أوردر جديد', finalOrderId);
                         syncToGoogleSheet('upsert', orderPayload);
+                        localStorage.removeItem('crmOrderDraft'); setHasDraft(false);
                         closeModal();
-                        setSuccessOrderMessage(orderPayload); 
+                        setSuccessOrderMessage(orderPayload);
                     }
                     fetchOrdersData(); 
                 } catch (error) { notify(`فشل الحفظ: ${error.message}`); } finally { setIsSubmitting(false); }
@@ -2292,7 +2307,7 @@
                                         <div><label className="block text-[11px] font-black text-slate-600 mb-1">رقم الطلب</label><input type="text" disabled={isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status)} placeholder="تلقائي" className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs ${isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''} ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.id} onChange={e => setNewOrder({...newOrder, id: e.target.value})} /></div>
                                         <div><label className="block text-[11px] font-black text-slate-600 mb-1">اسم العميل <span className="text-red-500">*</span></label><input required type="text" className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.customer} onChange={e => setNewOrder({...newOrder, customer: e.target.value})} /></div>
                                         <div><label className="block text-[11px] font-black text-slate-600 mb-1">رقم الموبايل <span className="text-red-500">*</span></label><input required type="text" inputMode="numeric" dir="ltr" placeholder="01012345678" className={`w-full px-3 py-2 bg-slate-50 border ${newOrder.phone && newOrder.phone.length !== 11 && newOrder.phone.length !== 8 ? 'border-red-400 bg-red-50' : 'border-slate-200'} rounded-lg outline-none text-left font-bold tracking-wider text-xs ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => handlePhoneChange(e.target.value, (val) => setNewOrder({...newOrder, phone: val}))} />{newOrder.phone && newOrder.phone.length !== 11 && newOrder.phone.length !== 8 && <p className="text-[10px] text-red-600 mt-0.5 font-bold">⚠️ 11 أو 8 أرقام</p>}</div>
-                                        <div><label className="block text-[11px] font-black text-slate-600 mb-1">الصفحة</label><select className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs ${currentTheme.ringFocus} focus:ring-2 ${userRole?.role === 'agent' ? 'opacity-70 cursor-not-allowed' : ''}`} value={newOrder.page} onChange={e => setNewOrder({...newOrder, page: e.target.value})} disabled={userRole?.role === 'agent'}>{availablePages.map(page => <option key={page} value={page}>{page}</option>)}</select></div>
+                                        <div><label className="block text-[11px] font-black text-slate-600 mb-1">الصفحة</label><select className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs ${currentTheme.ringFocus} focus:ring-2 ${userRole?.role === 'agent' ? 'opacity-70 cursor-not-allowed' : ''}`} value={newOrder.page} onChange={e => { const pg = e.target.value; const suggested = getNextOrderId(pg); setNewOrder(prev => ({ ...prev, page: pg, id: (!prev.id || /^\d+$/.test(prev.id)) && suggested ? suggested : prev.id })); }} disabled={userRole?.role === 'agent'}>{availablePages.map(page => <option key={page} value={page}>{page}</option>)}</select></div>
                                         <div className="col-span-2"><label className="block text-[11px] font-black text-slate-600 mb-1">العنوان <span className="text-red-500">*</span></label><input required type="text" placeholder="المحافظة، المنطقة، الشارع..." className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.address} onChange={e => setNewOrder({...newOrder, address: e.target.value})} /></div>
 
                                         {/* حقل المنتج الذكي - يبحث في المخزن تلقائياً */}
