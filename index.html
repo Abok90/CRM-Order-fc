@@ -272,6 +272,7 @@
             const [signupSuccess, setSignupSuccess] = useState(false);
             const [signupError, setSignupError] = useState('');
             const [signupLoading, setSignupLoading] = useState(false);
+            const [signupNeedsEmailConfirm, setSignupNeedsEmailConfirm] = useState(false);
             const [notifications, setNotifications] = useState([]);
             const notify = (message, type = 'error') => {
                 const id = Date.now() + Math.random();
@@ -1119,8 +1120,19 @@
                 try {
                     const { data, error } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword });
                     if (error) { setSignupError(error.message); setSignupLoading(false); return; }
-                    if (data?.user) {
-                        await supabase.from('user_roles').insert([{ id: data.user.id, name: signupName.trim(), role: 'agent', is_approved: false, email: signupEmail }]);
+                    // إذا في session فوري (Email Confirmation معطّل) → ندخل البيانات مباشرة
+                    if (data?.session && data?.user) {
+                        await supabase.from('user_roles').upsert([{ id: data.user.id, name: signupName.trim(), role: 'agent', is_approved: false, email: signupEmail }], { onConflict: 'id' });
+                    }
+                    // إذا مفيش session (Email Confirmation شغّال) → نخزّن الاسم مؤقتاً
+                    // fetchUserRole هيعمل الـ insert لما المستخدم يدخل بعد ما يأكد الإيميل
+                    if (data?.user && !data?.session) {
+                        setSignupNeedsEmailConfirm(true);
+                        try {
+                            await supabase.from('user_roles').upsert([{ id: data.user.id, name: signupName.trim(), role: 'agent', is_approved: false, email: signupEmail }], { onConflict: 'id' });
+                        } catch (_) { /* RLS قد تمنع هذا — fetchUserRole سيكمل التسجيل لاحقاً */ }
+                    } else {
+                        setSignupNeedsEmailConfirm(false);
                     }
                     setSignupSuccess(true);
                 } catch (err) { setSignupError(err.message); }
@@ -1450,18 +1462,39 @@
                                         </div>
                                     ) : signupSuccess ? (
                                         <div className="text-center py-4">
-                                            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{background: 'rgba(34,197,94,0.15)', border: '2px solid rgba(34,197,94,0.4)'}}>
-                                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                                            </div>
-                                            <h3 className="text-lg font-black text-white mb-2">تم إنشاء حسابك! 🎉</h3>
-                                            <p className="text-slate-300 text-sm font-bold mb-4 leading-relaxed">حسابك في انتظار موافقة المدير.<br/>هيتم إشعارك فور التفعيل.</p>
-                                            <div className="rounded-xl p-4 text-right space-y-2 mb-4" style={{background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.2)'}}>
-                                                <p className="text-sky-300 text-xs font-black">📋 الخطوات القادمة:</p>
-                                                <p className="text-slate-300 text-xs font-bold">١. انتظر موافقة المدير على حسابك</p>
-                                                <p className="text-slate-300 text-xs font-bold">٢. سيحدد لك المدير الصفحات اللي هتشتغل عليها</p>
-                                                <p className="text-slate-300 text-xs font-bold">٣. بعدها تقدر تدخل بنفس الإيميل والباسورد</p>
-                                            </div>
-                                            <button onClick={() => { setAuthView('login'); setSignupSuccess(false); setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword(''); }} className="w-full py-3 rounded-xl font-black text-sm text-white transition-all" style={{background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)'}}>
+                                            {signupNeedsEmailConfirm ? (
+                                                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{background: 'rgba(251,191,36,0.15)', border: '2px solid rgba(251,191,36,0.4)'}}>
+                                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                                </div>
+                                            ) : (
+                                                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{background: 'rgba(34,197,94,0.15)', border: '2px solid rgba(34,197,94,0.4)'}}>
+                                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                </div>
+                                            )}
+                                            <h3 className="text-lg font-black text-white mb-2">{signupNeedsEmailConfirm ? 'تحقق من إيميلك 📧' : 'تم إنشاء حسابك! 🎉'}</h3>
+                                            {signupNeedsEmailConfirm ? (
+                                                <div>
+                                                    <p className="text-slate-300 text-sm font-bold mb-4 leading-relaxed">اتبعت رسالة تأكيد على إيميلك.<br/>افتح الإيميل واضغط على رابط التأكيد الأول.</p>
+                                                    <div className="rounded-xl p-4 text-right space-y-2 mb-4" style={{background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)'}}>
+                                                        <p className="text-amber-300 text-xs font-black">⚠️ مهم جداً:</p>
+                                                        <p className="text-slate-300 text-xs font-bold">١. افتح الإيميل اللي بعتهوه وأكد الحساب</p>
+                                                        <p className="text-slate-300 text-xs font-bold">٢. بعد التأكيد، ادخل النظام بالإيميل والباسورد</p>
+                                                        <p className="text-slate-300 text-xs font-bold">٣. انتظر موافقة المدير على حسابك</p>
+                                                        <p className="text-slate-300 text-xs font-bold">٤. لو مالقتش الإيميل، اشيك في Spam</p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <p className="text-slate-300 text-sm font-bold mb-4 leading-relaxed">حسابك في انتظار موافقة المدير.<br/>هيتم إشعارك فور التفعيل.</p>
+                                                    <div className="rounded-xl p-4 text-right space-y-2 mb-4" style={{background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.2)'}}>
+                                                        <p className="text-sky-300 text-xs font-black">📋 الخطوات القادمة:</p>
+                                                        <p className="text-slate-300 text-xs font-bold">١. انتظر موافقة المدير على حسابك</p>
+                                                        <p className="text-slate-300 text-xs font-bold">٢. سيحدد لك المدير الصفحات اللي هتشتغل عليها</p>
+                                                        <p className="text-slate-300 text-xs font-bold">٣. بعدها تقدر تدخل بنفس الإيميل والباسورد</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <button onClick={() => { setAuthView('login'); setSignupSuccess(false); setSignupNeedsEmailConfirm(false); setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword(''); }} className="w-full py-3 rounded-xl font-black text-sm text-white transition-all" style={{background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)'}}>
                                                 الرجوع لتسجيل الدخول
                                             </button>
                                         </div>
