@@ -1465,12 +1465,12 @@
                             <div className="flex items-center gap-2.5">
                                 <div className="relative shrink-0">
                                     <div className="w-10 h-10 rounded-full bg-sky-600 flex items-center justify-center text-white font-black text-sm">{(userRole.name || 'م')[0]}</div>
-                                    <div className="absolute -bottom-1 -left-1 bg-green-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">{myOrdersLast30}</div>
+                                    <div className="absolute -bottom-1 -left-1 bg-green-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">{myOrdersThisMonth}</div>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="text-sm font-bold text-white truncate">{userRole.name || 'مستخدم'}</div>
                                     <div className="text-[10px] text-sky-400 font-bold">{ROLE_NAMES[userRole.role] || 'Operations'}</div>
-                                    <div className="text-[9px] text-slate-500 font-bold">{myOrdersLast30} orders · last 30d</div>
+                                    <div className="text-[9px] text-slate-500 font-bold">{myOrdersThisMonth} orders · this month</div>
                                 </div>
                                 <div className="flex flex-col gap-1 shrink-0">
                                     <button onClick={() => { setAccountEditName(userRole.name || ''); setIsAccountEditOpen(true); }} className="text-slate-500 hover:text-sky-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors" title="Edit Profile"><IconEdit size={14}/></button>
@@ -2256,7 +2256,7 @@
                                     <div className="bg-slate-50 rounded-xl p-3 space-y-1.5 text-xs text-slate-500 font-bold">
                                         <div className="flex justify-between"><span>Role:</span><span className="text-slate-700">{ROLE_NAMES[userRole.role] || 'Operations'}</span></div>
                                         <div className="flex justify-between"><span>Pages:</span><span className="text-slate-700 text-left">{isSuperAdmin ? 'All Pages' : (userRole.assigned_page || 'Not assigned')}</span></div>
-                                        <div className="flex justify-between"><span>Orders (30d):</span><span className="text-green-600 font-black">{myOrdersLast30}</span></div>
+                                        <div className="flex justify-between"><span>Orders (Month):</span><span className="text-green-600 font-black">{myOrdersThisMonth}</span></div>
                                     </div>
                                     <button onClick={async () => {
                                         if (!accountEditName.trim()) return;
@@ -2625,9 +2625,9 @@
                                             if (!resetPwModal.email) return;
                                             const { error } = await supabase.auth.resetPasswordForEmail(resetPwModal.email, { redirectTo: window.location.origin });
                                             if (error) {
-                                                addNotification('فشل إرسال رابط إعادة التعيين: ' + error.message, 'error');
+                                                notify('فشل إرسال رابط إعادة التعيين: ' + error.message, 'error');
                                             } else {
-                                                addNotification('تم إرسال رابط إعادة تعيين كلمة المرور بنجاح', 'success');
+                                                notify('تم إرسال رابط إعادة تعيين كلمة المرور بنجاح', 'success');
                                                 setResetPwModal({ open: false, email: '', userName: '' });
                                             }
                                         }}
