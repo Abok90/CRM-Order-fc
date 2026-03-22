@@ -320,6 +320,12 @@
             const [products, setProducts] = useState([]);
             const ordersRef = useRef([]); 
             const [usersList, setUsersList] = useState([]);
+            const [appNotifs, setAppNotifs] = useState([]);
+            const [notifPanelOpen, setNotifPanelOpen] = useState(false);
+            const addAppNotif = (type, title, msg, data = {}) => {
+                const id = Date.now() + Math.random();
+                setAppNotifs(prev => [{ id, type, title, msg, data, time: new Date(), read: false }, ...prev.slice(0, 49)]);
+            };
             
             const [financeRecords, setFinanceRecords] = useState([]);
             const [financeSubTab, setFinanceSubTab] = useState('expense');
@@ -559,6 +565,38 @@
                         if(isSuperAdmin || isPageManager) setActivityLogs(prev => [newLog, ...prev]);
                     }).subscribe();
                     const prodSub = supabase.channel('products-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchProducts).subscribe();
+
+                    // إشعارات الأوردرات الجديدة والتحولات للشحن
+                    const ordersSub = supabase.channel('orders-notif')
+                        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+                            const o = payload.new;
+                            setOrders(prev => prev.some(x => x.id === o.id) ? prev : [o, ...prev]);
+                            ordersRef.current = ordersRef.current.some(x => x.id === o.id) ? ordersRef.current : [o, ...ordersRef.current];
+                            if (o.user_id !== user.id && (isSuperAdmin || isPageManager)) {
+                                addAppNotif('new_order', 'أوردر جديد', `${o.customer || 'عميل'} — ${o.page || ''}`, { orderId: o.id });
+                            }
+                        })
+                        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+                            const updated = payload.new;
+                            const old = payload.old;
+                            setOrders(prev => prev.map(x => x.id === updated.id ? updated : x));
+                            ordersRef.current = ordersRef.current.map(x => x.id === updated.id ? updated : x);
+                            if (updated.status === 'الشحن' && old.status !== 'الشحن' && updated.user_id !== user.id && (isSuperAdmin || isPageManager)) {
+                                addAppNotif('shipping', 'أوردر تحول للشحن', `طلب ${updated.id} — ${updated.customer || ''} تحول للشحن`, { orderId: updated.id });
+                            }
+                        })
+                        .subscribe();
+
+                    // إشعارات الحسابات الجديدة المنتظرة الموافقة (للمدير فقط)
+                    const userRolesSub = (isSuperAdmin || isPageManager) ? supabase.channel('user-roles-notif')
+                        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_roles' }, (payload) => {
+                            const u = payload.new;
+                            if (!u.is_approved) {
+                                addAppNotif('pending_user', 'حساب جديد ينتظر الموافقة', `${u.name || u.email || 'موظف جديد'} طلب الانضمام للنظام`, { userId: u.id, userName: u.name, userEmail: u.email });
+                                setUsersList(prev => prev.some(x => x.id === u.id) ? prev : [u, ...prev]);
+                            }
+                        }).subscribe() : null;
+
                     // تتبع الحضور والتواجد اللحظي
                     const presenceCh = supabase.channel('crm-presence', { config: { presence: { key: user.id } } });
                     presenceCh.on('presence', { event: 'sync' }, () => {
@@ -568,7 +606,13 @@
                             await presenceCh.track({ user_id: user.id, name: userRole?.name || '', role: userRole?.role || '', at: Date.now() });
                         }
                     });
-                    return () => { supabase.removeChannel(logSub); supabase.removeChannel(prodSub); supabase.removeChannel(presenceCh); };
+                    return () => {
+                        supabase.removeChannel(logSub);
+                        supabase.removeChannel(prodSub);
+                        supabase.removeChannel(ordersSub);
+                        if (userRolesSub) supabase.removeChannel(userRolesSub);
+                        supabase.removeChannel(presenceCh);
+                    };
                 }
             }, [user, userRole, isSuperAdmin, isPageManager, canAccessFinance]);
 
@@ -668,6 +712,12 @@
                     return inPages && d >= firstOfMonth && d <= lastOfMonth;
                 }).length;
             }, [orders, isSuperAdmin, availablePages]);
+
+            const pendingUsersCount = useMemo(() =>
+                (isSuperAdmin || isPageManager) ? usersList.filter(u => !u.is_approved && !SUPER_ADMIN_ROLES.includes(u.role)).length : 0
+            , [usersList, isSuperAdmin, isPageManager]);
+
+            const unreadNotifsCount = useMemo(() => appNotifs.filter(n => !n.read).length, [appNotifs]);
 
             // إحصائيات العملاء (Operations) لكل موظف
             const agentStats = useMemo(() => {
@@ -1616,14 +1666,18 @@
                             {isSuperAdmin && <button onClick={() => {setCurrentTab('products'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'products' ? 'active' : ''}`}><IconStore /> <span>إدارة المنتجات</span></button>}
                             {(isSuperAdmin || isPageManager) && (<>
                                 <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest px-3 pt-4 pb-1">الإدارة</p>
-                                <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'users' ? 'active' : ''}`}><IconUsers /> <span>إدارة الموظفين</span></button>
+                                <button onClick={() => {setCurrentTab('users'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'users' ? 'active' : ''}`}>
+                                    <IconUsers />
+                                    <span className="flex-1 text-right">إدارة الموظفين</span>
+                                    {pendingUsersCount > 0 && <span className="bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{pendingUsersCount}</span>}
+                                </button>
                                 <button onClick={() => {setCurrentTab('logs'); setIsSidebarOpen(false);}} className={`sidebar-nav-item ${currentTab === 'logs' ? 'active' : ''}`}><IconActivity /> <span>سجل النشاطات</span></button>
                             </>)}
                             <div className="pt-4 mt-4 border-t border-slate-800">
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v2.6</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v3.0</span>
                             </div>
                         </nav>
                     </aside>
@@ -1649,6 +1703,17 @@
                             </div>
                             <div className="flex items-center gap-1.5 md:gap-2">
                                 <button onClick={handleRefreshData} className="p-2 rounded-xl bg-slate-100 hover:bg-sky-50 text-slate-500 hover:text-sky-600 transition-colors" title="تحديث"><IconRefresh size={18}/></button>
+                                {/* زر الإشعارات */}
+                                {(isSuperAdmin || isPageManager) && (
+                                    <button onClick={() => { setNotifPanelOpen(true); setAppNotifs(prev => prev.map(n => ({...n, read: true}))); }} className="relative p-2 rounded-xl bg-slate-100 hover:bg-amber-50 text-slate-500 hover:text-amber-600 transition-colors" title="الإشعارات">
+                                        <IconBell size={18}/>
+                                        {(unreadNotifsCount > 0 || pendingUsersCount > 0) && (
+                                            <span className="absolute -top-1 -left-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 shadow">
+                                                {unreadNotifsCount + pendingUsersCount > 99 ? '99+' : unreadNotifsCount + pendingUsersCount}
+                                            </span>
+                                        )}
+                                    </button>
+                                )}
                                 <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors hidden md:flex" title="إعدادات"><IconSettings /></button>
                                 {(isSuperAdmin || userRole?.can_add_bulk) && (
                                     <button onClick={() => setIsBulkModalOpen(true)} className="hidden md:flex items-center gap-1.5 bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 px-3 py-2 rounded-xl transition-all font-bold text-sm"><IconTable size={15} /> مجموعة</button>
@@ -2368,6 +2433,96 @@
                             )}
                         </div>
                     </main>
+
+                    {/* ===== لوحة الإشعارات ===== */}
+                    {notifPanelOpen && (
+                        <div className="fixed inset-0 z-[98]" onClick={() => setNotifPanelOpen(false)}>
+                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
+                            <div className="absolute top-0 left-0 h-full w-full max-w-sm bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200" onClick={e => e.stopPropagation()}>
+                                {/* Header */}
+                                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-l from-slate-50 to-white sticky top-0">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600"><IconBell size={18}/></div>
+                                        <div>
+                                            <h3 className="font-black text-slate-800 text-sm">مركز الإشعارات</h3>
+                                            <p className="text-[10px] text-slate-400 font-bold">{appNotifs.length === 0 && pendingUsersCount === 0 ? 'لا توجد إشعارات' : `${appNotifs.length + pendingUsersCount} إشعار`}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {appNotifs.length > 0 && <button onClick={() => setAppNotifs([])} className="text-[10px] text-slate-400 hover:text-red-500 font-bold transition-colors">مسح الكل</button>}
+                                        <button onClick={() => setNotifPanelOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"><IconX size={16}/></button>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto">
+                                    {/* ===== حسابات تنتظر الموافقة ===== */}
+                                    {pendingUsersCount > 0 && (
+                                        <div className="p-4 border-b border-slate-100">
+                                            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-pulse"></span>
+                                                حسابات تنتظر موافقتك ({pendingUsersCount})
+                                            </p>
+                                            <div className="space-y-2">
+                                                {usersList.filter(u => !u.is_approved && !SUPER_ADMIN_ROLES.includes(u.role)).map(u => (
+                                                    <div key={u.id} className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-3">
+                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                            <div className="w-9 h-9 rounded-full bg-amber-200 flex items-center justify-center text-amber-800 font-black text-sm shrink-0">{(u.name || '?')[0].toUpperCase()}</div>
+                                                            <div className="min-w-0">
+                                                                <p className="font-black text-slate-800 text-xs truncate">{u.name || 'موظف جديد'}</p>
+                                                                <p className="text-[10px] text-slate-400 font-bold truncate">{u.email}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-1.5 shrink-0">
+                                                            <button onClick={async () => { await togglePerm(u.id, 'is_approved', true); notify(`تم تفعيل حساب ${u.name} ✅`, 'success'); }} className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors shadow-sm">موافقة</button>
+                                                            <button onClick={async () => { if(!window.confirm(`رفض حساب "${u.name}"؟`)) return; await supabase.from('user_roles').delete().eq('id', u.id); fetchUsersList(); notify(`تم رفض حساب ${u.name}`, 'error'); }} className="text-[10px] font-black px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-colors">رفض</button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <button onClick={() => { setCurrentTab('users'); setNotifPanelOpen(false); }} className="mt-3 w-full text-center text-[11px] font-bold text-sky-600 hover:underline">
+                                                عرض كل الموظفين في إدارة الفريق →
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* ===== الإشعارات العامة ===== */}
+                                    {appNotifs.length > 0 ? (
+                                        <div className="p-4 space-y-2">
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">آخر الأحداث</p>
+                                            {appNotifs.map(n => (
+                                                <div key={n.id} className={`rounded-xl p-3 border flex items-start gap-3 transition-colors ${n.type === 'pending_user' ? 'bg-amber-50 border-amber-200' : n.type === 'shipping' ? 'bg-orange-50 border-orange-200' : 'bg-sky-50 border-sky-200'}`}>
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${n.type === 'pending_user' ? 'bg-amber-200 text-amber-700' : n.type === 'shipping' ? 'bg-orange-200 text-orange-700' : 'bg-sky-200 text-sky-700'}`}>
+                                                        {n.type === 'pending_user' ? <IconUsers size={15}/> : n.type === 'shipping' ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> : <IconCart size={15}/>}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-black text-slate-800">{n.title}</p>
+                                                        <p className="text-[11px] text-slate-500 font-bold mt-0.5 truncate">{n.msg}</p>
+                                                        <p className="text-[9px] text-slate-400 font-bold mt-1">{new Date(n.time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>
+                                                    </div>
+                                                    {n.type === 'pending_user' && n.data?.userId && (
+                                                        <button onClick={async () => { await togglePerm(n.data.userId, 'is_approved', true); setAppNotifs(prev => prev.filter(x => x.id !== n.id)); notify(`تم تفعيل الحساب ✅`, 'success'); }} className="text-[10px] font-black px-2.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors shrink-0 self-center">
+                                                            موافقة
+                                                        </button>
+                                                    )}
+                                                    {(n.type === 'new_order' || n.type === 'shipping') && (
+                                                        <button onClick={() => { setCurrentTab('orders'); setNotifPanelOpen(false); }} className="text-[10px] font-black px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors shrink-0 self-center">
+                                                            عرض
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : pendingUsersCount === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                                            <IconBell size={40} />
+                                            <p className="font-bold text-sm mt-3">لا توجد إشعارات</p>
+                                            <p className="text-xs mt-1">ستظهر هنا الأحداث الجديدة تلقائياً</p>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Account Edit Modal */}
                     {isAccountEditOpen && (
