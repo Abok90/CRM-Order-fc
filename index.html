@@ -360,6 +360,9 @@
             const [selectedProductDetails, setSelectedProductDetails] = useState(null);
             const [duplicateWarnings, setDuplicateWarnings] = useState([]);
             const [editingProduct, setEditingProduct] = useState({ id: null, name: '', price: '', colors: '', sizes: '', image: '' });
+            const [hasDraft, setHasDraft] = useState(() => !!localStorage.getItem('crmOrderDraft'));
+            const [swipedOrderId, setSwipedOrderId] = useState(null);
+            const swipeStartXRef = useRef(0);
 
             const pages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG'];
             const orderStatuses = ['جاري التحضير', 'تم', 'الشحن', 'مراجعة', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل', 'اعادة ارسال', 'خارجي'];
@@ -565,6 +568,17 @@
                 } else { setDuplicateWarnings([]); }
             }, [newOrder.phone, orders, newOrder.id]);
 
+            // حفظ المسودة تلقائياً أثناء إدخال أوردر جديد (مش تعديل)
+            useEffect(() => {
+                if (isAddModalOpen && !isEditing) {
+                    const hasContent = newOrder.customer || newOrder.phone || newOrder.address || newOrder.item;
+                    if (hasContent) {
+                        localStorage.setItem('crmOrderDraft', JSON.stringify(newOrder));
+                        setHasDraft(true);
+                    }
+                }
+            }, [newOrder, isAddModalOpen, isEditing]);
+
             const phoneCounts = useMemo(() => {
                 const counts = {};
                 orders.forEach(o => { if (o.phone) counts[o.phone] = (counts[o.phone] || 0) + 1; });
@@ -636,6 +650,41 @@
                     return inPages && d >= cutoff;
                 }).length;
             }, [orders, isSuperAdmin, availablePages]);
+
+            // إحصائيات العملاء (Operations) لكل موظف
+            const agentStats = useMemo(() => {
+                if (!isSuperAdmin && !isPageManager) return [];
+                const userMap = {};
+                usersList.forEach(u => { userMap[u.id] = u.name; });
+                const stats = {};
+                filteredOrders.forEach(o => {
+                    const uid = o.user_id || 'unknown';
+                    const name = userMap[uid] || 'غير معروف';
+                    if (!stats[uid]) stats[uid] = { name, total: 0, delivered: 0, cancelled: 0, shipping: 0, revenue: 0 };
+                    stats[uid].total++;
+                    if (o.status === 'تم') { stats[uid].delivered++; stats[uid].revenue += Number(o.productPrice || 0) + Number(o.shippingPrice || 0); }
+                    if (o.status === 'الغاء') stats[uid].cancelled++;
+                    if (o.status === 'الشحن') stats[uid].shipping++;
+                });
+                return Object.values(stats).sort((a, b) => b.total - a.total);
+            }, [filteredOrders, usersList, isSuperAdmin, isPageManager]);
+
+            // الإيرادات الشهرية لآخر 6 شهور للرسم البياني
+            const monthlyRevenue = useMemo(() => {
+                const monthly = {};
+                filteredOrders.filter(o => o.status === 'تم').forEach(o => {
+                    const dateStr = o.date || (o.created_at ? o.created_at.split('T')[0] : '');
+                    const month = dateStr.substring(0, 7);
+                    if (!month || month.length < 7) return;
+                    if (!monthly[month]) monthly[month] = { revenue: 0, count: 0 };
+                    monthly[month].revenue += Number(o.productPrice || 0) + Number(o.shippingPrice || 0);
+                    monthly[month].count++;
+                });
+                return Object.entries(monthly).sort((a, b) => a[0].localeCompare(b[0])).slice(-6).map(([month, data]) => ({
+                    label: new Date(month + '-01').toLocaleDateString('ar-EG', { month: 'short', year: '2-digit' }),
+                    ...data
+                }));
+            }, [filteredOrders]);
 
             const filteredLogs = useMemo(() => {
                 return activityLogs.filter(log => {
@@ -758,6 +807,24 @@
             const resetFilters = () => { setSearchQuery(''); setFilterStatus('الكل'); setFilterPage('الكل'); setDateFrom(''); setDateTo(''); setShowDuplicatesOnly(false); setSearchResults([]); setCurrentPage(1); };
             const resetLogFilters = () => { setLogSearchQuery(''); setLogFilterUser('الكل'); setLogDateFrom(''); setLogDateTo(''); setLogCurrentPage(1); };
 
+            // نسخ / تكرار أوردر موجود - بفتح فورم الإضافة ببيانات الأوردر (بدون ID وبوليصة)
+            const duplicateOrder = (order) => {
+                setEditReason(''); setProductSearchStr(''); setSelectedProductDetails(null); setShowProductSuggestions(false);
+                localStorage.removeItem('crmOrderDraft'); setHasDraft(false);
+                const dup = { ...order, id: '', date: new Date().toISOString().split('T')[0], trackingNumber: '', status: 'جاري التحضير' };
+                setNewOrder(dup);
+                setIsEditing(false); setOriginalOrderId(null);
+                setDuplicateWarnings(orders.filter(o => o.phone === order.phone));
+                setIsAddModalOpen(true);
+            };
+
+            // فتح واتساب مع رسالة مسبقة التجهيز
+            const openWhatsApp = (phone, message) => {
+                if (!phone) return;
+                const intlPhone = phone.startsWith('0') ? '2' + phone : phone;
+                window.open('https://wa.me/' + intlPhone + '?text=' + encodeURIComponent(message), '_blank');
+            };
+
             // إعادة تعيين الفلاتر تلقائياً عند مغادرة صفحة الطلبات
             const prevTabRef = React.useRef(currentTab);
             useEffect(() => {
@@ -769,10 +836,22 @@
             const handleSelectOrder = (id) => { selectedOrders.includes(id) ? setSelectedOrders(selectedOrders.filter(o => o !== id)) : setSelectedOrders([...selectedOrders, id]); };
 
             // === MODAL OPEN/CLOSE FUNCTIONS ===
-            const openAddModal = () => { 
+            const openAddModal = () => {
                 setEditReason(''); setProductSearchStr(''); setSelectedProductDetails(null); setShowProductSuggestions(false);
-                setNewOrder({ id: '', customer: '', address: '', phone: '', notes: '', page: (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' }); 
-                setIsEditing(false); setOriginalOrderId(null); setDuplicateWarnings([]); setIsAddModalOpen(true); 
+                // استرجاع المسودة إن وجدت
+                const draftRaw = localStorage.getItem('crmOrderDraft');
+                if (draftRaw) {
+                    try {
+                        const draft = JSON.parse(draftRaw);
+                        setNewOrder(draft);
+                        setHasDraft(true);
+                    } catch(e) {
+                        setNewOrder({ id: '', customer: '', address: '', phone: '', notes: '', page: (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' });
+                    }
+                } else {
+                    setNewOrder({ id: '', customer: '', address: '', phone: '', notes: '', page: (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' });
+                }
+                setIsEditing(false); setOriginalOrderId(null); setDuplicateWarnings([]); setIsAddModalOpen(true);
             };
 
             const openEditModal = (order) => {
@@ -781,7 +860,7 @@
                 setNewOrder(order); setIsEditing(true); setOriginalOrderId(order.id); setIsAddModalOpen(true); 
             };
             
-            const closeModal = () => { setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); setDuplicateWarnings([]); setProductSearchStr(''); setShowProductSuggestions(false); setSelectedProductDetails(null); };
+            const closeModal = () => { localStorage.removeItem('crmOrderDraft'); setHasDraft(false); setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); setDuplicateWarnings([]); setProductSearchStr(''); setShowProductSuggestions(false); setSelectedProductDetails(null); };
             const openViewModal = (order) => { setViewOrder(order); setQuickTracking(order.trackingNumber || ''); setQuickStatus(order.status || 'جاري التحضير'); setIsViewModalOpen(true); };
             const closeViewModal = () => { setIsViewModalOpen(false); setViewOrder(null); setCopiedType(''); setQuickTracking(''); };
 
@@ -1409,6 +1488,89 @@
                                         </div>
                                     </div>
                                     )}
+
+                                    {/* الرسم البياني للإيرادات الشهرية */}
+                                    {monthlyRevenue.length >= 2 && (
+                                    <div>
+                                        <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 md:mb-4 flex items-center gap-2">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                            الإيرادات الشهرية
+                                            <span className="text-[10px] md:text-sm font-bold text-slate-500">(طلبات حالة تم)</span>
+                                        </h2>
+                                        <div className="glass-panel p-4 md:p-6 rounded-2xl shadow-sm border border-white">
+                                            {(() => {
+                                                const maxRev = Math.max(...monthlyRevenue.map(m => m.revenue), 1);
+                                                const chartH = 140;
+                                                const barW = Math.floor((100 / monthlyRevenue.length)) + '%';
+                                                return (
+                                                    <div className="flex flex-col gap-3">
+                                                        <div className="flex items-end gap-2 justify-around" style={{height: chartH + 40}}>
+                                                            {monthlyRevenue.map((m, i) => {
+                                                                const h = Math.max(12, Math.round((m.revenue / maxRev) * chartH));
+                                                                const colors = ['#0ea5e9','#6366f1','#22c55e','#f59e0b','#f43f5e','#8b5cf6'];
+                                                                return (
+                                                                    <div key={i} className="flex flex-col items-center gap-1 flex-1">
+                                                                        <span className="text-[9px] md:text-[10px] font-black text-slate-600 text-center leading-tight">{m.revenue >= 1000 ? (m.revenue/1000).toFixed(1)+'k' : m.revenue}</span>
+                                                                        <div className="w-full rounded-t-lg transition-all duration-700 relative group" style={{height: h, background: colors[i % colors.length], minWidth: 28, maxWidth: 80}}>
+                                                                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-black px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                                                                {m.revenue.toLocaleString()} ج.م<br/>{m.count} طلب
+                                                                            </div>
+                                                                        </div>
+                                                                        <span className="text-[9px] md:text-[10px] font-bold text-slate-500 text-center">{m.label}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <div className="flex justify-between text-[10px] text-slate-400 font-bold border-t border-slate-100 pt-2">
+                                                            <span>إجمالي الأشهر الـ{monthlyRevenue.length}: {monthlyRevenue.reduce((s,m)=>s+m.revenue,0).toLocaleString()} ج.م</span>
+                                                            <span>أعلى شهر: {Math.max(...monthlyRevenue.map(m=>m.revenue)).toLocaleString()} ج.م</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+                                    )}
+
+                                    {/* إحصائيات الموظفين (Operations) */}
+                                    {(isSuperAdmin || isPageManager) && agentStats.length > 0 && (
+                                    <div>
+                                        <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 md:mb-4 flex items-center gap-2">
+                                            <IconUsers /> Agent Statistics
+                                            <span className="text-[10px] md:text-sm font-bold text-slate-500">({agentStats.length} users)</span>
+                                        </h2>
+                                        <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-hidden">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-right text-xs md:text-sm">
+                                                    <thead className="bg-slate-800 text-white">
+                                                        <tr>
+                                                            <th className="px-3 md:px-4 py-2.5 font-bold text-right">#</th>
+                                                            <th className="px-3 md:px-4 py-2.5 font-bold text-right">Name</th>
+                                                            <th className="px-3 md:px-4 py-2.5 font-bold text-center">Total</th>
+                                                            <th className="px-3 md:px-4 py-2.5 font-bold text-center">Delivered</th>
+                                                            <th className="px-3 md:px-4 py-2.5 font-bold text-center">Shipping</th>
+                                                            <th className="px-3 md:px-4 py-2.5 font-bold text-center">Cancelled</th>
+                                                            <th className="px-3 md:px-4 py-2.5 font-bold text-center">Revenue</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {agentStats.map((agent, i) => (
+                                                            <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                                                                <td className="px-3 md:px-4 py-2 text-slate-400 font-bold">{i+1}</td>
+                                                                <td className="px-3 md:px-4 py-2 font-black text-slate-800">{agent.name}</td>
+                                                                <td className="px-3 md:px-4 py-2 text-center"><span className="bg-sky-100 text-sky-800 font-black px-2 py-0.5 rounded-lg">{agent.total}</span></td>
+                                                                <td className="px-3 md:px-4 py-2 text-center"><span className="bg-green-100 text-green-700 font-black px-2 py-0.5 rounded-lg">{agent.delivered}</span></td>
+                                                                <td className="px-3 md:px-4 py-2 text-center"><span className="bg-orange-100 text-orange-700 font-black px-2 py-0.5 rounded-lg">{agent.shipping}</span></td>
+                                                                <td className="px-3 md:px-4 py-2 text-center"><span className="bg-red-100 text-red-700 font-black px-2 py-0.5 rounded-lg">{agent.cancelled}</span></td>
+                                                                <td className="px-3 md:px-4 py-2 text-center text-sky-700 font-black text-[11px] md:text-sm">{agent.revenue.toLocaleString()}<span className="text-[9px] text-slate-400 mr-0.5">ج</span></td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    )}
                                 </div>
                             )}
 
@@ -1464,8 +1626,28 @@
                                                 const cardColor = {'جاري التحضير':'#0ea5e9','تم':'#22c55e','الشحن':'#f97316','مراجعة':'#eab308','تاجيل':'#94a3b8','استبدال':'#8b5cf6','مرتجع':'#f43f5e','الغاء':'#ef4444','اعادة ارسال':'#6366f1','خارجي':'#14b8a6'}[order.status] || '#e2e8f0';
                                                 const agentLocked = userRole?.role === 'agent' && (order.status === 'الشحن' || order.trackingNumber);
                                                 const isDuplicate = phoneCounts[order.phone] > 1;
+                                                const isSwiped = swipedOrderId === order.id;
                                                 return (
-                                                    <div key={order.id} className="order-card" style={{borderRight: `4px solid ${cardColor}`}}>
+                                                    <div key={order.id} className="relative overflow-hidden rounded-2xl"
+                                                        onTouchStart={(e) => { swipeStartXRef.current = e.touches[0].clientX; }}
+                                                        onTouchEnd={(e) => {
+                                                            const delta = swipeStartXRef.current - e.changedTouches[0].clientX;
+                                                            if (delta > 60) setSwipedOrderId(order.id);
+                                                            else if (delta < -20) setSwipedOrderId(null);
+                                                        }}
+                                                    >
+                                                        {/* لوحة الإجراءات السريعة بالسحب */}
+                                                        <div className="absolute inset-y-0 left-0 w-20 flex flex-col" style={{zIndex: 0}}>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'الغاء'); setSwipedOrderId(null); }} className="flex-1 flex flex-col items-center justify-center gap-0.5 bg-red-500 text-white text-[9px] font-black">
+                                                                <IconTrash size={15}/><span>إلغاء</span>
+                                                            </button>
+                                                            <button onClick={(e) => { e.stopPropagation(); duplicateOrder(order); setSwipedOrderId(null); }} className="flex-1 flex flex-col items-center justify-center gap-0.5 bg-violet-500 text-white text-[9px] font-black">
+                                                                <IconCopy size={15}/><span>نسخ</span>
+                                                            </button>
+                                                        </div>
+                                                        <div className="order-card" style={{borderRight: `4px solid ${cardColor}`, transform: isSwiped ? 'translateX(-80px)' : 'translateX(0)', transition: 'transform 0.25s ease', position: 'relative', zIndex: 1}}
+                                                            onClick={() => isSwiped && setSwipedOrderId(null)}
+                                                        >
                                                         <div className="flex items-start justify-between mb-2">
                                                             <div className="flex items-center gap-2 min-w-0">
                                                                 <input type="checkbox" className="custom-checkbox shrink-0" checked={selectedOrders.includes(order.id)} onChange={() => handleSelectOrder(order.id)} />
@@ -1492,7 +1674,10 @@
                                                         <div className="flex gap-1.5 mt-2">
                                                             <button onClick={() => openViewModal(order)} className="flex-1 flex items-center justify-center gap-1 bg-sky-600 hover:bg-sky-700 text-white text-xs font-black py-2 rounded-xl transition-colors"><IconEye size={13}/> عرض</button>
                                                             <button onClick={() => openEditModal(order)} className="flex-1 flex items-center justify-center gap-1 bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-black py-2 rounded-xl transition-colors"><IconEdit size={13}/> تعديل</button>
+                                                            <button onClick={() => duplicateOrder(order)} className="flex items-center justify-center px-3 bg-violet-50 border border-violet-200 text-violet-600 hover:bg-violet-100 py-2 rounded-xl transition-colors"><IconCopy size={13}/></button>
                                                             {isSuperAdmin && <button onClick={() => handleDeleteOrder(order.id)} className="flex items-center justify-center px-3 bg-red-50 border border-red-200 text-red-500 hover:bg-red-100 py-2 rounded-xl transition-colors"><IconTrash size={13}/></button>}
+                                                        </div>
+                                                        {isSwiped && <div className="text-[9px] text-slate-400 text-center mt-1 font-bold">← اسحب للعودة</div>}
                                                         </div>
                                                     </div>
                                                 );
@@ -1544,6 +1729,7 @@
                                                                 <div className="flex flex-row md:flex-col gap-1 md:gap-1.5 flex-wrap">
                                                                     <button onClick={() => openViewModal(order)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-sky-600 hover:bg-sky-700 text-white border border-sky-700 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconEye /> <span className="hidden md:inline">عرض</span></button>
                                                                     <button onClick={() => openEditModal(order)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-white/70 hover:bg-white text-slate-800 border border-slate-300/50 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconEdit /> <span className="hidden md:inline">تعديل</span></button>
+                                                                    <button onClick={() => duplicateOrder(order)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-violet-100 hover:bg-violet-600 hover:text-white text-violet-700 border border-violet-200 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconCopy size={12} /> <span className="hidden md:inline">نسخ</span></button>
                                                                     {isSuperAdmin && (<button onClick={() => handleDeleteOrder(order.id)} className="flex-1 flex items-center justify-center gap-1 text-[10px] md:text-[11px] font-bold bg-red-100 hover:bg-red-600 hover:text-white text-red-700 border border-red-200 py-1 md:py-1.5 px-1 md:px-2 rounded transition-colors shadow-sm"><IconTrash /> <span className="hidden md:inline">مسح</span></button>)}
                                                                 </div>
                                                             </td>
@@ -1986,6 +2172,10 @@
                                     <textarea readOnly className="w-full h-32 md:h-48 p-3 md:p-4 bg-white border border-slate-200 rounded-xl outline-none resize-none font-semibold text-slate-800 shadow-inner leading-relaxed text-xs md:text-sm" value={generateCustomerMsg(successOrderMessage)} />
                                     <div className="flex gap-2 md:gap-3 mt-1 md:mt-2">
                                         <button onClick={() => copyToClipboard(generateCustomerMsg(successOrderMessage), 'success_customer')} className={`flex-1 flex items-center justify-center gap-1.5 md:gap-2 py-2.5 md:py-3 rounded-xl font-bold text-xs md:text-sm transition-all ${copiedType === 'success_customer' ? 'bg-green-100 text-green-700 border border-green-300 copy-animation' : 'bg-sky-600 hover:bg-sky-700 text-white shadow-md'}`}><IconCopy size={16} /> {copiedType === 'success_customer' ? 'تم النسخ بنجاح ✓' : 'نسخ للعميل'}</button>
+                                        <button onClick={() => openWhatsApp(successOrderMessage.phone, generateCustomerMsg(successOrderMessage))} className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-2.5 md:py-3 bg-green-500 hover:bg-green-600 text-white font-bold text-xs md:text-sm rounded-xl transition-colors shadow-md">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.5 2C6.262 2 2 6.262 2 11.5c0 1.787.484 3.482 1.354 4.957L2 22l5.696-1.328A9.46 9.46 0 0011.5 21C16.738 21 21 16.738 21 11.5 21 6.262 16.738 2 11.5 2zm0 17.25a7.73 7.73 0 01-4.022-1.133l-.287-.171-2.975.695.733-2.896-.188-.298A7.712 7.712 0 013.75 11.5C3.75 7.225 7.225 3.75 11.5 3.75c4.275 0 7.75 3.475 7.75 7.75 0 4.275-3.475 7.75-7.75 7.75z"/></svg>
+                                            واتساب
+                                        </button>
                                         <button onClick={() => setSuccessOrderMessage(null)} className="px-4 md:px-6 py-2.5 md:py-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs md:text-sm rounded-xl transition-colors">إغلاق</button>
                                     </div>
                                 </div>
@@ -2007,9 +2197,18 @@
                                         <div className="flex justify-between bg-slate-800 text-white p-2 md:p-3 rounded-lg mt-1.5 md:mt-2"><span className="font-bold text-xs md:text-base">المبلغ للتحصيل:</span><span className="font-black text-base md:text-xl">{(Number(viewOrder.productPrice) || 0) + (Number(viewOrder.shippingPrice) || 0)} ج.م</span></div>
                                         <div className="flex justify-between bg-teal-50 border border-teal-100 p-2 md:p-3 rounded-lg mt-1.5 md:mt-2"><span className="font-bold text-teal-800 text-xs md:text-sm flex items-center gap-1"><IconTruck size={14}/> رقم البوليصة:</span><span className="font-black text-teal-900 text-xs md:text-sm">{viewOrder.trackingNumber || 'لم يتم تحديده'}</span></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4 md:mb-6">
+                                    <div className="grid grid-cols-2 gap-2 md:gap-3 mb-3 md:mb-4">
                                         <button onClick={() => copyToClipboard(generateCustomerMsg(viewOrder), 'customer')} className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 py-3 md:py-4 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all ${copiedType === 'customer' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-white border-sky-200 text-sky-700 hover:bg-sky-50 hover:border-sky-400'}`}><IconCopy size={20} />{copiedType === 'customer' ? 'تم النسخ ✓' : 'نسخ للعميل'}</button>
                                         <button onClick={() => copyToClipboard(generateShippingMsg(viewOrder), 'shipping')} className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 py-3 md:py-4 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all ${copiedType === 'shipping' ? 'bg-green-50 border-green-400 text-green-700 copy-animation' : 'bg-slate-800 border-slate-800 text-white hover:bg-slate-700'}`}><IconTruck size={20} />{copiedType === 'shipping' ? 'تم النسخ ✓' : 'نسخ لشركة الشحن'}</button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4 md:mb-6">
+                                        <button onClick={() => openWhatsApp(viewOrder.phone, generateCustomerMsg(viewOrder))} className="flex flex-col items-center justify-center gap-1.5 md:gap-2 py-2.5 md:py-3 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all bg-green-500 hover:bg-green-600 border-green-500 text-white">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.5 2C6.262 2 2 6.262 2 11.5c0 1.787.484 3.482 1.354 4.957L2 22l5.696-1.328A9.46 9.46 0 0011.5 21C16.738 21 21 16.738 21 11.5 21 6.262 16.738 2 11.5 2zm0 17.25a7.73 7.73 0 01-4.022-1.133l-.287-.171-2.975.695.733-2.896-.188-.298A7.712 7.712 0 013.75 11.5C3.75 7.225 7.225 3.75 11.5 3.75c4.275 0 7.75 3.475 7.75 7.75 0 4.275-3.475 7.75-7.75 7.75z"/></svg>
+                                            واتساب للعميل
+                                        </button>
+                                        <button onClick={() => { duplicateOrder(viewOrder); closeViewModal(); }} className="flex flex-col items-center justify-center gap-1.5 md:gap-2 py-2.5 md:py-3 rounded-xl border-2 font-bold text-[11px] md:text-sm transition-all bg-white border-violet-300 text-violet-700 hover:bg-violet-50 hover:border-violet-400">
+                                            <IconCopy size={20} /> نسخ الطلب
+                                        </button>
                                     </div>
                                     
                                     <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 md:p-4 flex flex-col gap-2">
@@ -2071,6 +2270,13 @@
                                 
                                 <form onSubmit={handleAddOrEditOrder} className={`flex flex-col flex-1 overflow-hidden ${currentTheme.bgLight}`}>
                                 <div className="p-3 md:p-5 space-y-3 overflow-y-auto flex-1">
+
+                                    {hasDraft && !isEditing && (
+                                        <div className="bg-sky-50 border border-sky-300 p-2.5 rounded-xl text-sky-800 font-bold text-[11px] flex items-center justify-between gap-2 animate-in fade-in">
+                                            <span className="flex items-center gap-1.5"><span>💾</span> تم استرجاع مسودة محفوظة تلقائياً</span>
+                                            <button type="button" onClick={() => { localStorage.removeItem('crmOrderDraft'); setHasDraft(false); setNewOrder({ id: '', customer: '', address: '', phone: '', notes: '', page: (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' }); }} className="text-[10px] px-2 py-1 bg-white border border-sky-300 rounded-lg text-sky-700 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors font-black">حذف المسودة</button>
+                                        </div>
+                                    )}
 
                                     {duplicateWarnings.length > 0 && !isEditing && (
                                         <div className="bg-amber-50 border border-amber-400 p-2.5 rounded-xl text-amber-900 font-black text-[11px] flex items-start gap-2 animate-in fade-in">
