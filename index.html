@@ -423,15 +423,23 @@
                             setBulkTargetPage(firstPage);
                         }
                     } else {
+                        // مستخدم سجّل لكن مفيش record في user_roles — نعمله تلقائياً
                         const name = userEmail ? userEmail.split('@')[0] : 'موظف جديد';
                         const newRoleData = { id: userId, name, role: 'agent', is_approved: false, email: userEmail || '' };
-                        const { data: newRole } = await supabase.from('user_roles').insert([newRoleData]).select().maybeSingle();
-                        setUserRole(newRole || newRoleData);
+                        const { data: newRole, error: insertError } = await supabase.from('user_roles').insert([newRoleData]).select().maybeSingle();
+                        if (insertError) {
+                            // ربما RLS تمنع الإدخال — نحاول upsert
+                            const { data: upserted } = await supabase.from('user_roles').upsert([newRoleData], { onConflict: 'id' }).select().maybeSingle();
+                            setUserRole(upserted || newRoleData);
+                        } else {
+                            setUserRole(newRole || newRoleData);
+                        }
                     }
-                } catch (error) { 
-                    setUserRole({ id: userId, name: 'مدير طوارئ', role: 'admin', is_approved: true }); 
-                } finally { 
-                    setAuthLoading(false); 
+                } catch (error) {
+                    // fallback طوارئ — لا يعطي صلاحيات admin
+                    setUserRole({ id: userId, name: userEmail?.split('@')[0] || 'مستخدم', role: 'agent', is_approved: false });
+                } finally {
+                    setAuthLoading(false);
                 }
             };
 
@@ -638,6 +646,10 @@
                     }
                 }
             }, [newOrder, isAddModalOpen, isEditing]);
+
+            useEffect(() => {
+                if (currentTab === 'users' && (isSuperAdmin || isPageManager)) fetchUsersList();
+            }, [currentTab]);
 
             const phoneCounts = useMemo(() => {
                 const counts = {};
@@ -1594,16 +1606,40 @@
             }
 
             if (userRole && !userRole.is_approved && !isSuperAdmin) {
-                 return (
-                    <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
-                        <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-100 text-center">
-                            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4"><IconClock size={32} /></div>
-                            <h2 className="text-xl md:text-2xl font-black text-slate-800 mb-2">حسابك قيد المراجعة</h2>
-                            <p className="text-slate-600 font-bold mb-6 text-sm">تم تسجيل حسابك بنجاح. يرجى الانتظار حتى يقوم المدير بتفعيل حسابك وتحديد صلاحياتك.</p>
-                            <button onClick={handleLogout} className="bg-slate-800 text-white px-6 py-2.5 rounded-xl font-bold w-full text-sm">تسجيل الخروج</button>
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{background: 'linear-gradient(135deg, #0f172a 0%, #0c2340 55%, #0f172a 100%)'}}>
+                        <div className="w-full max-w-sm text-center">
+                            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5 shadow-xl" style={{background: 'rgba(251,191,36,0.15)', border: '2px solid rgba(251,191,36,0.4)'}}>
+                                <IconClock size={38} color="#fbbf24" />
+                            </div>
+                            <h2 className="text-2xl font-black text-white mb-2">حسابك قيد المراجعة</h2>
+                            <p className="text-slate-300 font-bold mb-6 text-sm leading-relaxed">
+                                تم تسجيلك بنجاح يا <span className="text-amber-400">{userRole.name}</span>!<br/>
+                                المدير هيشوف طلبك ويفعّله قريباً.
+                            </p>
+                            <div className="rounded-2xl p-4 text-right space-y-3 mb-6" style={{background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)'}}>
+                                <p className="text-slate-300 text-xs font-bold flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-black text-[10px] shrink-0">١</span>
+                                    المدير بيلاقيك في قسم "إدارة الموظفين" داخل النظام
+                                </p>
+                                <p className="text-slate-300 text-xs font-bold flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-black text-[10px] shrink-0">٢</span>
+                                    بيضغط "موافقة" ويحدد الصفحات اللي هتشتغل عليها
+                                </p>
+                                <p className="text-slate-300 text-xs font-bold flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 font-black text-[10px] shrink-0">٣</span>
+                                    بعد الموافقة، افتح التطبيق وهتدخل مباشرة 🎉
+                                </p>
+                            </div>
+                            <button onClick={() => window.location.reload()} className="w-full mb-3 py-3 rounded-xl font-black text-sm text-white transition-all" style={{background: 'linear-gradient(135deg, #0284c7, #38bdf8)'}}>
+                                🔄 تحقق من حالة الحساب
+                            </button>
+                            <button onClick={handleLogout} className="w-full py-3 rounded-xl font-black text-sm text-slate-400 hover:text-white transition-all" style={{background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)'}}>
+                                تسجيل الخروج
+                            </button>
                         </div>
                     </div>
-                 );
+                );
             }
 
             if (!userRole) {
@@ -1677,7 +1713,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v3.0</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v3.1</span>
                             </div>
                         </nav>
                     </aside>
@@ -2285,17 +2321,53 @@
                                     {/* Header */}
                                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-gradient-to-l from-sky-50 to-indigo-50 border border-sky-200 p-4 md:p-5 rounded-2xl">
                                         <div>
-                                            <h2 className="font-black text-sky-900 text-base md:text-lg flex items-center gap-2"><IconUsers /> Staff Account Management</h2>
-                                            <p className="text-[11px] md:text-sm text-sky-700 font-bold mt-1">{isSuperAdmin ? 'Full control — assign pages, change roles, reset passwords.' : 'Approve agents and set permissions for your pages.'}</p>
+                                            <h2 className="font-black text-sky-900 text-base md:text-lg flex items-center gap-2"><IconUsers /> إدارة حسابات الفريق</h2>
+                                            <p className="text-[11px] md:text-sm text-sky-700 font-bold mt-1">{isSuperAdmin ? 'تحكم كامل — صلاحيات، صفحات، كلمات المرور.' : 'وافق على الموظفين وحدد صلاحياتهم.'}</p>
                                         </div>
-                                        <button onClick={fetchUsersList} className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center gap-2 w-full md:w-auto justify-center"><IconRefresh size={16}/> Refresh</button>
+                                        <button onClick={fetchUsersList} className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center gap-2 w-full md:w-auto justify-center"><IconRefresh size={16}/> تحديث القائمة</button>
                                     </div>
+
+                                    {/* ===== حسابات تنتظر الموافقة — قسم بارز ===== */}
+                                    {(() => {
+                                        const pendingList = usersList.filter(u => !u.is_approved && !SUPER_ADMIN_ROLES.includes(u.role));
+                                        if (pendingList.length === 0) return null;
+                                        return (
+                                            <div className="rounded-2xl border-2 border-amber-400 overflow-hidden shadow-lg">
+                                                <div className="bg-amber-500 px-4 py-3 flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse inline-block"></span>
+                                                        <span className="text-white font-black text-sm">⏳ {pendingList.length} حساب {pendingList.length === 1 ? 'ينتظر' : 'ينتظرون'} موافقتك</span>
+                                                    </div>
+                                                    <span className="text-amber-100 text-xs font-bold">وافق أو ارفض مباشرة 👇</span>
+                                                </div>
+                                                <div className="bg-amber-50 p-3 space-y-2">
+                                                    {pendingList.map(u => (
+                                                        <div key={u.id} className="bg-white rounded-xl border border-amber-200 p-3 flex items-center gap-3 shadow-sm">
+                                                            <div className="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center text-amber-800 font-black text-base shrink-0">{(u.name || '?')[0].toUpperCase()}</div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-black text-slate-800 text-sm truncate">{u.name || 'موظف جديد'}</p>
+                                                                <p className="text-[11px] text-slate-400 font-bold truncate">{u.email || 'بدون إيميل'}</p>
+                                                            </div>
+                                                            <div className="flex gap-2 shrink-0">
+                                                                <button onClick={async () => { await togglePerm(u.id, 'is_approved', true); notify(`✅ تم تفعيل حساب ${u.name}`, 'success'); }} className="bg-green-600 hover:bg-green-700 text-white font-black text-xs px-4 py-2 rounded-xl transition-colors shadow">
+                                                                    ✓ موافقة
+                                                                </button>
+                                                                <button onClick={async () => { if (!window.confirm(`رفض حساب "${u.name}"؟`)) return; await supabase.from('user_roles').delete().eq('id', u.id); fetchUsersList(); notify(`تم رفض حساب ${u.name}`); }} className="bg-red-50 border border-red-300 hover:bg-red-100 text-red-600 font-black text-xs px-3 py-2 rounded-xl transition-colors">
+                                                                    ✕
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
 
                                     {/* Legend */}
                                     <div className="flex items-center gap-4 text-[11px] font-bold text-slate-500">
-                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Online (last 5 min)</span>
-                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Idle (5–30 min)</span>
-                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block"></span> Offline</span>
+                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> متصل (آخر 5 دقائق)</span>
+                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> خامل (5-30 د)</span>
+                                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block"></span> غير متصل</span>
                                     </div>
 
                                     {/* User Cards */}
