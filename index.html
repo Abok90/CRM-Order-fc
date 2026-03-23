@@ -319,8 +319,9 @@
             
             const [orders, setOrders] = useState([]);
             const [products, setProducts] = useState([]);
-            const ordersRef = useRef([]); 
+            const ordersRef = useRef([]);
             const [usersList, setUsersList] = useState([]);
+            const [realStats, setRealStats] = useState({ total: null, processing: null, delivered: null, revenue: null });
             const [appNotifs, setAppNotifs] = useState([]);
             const [notifPanelOpen, setNotifPanelOpen] = useState(false);
             const addAppNotif = (type, title, msg, data = {}) => {
@@ -478,6 +479,24 @@
 
             const DISPLAY_LIMIT = 3000; // آخر عدد أوردر يُحمَّل في الذاكرة للعرض العادي - البحث يشمل كل الأوردرات
 
+            const fetchRealStats = async () => {
+                try {
+                    const processingStatuses = ['جاري التحضير','مراجعة','تاجيل','الشحن','استبدال','اعادة ارسال'];
+                    const [totalRes, processingRes, deliveredRes] = await Promise.all([
+                        supabase.from('orders').select('*', { count: 'exact', head: true }),
+                        supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', processingStatuses),
+                        supabase.from('orders').select('productPrice,shippingPrice', { count: 'exact' }).eq('status', 'تم')
+                    ]);
+                    const revenue = (deliveredRes.data || []).reduce((s, o) => s + (Number(o.productPrice) || 0) + (Number(o.shippingPrice) || 0), 0);
+                    setRealStats({
+                        total:      totalRes.count      ?? null,
+                        processing: processingRes.count ?? null,
+                        delivered:  deliveredRes.count  ?? null,
+                        revenue
+                    });
+                } catch(e) { console.error('fetchRealStats error', e); }
+            };
+
             const fetchOrdersData = useCallback(async () => {
                 if (!user) return;
                 try {
@@ -525,6 +544,7 @@
                 await Promise.all([fetchOrdersData(), fetchProducts()]);
                 setLoadingDB(false);
                 // باقي البيانات في الخلفية بعد ما الصفحة تظهر
+                fetchRealStats();
                 if (isSuperAdmin || isPageManager) fetchUsersList();
                 if (isSuperAdmin || isPageManager) fetchActivityLogs();
                 if (canAccessFinance) fetchFinanceRecords();
@@ -1746,7 +1766,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.0</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.1</span>
                             </div>
                         </nav>
                     </aside>
@@ -1800,11 +1820,11 @@
                             {currentTab === 'dashboard' && (
                                 <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     <div className={`grid gap-3 md:gap-4 ${userRole?.role === 'agent' ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}`}>
-                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow stat-card-accent" style={{borderTop: '3px solid #0ea5e9'}}><div className="p-2.5 bg-sky-50 text-sky-500 rounded-xl shrink-0"><IconCart size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">إجمالي الطلبات</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{globalStats.total}</p></div></div>
-                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #f59e0b'}}><div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl shrink-0"><IconClock size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">قيد المعالجة</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{globalStats.new}</p></div></div>
-                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #22c55e'}}><div className="p-2.5 bg-green-50 text-green-500 rounded-xl shrink-0"><IconCheck size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">تم التوصيل</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{globalStats.delivered}</p></div></div>
+                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow stat-card-accent" style={{borderTop: '3px solid #0ea5e9'}}><div className="p-2.5 bg-sky-50 text-sky-500 rounded-xl shrink-0"><IconCart size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">إجمالي الطلبات</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{realStats.total !== null ? realStats.total.toLocaleString() : '...'}</p></div></div>
+                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #f59e0b'}}><div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl shrink-0"><IconClock size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">قيد المعالجة</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{realStats.processing !== null ? realStats.processing.toLocaleString() : '...'}</p></div></div>
+                                        <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #22c55e'}}><div className="p-2.5 bg-green-50 text-green-500 rounded-xl shrink-0"><IconCheck size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">تم التوصيل</p><p className="text-2xl md:text-3xl font-black text-slate-800 leading-none">{realStats.delivered !== null ? realStats.delivered.toLocaleString() : '...'}</p></div></div>
                                         {userRole?.role !== 'agent' && (
-                                            <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #8b5cf6'}}><div className="p-2.5 bg-purple-50 text-purple-500 rounded-xl shrink-0"><IconStore size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">الإيرادات</p><p className="text-lg md:text-2xl font-black text-sky-700 leading-none">{globalStats.revenue}<span className="text-[10px] font-bold text-slate-400 mr-0.5">ج.م</span></p></div></div>
+                                            <div className="glass-panel p-4 md:p-5 rounded-2xl flex items-center gap-3 hover:shadow-md transition-shadow" style={{borderTop: '3px solid #8b5cf6'}}><div className="p-2.5 bg-purple-50 text-purple-500 rounded-xl shrink-0"><IconStore size={20} /></div><div><p className="text-slate-400 text-[10px] md:text-xs font-bold mb-0.5">الإيرادات</p><p className="text-lg md:text-2xl font-black text-sky-700 leading-none">{realStats.revenue !== null ? realStats.revenue.toLocaleString() : '...'}<span className="text-[10px] font-bold text-slate-400 mr-0.5">ج.م</span></p></div></div>
                                         )}
                                     </div>
                                     {availablePages.length > 0 && (
