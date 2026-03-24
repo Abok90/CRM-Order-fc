@@ -410,7 +410,7 @@
                 if (!userRole) return [];
                 if (isSuperAdmin) return pages;
                 if (!userRole.assigned_page) return [];
-                return pages.filter(p => userRole.assigned_page.includes(p));
+                return pages.filter(p => userRole.assigned_page.split(',').filter(Boolean).includes(p));
             }, [userRole, isSuperAdmin]);
 
             const fetchUserRole = async (userId, userEmail) => {
@@ -574,6 +574,12 @@
                 if (!order) return '';
                 const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
                 return `✅ تم استلام طلبك بنجاح!\n${'─'.repeat(24)}\n🏪 ${order.page || ''}\n📦 رقم الطلب: ${order.id}\n👤 الاسم: ${order.customer}\n📱 الموبايل: ${order.phone}\n🛍️ المنتج: ${order.item}\n📍 العنوان: ${order.address}\n${'─'.repeat(24)}\n💰 سعر المنتجات: ${Number(order.productPrice) || 0} ج.م\n🚚 سعر الشحن: ${Number(order.shippingPrice) || 0} ج.م\n💵 الإجمالي: ${total} ج.م${order.trackingNumber ? `\n\n📬 رقم البوليصة: ${order.trackingNumber}` : ''}\n${'─'.repeat(24)}\nشكراً لتعاملك معنا 🙏`;
+            };
+
+            const generateShippingMsg = (order) => {
+                if (!order) return '';
+                const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
+                return `📦 شحنة جديدة\n${'─'.repeat(24)}\n🏪 الصفحة: ${order.page || ''}\n🔢 رقم الطلب: ${order.id}\n👤 اسم العميل: ${order.customer}\n📱 الموبايل: ${order.phone}\n📍 العنوان: ${order.address}\n🛍️ محتوى الشحنة: ${order.item}\n${'─'.repeat(24)}\n💵 قيمة التحصيل: ${total} ج.م${order.notes ? `\n📝 ملاحظات: ${order.notes}` : ''}\n${'─'.repeat(24)}`;
             };
 
             useEffect(() => {
@@ -1769,7 +1775,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.2</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.3</span>
                             </div>
                         </nav>
                     </aside>
