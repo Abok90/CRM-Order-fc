@@ -427,7 +427,10 @@
                         setUserRole(data);
                         if (!SUPER_ADMIN_ROLES.includes(data.role) && data.assigned_page) {
                             setFilterPage('الكل');
-                            const firstPage = data.assigned_page.split(',').filter(Boolean)[0] || pages[0];
+                            const assignedList = data.assigned_page.split(',').filter(Boolean);
+                            const firstPage = (data.default_page && assignedList.includes(data.default_page))
+                                ? data.default_page
+                                : (assignedList[0] || pages[0]);
                             setNewOrder(prev => ({...prev, page: firstPage}));
                             setImportTargetPage(firstPage);
                             setBulkTargetPage(firstPage);
@@ -464,10 +467,10 @@
             };
 
             const togglePerm = async (userId, field, value) => {
+                setUsersList(prev => prev.map(u => u.id === userId ? {...u, [field]: value} : u));
                 try {
                     await supabase.from('user_roles').update({ [field]: value }).eq('id', userId);
-                    fetchUsersList();
-                } catch(e) { console.error(e); }
+                } catch(e) { fetchUsersList(); console.error(e); }
             };
 
             const fetchProducts = async () => {
@@ -1033,7 +1036,9 @@
             // === MODAL OPEN/CLOSE FUNCTIONS ===
             const openAddModal = () => {
                 setEditReason(''); setProductSearchStr(''); setSelectedProductDetails(null); setShowProductSuggestions(false);
-                const selectedPage = (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0];
+                const selectedPage = userRole?.default_page && availablePages.includes(userRole.default_page)
+                    ? userRole.default_page
+                    : (availablePages && availablePages.length > 0 ? availablePages[0] : pages[0]);
                 // استرجاع المسودة إن وجدت
                 const draftRaw = localStorage.getItem('crmOrderDraft');
                 if (draftRaw) {
@@ -1775,7 +1780,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.3</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.4</span>
                             </div>
                         </nav>
                     </aside>
@@ -2559,22 +2564,39 @@
                                                         {/* الصفحات المخصصة */}
                                                         {!SUPER_ADMIN_ROLES.includes(u.role) && (
                                                         <div>
-                                                            <div className="text-[10px] font-black text-slate-500 mb-2">الصفحات المخصصة</div>
+                                                            <div className="text-[10px] font-black text-slate-500 mb-2">الصفحات المخصصة <span className="font-normal text-slate-400">(ضع علامة على الصفحات التي تعمل عليها)</span></div>
                                                             <div className="flex flex-wrap gap-1.5">
-                                                                {availablePages.map(p => {
+                                                                {pages.map(p => {
                                                                     const isChecked = u.assigned_page ? u.assigned_page.split(',').filter(Boolean).includes(p) : false;
                                                                     return (
-                                                                        <label key={p} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${isChecked ? 'bg-sky-100 border-sky-400 text-sky-800 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'} ${!canEditUser ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}>
+                                                                        <label key={p} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all cursor-pointer select-none ${isChecked ? 'bg-sky-100 border-sky-400 text-sky-800 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'} ${!canEditUser ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}>
                                                                             <input type="checkbox" className="w-3 h-3" checked={isChecked} disabled={!canEditUser} onChange={async (e) => {
                                                                                 let cur = u.assigned_page ? u.assigned_page.split(',').filter(Boolean) : [];
                                                                                 if (e.target.checked) { if (!cur.includes(p)) cur.push(p); } else { cur = cur.filter(pg => pg !== p); }
-                                                                                await supabase.from('user_roles').update({assigned_page: cur.join(',')}).eq('id', u.id);
-                                                                                fetchUsersList();
+                                                                                const newVal = cur.join(',');
+                                                                                setUsersList(prev => prev.map(x => x.id === u.id ? {...x, assigned_page: newVal} : x));
+                                                                                await supabase.from('user_roles').update({assigned_page: newVal}).eq('id', u.id);
                                                                             }} /> {p}
                                                                         </label>
                                                                     );
                                                                 })}
                                                             </div>
+                                                            {canEditUser && (() => {
+                                                                const assignedList = u.assigned_page ? u.assigned_page.split(',').filter(Boolean) : [];
+                                                                if (assignedList.length === 0) return null;
+                                                                return (
+                                                                    <div className="mt-2 flex items-center gap-2">
+                                                                        <span className="text-[10px] font-black text-emerald-700 shrink-0">📥 صفحة الإضافة الافتراضية:</span>
+                                                                        <select value={u.default_page || assignedList[0]} onChange={async (e) => {
+                                                                            const val = e.target.value;
+                                                                            setUsersList(prev => prev.map(x => x.id === u.id ? {...x, default_page: val} : x));
+                                                                            await supabase.from('user_roles').update({default_page: val}).eq('id', u.id);
+                                                                        }} className="flex-1 border border-emerald-300 bg-emerald-50 text-emerald-800 px-2 py-1 rounded-lg text-[10px] font-black outline-none focus:ring-2 focus:ring-emerald-400">
+                                                                            {assignedList.map(pg => <option key={pg} value={pg}>{pg}</option>)}
+                                                                        </select>
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                         )}
                                                         {SUPER_ADMIN_ROLES.includes(u.role) && <div className="text-[10px] text-indigo-600 font-black bg-indigo-50 rounded-lg px-3 py-2 text-center border border-indigo-200">مدير — وصول كامل لجميع الصفحات</div>}
