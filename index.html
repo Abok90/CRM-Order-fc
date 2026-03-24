@@ -975,9 +975,36 @@
 
             const filteredFinanceTotal = useMemo(() => filteredFinanceRecords.reduce((sum, r) => sum + Number(r.amount || 0), 0), [filteredFinanceRecords]);
 
-            // syncToGoogleSheet محذوفة — المزامنة بتتم عبر Supabase Database Webhook مباشرةً
-            // CRM → Supabase → Webhook → Apps Script (server-to-server, بدون CORS)
-            const syncToGoogleSheet = async (_action, _orderData) => { /* no-op */ };
+            // مزامنة السيستم → جوجل شيت (السيستم هو المرجع الرئيسي)
+            const syncToGoogleSheet = React.useCallback(async (action, orderData) => {
+                const webhook = uiSettings?.googleSheetWebhook;
+                if (!webhook) return;
+                setSheetSyncStatus('syncing');
+                try {
+                    const body = JSON.stringify({
+                        action,
+                        id: String(orderData.id || ''),
+                        customer: orderData.customer || '',
+                        phone: orderData.phone || '',
+                        address: orderData.address || '',
+                        item: orderData.item || '',
+                        status: orderData.status || '',
+                        date: orderData.date || '',
+                        notes: orderData.notes || '',
+                        page: orderData.page || '',
+                        trackingNumber: orderData.trackingNumber || '',
+                        productPrice: orderData.productPrice || 0,
+                        shippingPrice: orderData.shippingPrice || 0,
+                    });
+                    await fetch(webhook, { method: 'POST', body, mode: 'no-cors', headers: { 'Content-Type': 'text/plain' } });
+                    setSheetSyncStatus('ok');
+                    setTimeout(() => setSheetSyncStatus('idle'), 3000);
+                } catch (err) {
+                    console.warn('Sheet sync error:', err);
+                    setSheetSyncStatus('error');
+                    setTimeout(() => setSheetSyncStatus('idle'), 5000);
+                }
+            }, [uiSettings?.googleSheetWebhook]);
 
             const toEnglishDigits = (str) => {
                 const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -1895,7 +1922,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.11</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.12</span>
                             </div>
                         </nav>
                     </aside>
