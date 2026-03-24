@@ -1209,30 +1209,49 @@
                         });
                     }
                     const allCandidates = Array.from(uniqueRowsMap.values());
-                    // تحقق من الأوردرات الموجودة مسبقاً في السيستم وتجاهلها
+                    // السيستم هو المرجع الرئيسي — نجيب بيانات الأوردرات الموجودة كاملة للحفاظ على الحالة
                     setImportStatusText("جاري مطابقة البيانات الموجودة...");
                     const candidateIds = allCandidates.map(r => r.id);
-                    const existingIds = new Set();
+                    const existingMap = new Map();
                     for (let i = 0; i < candidateIds.length; i += 500) {
-                        const { data: existing } = await supabase.from('orders').select('id').in('id', candidateIds.slice(i, i + 500));
-                        (existing || []).forEach(r => existingIds.add(r.id));
+                        const { data: existing } = await supabase.from('orders').select('id,status,trackingNumber').in('id', candidateIds.slice(i, i + 500));
+                        (existing || []).forEach(r => existingMap.set(r.id, r));
                     }
-                    const uniqueDataToInsert = allCandidates.filter(r => !existingIds.has(r.id));
-                    const skippedCount = allCandidates.length - uniqueDataToInsert.length;
-                    if (uniqueDataToInsert.length === 0) {
-                        notify(`كل الأوردرات (${allCandidates.length}) موجودة بالفعل في السيستم — لم يُضاف شيء`, 'warning');
+                    // أوردرات جديدة → insert
+                    const uniqueDataToInsert = allCandidates.filter(r => !existingMap.has(r.id));
+                    // أوردرات موجودة → update رقم التتبع والملاحظات فقط، الحالة تفضل من السيستم
+                    const toUpdateTracking = allCandidates.filter(r => {
+                        const sys = existingMap.get(r.id);
+                        return sys && r.trackingNumber && r.trackingNumber !== (sys.trackingNumber || '');
+                    });
+                    const skippedCount = allCandidates.length - uniqueDataToInsert.length - toUpdateTracking.length;
+                    if (uniqueDataToInsert.length === 0 && toUpdateTracking.length === 0) {
+                        notify(`كل الأوردرات (${allCandidates.length}) موجودة بالفعل في السيستم وحالاتها محفوظة — لم يُضاف شيء`, 'warning');
                         setIsImporting(false); return;
                     }
-                    setImportStatusText(`جاري رفع ${uniqueDataToInsert.length} طلب جديد (تم تجاهل ${skippedCount} مكرر)...`);
-                    for (let i = 0; i < uniqueDataToInsert.length; i += 200) {
-                        const chunk = uniqueDataToInsert.slice(i, i + 200);
-                        const { error } = await supabase.from('orders').insert(chunk);
-                        if (error) throw error;
-                        setImportProgress(Math.round(((i + chunk.length) / uniqueDataToInsert.length) * 100));
+                    // إضافة الجديد
+                    if (uniqueDataToInsert.length > 0) {
+                        setImportStatusText(`جاري رفع ${uniqueDataToInsert.length} طلب جديد...`);
+                        for (let i = 0; i < uniqueDataToInsert.length; i += 200) {
+                            const chunk = uniqueDataToInsert.slice(i, i + 200);
+                            const { error } = await supabase.from('orders').insert(chunk);
+                            if (error) throw error;
+                            setImportProgress(Math.round(((i + chunk.length) / (uniqueDataToInsert.length + toUpdateTracking.length)) * 80));
+                        }
                     }
-                    logActivity(`رفع شيت إكسيل (${uniqueDataToInsert.length} طلب جديد، ${skippedCount} مكرر تم تجاهله)`, 'متعدد');
-                    setImportStatusText("تم الرفع بنجاح!"); fetchOrdersData(); setIsImporting(false); setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]);
-                    notify(`تم استيراد ${uniqueDataToInsert.length} أوردر جديد${skippedCount > 0 ? ` (تجاهل ${skippedCount} مكرر)` : ''}`, 'success');
+                    // تحديث أرقام التتبع للموجود (الحالة تبقى من السيستم)
+                    if (toUpdateTracking.length > 0) {
+                        setImportStatusText(`جاري تحديث أرقام التتبع لـ ${toUpdateTracking.length} طلب...`);
+                        for (let i = 0; i < toUpdateTracking.length; i++) {
+                            const r = toUpdateTracking[i];
+                            await supabase.from('orders').update({ trackingNumber: r.trackingNumber }).eq('id', r.id);
+                            if (i % 50 === 0) setImportProgress(80 + Math.round((i / toUpdateTracking.length) * 20));
+                        }
+                    }
+                    logActivity(`رفع شيت إكسيل: ${uniqueDataToInsert.length} جديد، ${toUpdateTracking.length} تحديث تتبع، ${skippedCount} محفوظ`, 'متعدد');
+                    setImportStatusText("تم الرفع بنجاح!");
+                    fetchOrdersData(); setIsImporting(false); setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]);
+                    notify(`${uniqueDataToInsert.length > 0 ? `${uniqueDataToInsert.length} أوردر جديد` : ''}${toUpdateTracking.length > 0 ? ` • ${toUpdateTracking.length} رقم تتبع محدّث` : ''} — حالات السيستم محفوظة ✓`, 'success');
                 } catch (err) { notify(`فشل الرفع: ${err.message}`); setIsImporting(false); }
             };
 
@@ -1876,7 +1895,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.10</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.11</span>
                             </div>
                         </nav>
                     </aside>
