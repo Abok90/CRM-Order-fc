@@ -783,8 +783,16 @@
                     const matchesDuplicates = showDuplicatesOnly ? phoneCounts[order.phone] > 1 : true;
                     return matchesSearch && matchesStatus && matchesPage && matchesRole && matchesDateFrom && matchesDateTo && matchesDuplicates;
                 });
-                if (orderSortDir === 'asc') return [...result].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-                return [...result].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+                if (orderSortDir === 'asc') return [...result].sort((a, b) => {
+                    const at = new Date(a.created_at || a.date || 0).getTime();
+                    const bt = new Date(b.created_at || b.date || 0).getTime();
+                    return at !== bt ? at - bt : (Number(a.id) || 0) - (Number(b.id) || 0);
+                });
+                return [...result].sort((a, b) => {
+                    const at = new Date(a.created_at || a.date || 0).getTime();
+                    const bt = new Date(b.created_at || b.date || 0).getTime();
+                    return bt !== at ? bt - at : (Number(b.id) || 0) - (Number(a.id) || 0);
+                });
             }, [allVisibleOrders, searchQuery, filterStatus, filterPage, isSuperAdmin, availablePages, dateFrom, dateTo, showDuplicatesOnly, phoneCounts, orderSortDir]);
 
             const displayedOrders = useMemo(() => {
@@ -1868,7 +1876,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.9</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.10</span>
                             </div>
                         </nav>
                     </aside>
