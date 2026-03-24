@@ -1123,7 +1123,7 @@
             const exportShippingCSV = () => {
                 if (selectedOrders.length === 0) return;
                 const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
-                const headers = ['رقم الاوردر', 'اسم الصفحه', 'اسم العميل', 'موبايل العميل', 'ملاحظات', 'المنطقه', 'العنوان', 'محتوي الشحنه', 'الكميه', 'قيمة الشحنة'];
+                const headers = ['كود التاجر', 'اسم الراسل على البوليصة', 'اسم المستلم', 'موبايل المستلم', 'ملاحظات', 'المنطقة', 'العنوان', 'محتوى الشحنة', 'الكمية', 'قيمة الشحنة'];
                 const csvClean = (v) => String(v || '').replace(/"/g, '""').replace(/\r?\n/g, ' ').trim();
                 const rows = toExport.map(o => [`"${csvClean(o.id)}"`, `"${csvClean(o.page)}"`, `"${csvClean(o.customer)}"`, `"${csvClean(o.phone)}"`, `"${csvClean(o.notes)}"`, `"${csvClean(o.address)}"`, `"${csvClean(o.address)}"`, `"${csvClean(o.item)}"`, `1`, (Number(o.productPrice) || 0) + (Number(o.shippingPrice) || 0)].join(','));
                 const content = '\uFEFF' + [headers.join(','), ...rows].join('\n');
