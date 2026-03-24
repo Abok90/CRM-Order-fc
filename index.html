@@ -1006,6 +1006,45 @@
                 }
             }, [uiSettings?.googleSheetWebhook]);
 
+            // مزامنة كاملة: يبعت كل الأوردرات الموجودة في السيستم للشيت دفعة واحدة
+            const [fullSyncStatus, setFullSyncStatus] = React.useState('idle'); // idle | syncing | ok | error
+            const fullSyncToGoogleSheet = React.useCallback(async () => {
+                const webhook = uiSettings?.googleSheetWebhook;
+                if (!webhook || orders.length === 0) return;
+                setFullSyncStatus('syncing');
+                try {
+                    const allOrders = orders.map(o => ({
+                        id: String(o.id || ''),
+                        customer: o.customer || '',
+                        phone: o.phone || '',
+                        address: o.address || '',
+                        item: o.item || '',
+                        status: o.status || '',
+                        date: o.date || '',
+                        notes: o.notes || '',
+                        page: o.page || '',
+                        trackingNumber: o.trackingNumber || '',
+                        productPrice: o.productPrice || 0,
+                        shippingPrice: o.shippingPrice || 0,
+                    }));
+                    // بعت الأوردرات على دفعات (batch) كل 50 أوردر
+                    const BATCH = 50;
+                    for (let i = 0; i < allOrders.length; i += BATCH) {
+                        const chunk = allOrders.slice(i, i + BATCH);
+                        const body = JSON.stringify({ action: 'fullSync', orders: chunk });
+                        await fetch(webhook, { method: 'POST', body, mode: 'no-cors', headers: { 'Content-Type': 'text/plain' } });
+                        // استنى شوية بين الدفعات
+                        if (i + BATCH < allOrders.length) await new Promise(r => setTimeout(r, 500));
+                    }
+                    setFullSyncStatus('ok');
+                    setTimeout(() => setFullSyncStatus('idle'), 5000);
+                } catch (err) {
+                    console.warn('Full sync error:', err);
+                    setFullSyncStatus('error');
+                    setTimeout(() => setFullSyncStatus('idle'), 5000);
+                }
+            }, [uiSettings?.googleSheetWebhook, orders]);
+
             const toEnglishDigits = (str) => {
                 const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
                 return String(str).replace(/[٠-٩]/g, w => arabicNumbers.indexOf(w));
@@ -1922,7 +1961,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.12</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.13</span>
                             </div>
                         </nav>
                     </aside>
@@ -3188,6 +3227,18 @@
                                                 </button>
                                             )}
                                         </div>
+                                        {uiSettings.googleSheetWebhook && (
+                                            <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                                                <p className="text-[10px] font-black text-amber-800 mb-2">مزامنة يدوية — ابعت كل الأوردرات الحالية للشيت:</p>
+                                                <button
+                                                    onClick={fullSyncToGoogleSheet}
+                                                    disabled={fullSyncStatus === 'syncing' || orders.length === 0}
+                                                    className="w-full py-2 rounded-lg font-black text-xs transition-colors shadow-sm disabled:opacity-60 bg-amber-500 hover:bg-amber-600 text-white"
+                                                >
+                                                    {fullSyncStatus === 'syncing' ? `⏳ جاري الإرسال... (${orders.length} أوردر)` : fullSyncStatus === 'ok' ? `✅ تمت المزامنة (${orders.length} أوردر)` : fullSyncStatus === 'error' ? '❌ فشل — حاول تاني' : `📤 مزامنة كاملة (${orders.length} أوردر)`}
+                                                </button>
+                                            </div>
+                                        )}
                                         <div className="mt-3 bg-white/70 rounded-xl p-3 space-y-1.5">
                                             <p className="text-[10px] font-black text-slate-600">ما بيتزامن تلقائياً:</p>
                                             <div className="flex flex-wrap gap-1.5">
