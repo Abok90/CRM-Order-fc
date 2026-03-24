@@ -371,7 +371,7 @@
             const [importStatusText, setImportStatusText] = useState(""); 
             const [isImporting, setIsImporting] = useState(false);
             const [importTargetPage, setImportTargetPage] = useState('عايدة'); 
-            const [columnMapping, setColumnMapping] = useState({ id: '', customer: '', phone: '', address: '', item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: '', date: '', notes: '' });
+            const [columnMapping, setColumnMapping] = useState({ id: '', customer: '', phone: '', region: '', address: '', item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: '', date: '', notes: '' });
             
             const [productSearchStr, setProductSearchStr] = useState('');
             const [showProductSuggestions, setShowProductSuggestions] = useState(false);
@@ -1142,11 +1142,37 @@
                 return result.filter(r => r.some(cell => cell && cell.trim() !== '')); 
             };
 
+            const autoDetectMapping = (headers) => {
+                const find = (...keywords) => headers.find(h => keywords.some(k => h && h.toString().includes(k))) || '';
+                return {
+                    id:             find('كود التاجر', 'رقم الاوردر', 'رقم الطلب', 'كود'),
+                    customer:       find('اسم المستلم', 'اسم العميل', 'المستلم'),
+                    phone:          find('موبايل المستلم', 'موبايل العميل', 'موبايل', 'تليفون', 'هاتف'),
+                    region:         find('المنطقة', 'المنطقه', 'المنطقه'),
+                    address:        find('العنوان') || find('المنطقة', 'المنطقه'),
+                    item:           find('محتوى الشحنة', 'محتوي الشحنه', 'محتوى', 'المنتج', 'الوصف', 'الصنف'),
+                    productPrice:   find('قيمة الشحنة', 'قيمه الشحنه', 'قيمة', 'السعر', 'المبلغ'),
+                    shippingPrice:  find('سعر الشحن', 'شحن'),
+                    trackingNumber: find('بوليصة', 'بوليصه', 'رقم البوليصة', 'tracking'),
+                    status:         find('الحالة', 'الحاله', 'status'),
+                    date:           find('التاريخ', 'date'),
+                    notes:          find('ملاحظات', 'ملاحظه', 'notes'),
+                };
+            };
+
             const handleFileUpload = (e) => {
                 const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
-                reader.onload = (event) => { const text = event.target.result; const parsed = parseCSV(text); if (parsed.length > 0) { setCsvHeaders(parsed[0]); setCsvData(parsed.slice(1)); } };
-                reader.readAsText(file, 'UTF-8'); 
+                reader.onload = (event) => {
+                    const text = event.target.result;
+                    const parsed = parseCSV(text);
+                    if (parsed.length > 0) {
+                        setCsvHeaders(parsed[0]);
+                        setCsvData(parsed.slice(1));
+                        setColumnMapping(autoDetectMapping(parsed[0]));
+                    }
+                };
+                reader.readAsText(file, 'UTF-8');
             };
 
             const startImport = async () => {
@@ -1164,8 +1190,10 @@
                             let parsedDate = new Date(String(getVal('date')).replace(/\//g, '-').replace(/\./g, '-'));
                             if (!isNaN(parsedDate.getTime())) finalDate = parsedDate.toISOString().split('T')[0];
                         }
+                        const region = getVal('region'); const addr = getVal('address');
+                        const fullAddress = region && addr && region !== addr ? `${region} - ${addr}` : (addr || region || '');
                         uniqueRowsMap.set(orderId, {
-                            id: orderId, customer: getVal('customer') || 'غير محدد', phone: getVal('phone') || '', address: getVal('address') || '', notes: getVal('notes') || '', page: importTargetPage, 
+                            id: orderId, customer: getVal('customer') || 'غير محدد', phone: getVal('phone') || '', address: fullAddress, notes: getVal('notes') || '', page: importTargetPage,
                             item: getVal('item') || 'مستورد من إكسيل', productPrice: parseFloat(String(getVal('productPrice')).replace(/[^\d.-]/g, '')) || 0, shippingPrice: parseFloat(String(getVal('shippingPrice')).replace(/[^\d.-]/g, '')) || 0,
                             trackingNumber: getVal('trackingNumber') || '', status: importedStatus, date: finalDate, user_id: user.id
                         });
@@ -3445,6 +3473,123 @@
                                     >
                                         إلغاء
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* نافذة استيراد إكسيل */}
+                    {isImportModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-3 md:p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border-t-4 border-sky-500">
+                                {/* Header */}
+                                <div className="px-4 py-3 md:px-6 md:py-4 border-b flex justify-between items-center bg-sky-50 shrink-0">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 rounded-lg bg-white shadow-sm text-sky-600"><IconUpload size={18}/></div>
+                                        <div>
+                                            <h2 className="text-base md:text-lg font-black text-sky-800">رفع شيت إكسيل</h2>
+                                            <p className="text-[10px] text-sky-600 font-bold">{csvHeaders.length > 0 ? `${csvData.length} صف جاهز للاستيراد` : 'اختر ملف CSV'}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => { setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]); }} className="p-1.5 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={18}/></button>
+                                </div>
+
+                                <div className="overflow-y-auto flex-1 p-4 md:p-5 space-y-4">
+                                    {/* اختيار الملف */}
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-600 mb-2">📂 اختر ملف CSV (احفظ الإكسيل كـ CSV أولاً)</label>
+                                        <label className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-5 cursor-pointer transition-colors ${csvHeaders.length > 0 ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-slate-50 hover:bg-sky-50 hover:border-sky-400'}`}>
+                                            <input type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload}/>
+                                            {csvHeaders.length > 0 ? (
+                                                <>
+                                                    <span className="text-2xl">✅</span>
+                                                    <span className="text-sm font-black text-green-700">تم تحميل الملف - {csvData.length} صف</span>
+                                                    <span className="text-[10px] text-green-600 font-bold">{csvHeaders.length} عمود تم اكتشافهم</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <IconUpload size={28} className="text-slate-400"/>
+                                                    <span className="text-sm font-black text-slate-500">اضغط لاختيار الملف</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold">صيغة CSV فقط</span>
+                                                </>
+                                            )}
+                                        </label>
+                                    </div>
+
+                                    {/* الصفحة المستهدفة */}
+                                    {csvHeaders.length > 0 && (
+                                        <div>
+                                            <label className="block text-xs font-black text-slate-600 mb-1.5">🏪 رفع الطلبات على أي صفحة؟</label>
+                                            <select className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 font-bold text-sm" value={importTargetPage} onChange={e => setImportTargetPage(e.target.value)}>
+                                                {availablePages.map(p => <option key={p} value={p}>{p}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {/* ربط الأعمدة */}
+                                    {csvHeaders.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <label className="block text-xs font-black text-slate-600">🔗 ربط الأعمدة</label>
+                                                <button type="button" onClick={() => setColumnMapping(autoDetectMapping(csvHeaders))} className="text-[10px] font-black text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100 px-2 py-1 rounded-lg transition-colors">⚡ اكتشاف تلقائي</button>
+                                            </div>
+                                            <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                                                {[
+                                                    { field: 'id',             label: 'كود / رقم الطلب',     icon: '#' },
+                                                    { field: 'customer',       label: 'اسم المستلم',          icon: '👤' },
+                                                    { field: 'phone',          label: 'موبايل المستلم',       icon: '📞' },
+                                                    { field: 'region',         label: 'المنطقة',              icon: '📍' },
+                                                    { field: 'address',        label: 'العنوان',              icon: '🏠' },
+                                                    { field: 'item',           label: 'محتوى الشحنة',         icon: '📦' },
+                                                    { field: 'productPrice',   label: 'قيمة الشحنة',         icon: '💰' },
+                                                    { field: 'shippingPrice',  label: 'سعر الشحن',           icon: '🚚' },
+                                                    { field: 'notes',          label: 'ملاحظات',             icon: '📝' },
+                                                    { field: 'trackingNumber', label: 'رقم البوليصة',        icon: '🔖' },
+                                                    { field: 'status',         label: 'الحالة',              icon: '🔄' },
+                                                    { field: 'date',           label: 'التاريخ',             icon: '📅' },
+                                                ].map(({ field, label, icon }) => (
+                                                    <div key={field} className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 last:border-0 hover:bg-white transition-colors">
+                                                        <span className="text-base shrink-0 w-6 text-center">{icon}</span>
+                                                        <span className="text-xs font-black text-slate-700 w-32 shrink-0">{label}</span>
+                                                        <select
+                                                            className="flex-1 px-2 py-1 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-sky-400 text-xs font-bold text-slate-700"
+                                                            value={columnMapping[field] || ''}
+                                                            onChange={e => setColumnMapping(prev => ({ ...prev, [field]: e.target.value }))}
+                                                        >
+                                                            <option value="">-- تجاهل --</option>
+                                                            {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                                                        </select>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {columnMapping.region && columnMapping.address && columnMapping.region !== columnMapping.address && (
+                                                <p className="text-[10px] text-sky-600 font-bold mt-1.5 bg-sky-50 px-2 py-1 rounded-lg">💡 المنطقة + العنوان سيتم دمجهم تلقائياً</p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* شريط التقدم */}
+                                    {isImporting && (
+                                        <div className="bg-sky-50 border border-sky-200 rounded-xl p-4">
+                                            <p className="text-sm font-black text-sky-800 mb-2">{importStatusText}</p>
+                                            <div className="w-full bg-sky-100 rounded-full h-3">
+                                                <div className="h-3 bg-sky-500 rounded-full transition-all duration-300" style={{width: `${importProgress}%`}}/>
+                                            </div>
+                                            <p className="text-xs font-bold text-sky-600 mt-1 text-center">{importProgress}%</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="px-4 py-3 md:px-5 md:py-4 border-t bg-slate-50 flex gap-3 shrink-0">
+                                    <button
+                                        onClick={startImport}
+                                        disabled={csvHeaders.length === 0 || isImporting || !columnMapping.customer}
+                                        className="flex-1 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-3 rounded-xl transition-all shadow-md text-sm"
+                                    >
+                                        {isImporting ? `جاري الرفع... ${importProgress}%` : `⬆️ رفع ${csvData.length} طلب`}
+                                    </button>
+                                    <button onClick={() => { setIsImportModalOpen(false); setCsvHeaders([]); setCsvData([]); }} className="px-5 py-3 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold rounded-xl transition-colors text-sm">إلغاء</button>
                                 </div>
                             </div>
                         </div>
