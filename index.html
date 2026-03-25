@@ -447,7 +447,7 @@
             const SUPER_ADMIN_ROLES = ['admin', 'owner', 'social_manager', 'media_buyer'];
             const FINANCE_ROLES = ['admin', 'owner'];
             
-            const initialOrderState = { id: '', customer: '', address: '', phone: '', notes: '', page: pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' };
+            const initialOrderState = { id: '', customer: '', address: '', phone: '', notes: '', page: pages[0], item: '', quantity: '1', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' };
             const [newOrder, setNewOrder] = useState(initialOrderState);
 
             const emptyBulkRow = { id: '', customer: '', address: '', item: '', trackingNumber: '', notes: '', phone: '', status: 'جاري التحضير', shippingPrice: '', productPrice: '', date: '' };
@@ -1216,10 +1216,10 @@
                         setNewOrder(draft);
                         setHasDraft(true);
                     } catch(e) {
-                        setNewOrder({ id: getNextOrderId(selectedPage), customer: '', address: '', phone: '', notes: '', page: selectedPage, item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' });
+                        setNewOrder({ id: getNextOrderId(selectedPage), customer: '', address: '', phone: '', notes: '', page: selectedPage, item: '', quantity: '1', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' });
                     }
                 } else {
-                    setNewOrder({ id: getNextOrderId(selectedPage), customer: '', address: '', phone: '', notes: '', page: selectedPage, item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' });
+                    setNewOrder({ id: getNextOrderId(selectedPage), customer: '', address: '', phone: '', notes: '', page: selectedPage, item: '', quantity: '1', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' });
                 }
                 setIsEditing(false); setOriginalOrderId(null); setDuplicateWarnings([]); setIsAddModalOpen(true);
             };
@@ -1253,7 +1253,7 @@
                 const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
                 const headers = ['كود التاجر', 'اسم الراسل على البوليصة', 'اسم المستلم', 'موبايل المستلم', 'ملاحظات', 'المنطقة', 'العنوان', 'محتوى الشحنة', 'الكمية', 'قيمة الشحنة'];
                 const csvClean = (v) => String(v || '').replace(/"/g, '""').replace(/\r?\n/g, ' ').trim();
-                const rows = toExport.map(o => [`"${csvClean(o.id)}"`, `"${csvClean(o.page)}"`, `"${csvClean(o.customer)}"`, `"${csvClean(o.phone)}"`, `"${csvClean(o.notes)}"`, `"${csvClean(o.address)}"`, `"${csvClean(o.address)}"`, `"${csvClean(o.item)}"`, `1`, (Number(o.productPrice) || 0) + (Number(o.shippingPrice) || 0)].join(','));
+                const rows = toExport.map(o => [`"${csvClean(o.id)}"`, `"${csvClean(o.page)}"`, `"${csvClean(o.customer)}"`, `"${csvClean(o.phone)}"`, `"${csvClean(o.notes)}"`, `"${csvClean(o.address)}"`, `"${csvClean(o.address)}"`, `"${csvClean(o.item)}"`, Number(o.quantity) || 1, (Number(o.productPrice) || 0) + (Number(o.shippingPrice) || 0)].join(','));
                 const content = '\uFEFF' + [headers.join(','), ...rows].join('\n');
                 const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8;' })); link.download = `شيت_شحن_${new Date().toISOString().split('T')[0]}.csv`; link.click();
                 logActivity(`تنزيل شيت شحن (${toExport.length} طلب)`, 'متعدد');
@@ -1282,6 +1282,7 @@
                             <td style="padding:6px 8px;font-size:10px;color:#475569;">${escapeHtml(o.phone)}</td>
                             <td style="padding:6px 8px;font-size:10px;color:#475569;max-width:100px;overflow:hidden;">${escapeHtml((o.address||'').substring(0,40))}</td>
                             <td style="padding:6px 8px;font-size:10px;max-width:120px;overflow:hidden;">${escapeHtml((o.item||'').split('\n')[0].substring(0,35))}</td>
+                            <td style="padding:6px 8px;font-size:11px;font-weight:900;text-align:center;color:#0f172a;">${Number(o.quantity)||1}</td>
                             <td style="padding:6px 8px;text-align:center;"><span style="background:${color}22;color:${color};border:1px solid ${color}55;border-radius:6px;padding:2px 7px;font-size:9px;font-weight:700;white-space:nowrap;">${escapeHtml(o.status)}</span></td>
                             <td style="padding:6px 8px;font-size:11px;font-weight:700;text-align:center;">${total} ج.م</td>
                             <td style="padding:6px 8px;font-size:10px;color:#475569;text-align:center;">${escapeHtml(o.trackingNumber||'—')}</td>
@@ -1308,6 +1309,7 @@
                                     <th style="padding:7px 8px;font-size:9px;text-align:right;">الموبايل</th>
                                     <th style="padding:7px 8px;font-size:9px;text-align:right;">العنوان</th>
                                     <th style="padding:7px 8px;font-size:9px;text-align:right;">المنتج</th>
+                                    <th style="padding:7px 8px;font-size:9px;text-align:center;">الكمية</th>
                                     <th style="padding:7px 8px;font-size:9px;text-align:center;">الحالة</th>
                                     <th style="padding:7px 8px;font-size:9px;text-align:center;">الإجمالي</th>
                                     <th style="padding:7px 8px;font-size:9px;text-align:center;">البوليصة</th>
@@ -2081,7 +2083,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.17</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.18</span>
                             </div>
                         </nav>
                     </aside>
@@ -3575,17 +3577,17 @@
 
                     {/* نافذة الإضافة والتعديل للطلبات */}
                     {isAddModalOpen && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end md:items-center justify-center md:p-4 pb-[65px] md:pb-0">
-                            <div className={`bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full md:max-w-2xl max-h-[85vh] md:max-h-[95vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200 border-t-4 md:border-4 ${currentTheme.border}`}>
-                                <div className={`px-4 py-2.5 md:px-6 md:py-5 border-b flex justify-between items-center shrink-0 ${currentTheme.bgLight}`}><div className="flex items-center gap-2"><div className={`p-1.5 rounded-lg bg-white shadow-sm ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit size={16}/> : <IconPlus size={16}/>}</div><div><h2 className={`text-sm md:text-xl font-black leading-tight ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2></div></div><button onClick={closeModal} className="p-1.5 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"><IconX size={18} /></button></div>
+                        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xl z-50 flex items-end md:items-center justify-center md:p-4 pb-[65px] md:pb-0">
+                            <div className={`rounded-t-3xl md:rounded-3xl shadow-2xl w-full md:max-w-2xl max-h-[85vh] md:max-h-[95vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-300 border-t-4 md:border-2 ${currentTheme.border}`} style={{background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(32px) saturate(180%)', WebkitBackdropFilter: 'blur(32px) saturate(180%)'}}>
+                                <div className="px-4 py-3 md:px-6 md:py-4 border-b border-white/40 flex justify-between items-center shrink-0" style={{background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(12px)'}}><div className="flex items-center gap-2.5"><div className={`p-2 rounded-2xl shadow-sm ${currentTheme.bgLight} ${currentTheme.textPrimary}`}>{isEditing ? <IconEdit size={16}/> : <IconPlus size={16}/>}</div><div><h2 className={`text-sm md:text-xl font-black leading-tight ${currentTheme.textPrimary}`}>{isEditing ? `تعديل طلب: ${newOrder.id}` : 'إنشاء طلب جديد'}</h2><p className="text-[10px] text-slate-400 font-bold">{isEditing ? 'عدّل البيانات واضغط حفظ' : 'أدخل بيانات الطلب الجديد'}</p></div></div><button onClick={closeModal} className="p-2 bg-white/80 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm border border-slate-100"><IconX size={16} /></button></div>
                                 
-                                <form onSubmit={handleAddOrEditOrder} className={`flex flex-col flex-1 overflow-hidden ${currentTheme.bgLight}`}>
+                                <form onSubmit={handleAddOrEditOrder} className="flex flex-col flex-1 overflow-hidden" style={{background: 'transparent'}}>
                                 <div className="p-3 md:p-5 space-y-3 overflow-y-auto flex-1">
 
                                     {hasDraft && !isEditing && (
                                         <div className="bg-sky-50 border border-sky-300 p-2.5 rounded-xl text-sky-800 font-bold text-[11px] flex items-center justify-between gap-2 animate-in fade-in">
                                             <span className="flex items-center gap-1.5"><span>💾</span> تم استرجاع مسودة محفوظة تلقائياً</span>
-                                            <button type="button" onClick={() => { localStorage.removeItem('crmOrderDraft'); setHasDraft(false); setNewOrder({ id: '', customer: '', address: '', phone: '', notes: '', page: (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0], item: '', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' }); }} className="text-[10px] px-2 py-1 bg-white border border-sky-300 rounded-lg text-sky-700 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors font-black">حذف المسودة</button>
+                                            <button type="button" onClick={() => { localStorage.removeItem('crmOrderDraft'); setHasDraft(false); setNewOrder({ id: '', customer: '', address: '', phone: '', notes: '', page: (availablePages && availablePages.length > 0) ? availablePages[0] : pages[0], item: '', quantity: '1', productPrice: '', shippingPrice: '', trackingNumber: '', status: 'جاري التحضير', date: '' }); }} className="text-[10px] px-2 py-1 bg-white border border-sky-300 rounded-lg text-sky-700 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors font-black">حذف المسودة</button>
                                         </div>
                                     )}
 
@@ -3599,7 +3601,7 @@
                                         </div>
                                     )}
 
-                                    <div className="grid grid-cols-2 gap-2.5 bg-white/80 backdrop-blur-sm p-3 md:p-4 rounded-2xl border border-white shadow-md">
+                                    <div className="grid grid-cols-2 gap-2.5 p-3 md:p-4 rounded-3xl border border-white/80 shadow-lg" style={{background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)'}}>
                                         <div><label className="block text-[11px] font-black text-slate-600 mb-1">رقم الطلب</label><input type="text" disabled={isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status)} placeholder="تلقائي" className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs ${isEditing && !['جاري التحضير', 'مراجعة', 'استبدال', 'تاجيل'].includes(newOrder.status) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''} ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.id} onChange={e => setNewOrder({...newOrder, id: e.target.value})} /></div>
                                         <div><label className="block text-[11px] font-black text-slate-600 mb-1">اسم العميل <span className="text-red-500">*</span></label><input required type="text" className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.customer} onChange={e => setNewOrder({...newOrder, customer: e.target.value})} /></div>
                                         <div><label className="block text-[11px] font-black text-slate-600 mb-1">رقم الموبايل <span className="text-red-500">*</span></label><input required type="text" inputMode="numeric" dir="ltr" placeholder="01012345678" className={`w-full px-3 py-2 bg-slate-50 border ${newOrder.phone && newOrder.phone.length !== 11 && newOrder.phone.length !== 8 ? 'border-red-400 bg-red-50' : 'border-slate-200'} rounded-lg outline-none text-left font-bold tracking-wider text-xs ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.phone} onChange={e => handlePhoneChange(e.target.value, (val) => setNewOrder({...newOrder, phone: val}))} />{newOrder.phone && newOrder.phone.length !== 11 && newOrder.phone.length !== 8 && <p className="text-[10px] text-red-600 mt-0.5 font-bold">⚠️ 11 أو 8 أرقام</p>}</div>
@@ -3626,6 +3628,21 @@
                                                     <button type="button" onClick={applyProductToOrder} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-1.5 rounded-lg transition-colors text-xs">تأكيد الإضافة ✓</button>
                                                 </div>
                                             )}
+                                        </div>
+
+                                        {/* عدد المنتج */}
+                                        <div className="col-span-2">
+                                            <div className={`flex items-center gap-3 bg-white/70 backdrop-blur-sm border-2 ${currentTheme.border} rounded-2xl px-4 py-3 shadow-sm`}>
+                                                <div className="flex flex-col flex-1">
+                                                    <label className="text-[11px] font-black text-slate-600 mb-1">📦 عدد المنتج <span className="text-red-500">*</span></label>
+                                                    <div className="flex items-center gap-2">
+                                                        <button type="button" onClick={() => setNewOrder(prev => ({...prev, quantity: String(Math.max(1, Number(prev.quantity||1) - 1))}))} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 font-black text-lg flex items-center justify-center transition-colors border border-slate-200 select-none">−</button>
+                                                        <input required type="number" inputMode="numeric" min="1" max="99" className={`w-16 px-2 py-2 bg-white border-2 ${currentTheme.border} rounded-xl outline-none font-black text-lg text-center ${currentTheme.ringFocus} focus:ring-2`} value={newOrder.quantity || '1'} onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); setNewOrder({...newOrder, quantity: v === '' ? '1' : String(Math.max(1, Number(v)))}); }} />
+                                                        <button type="button" onClick={() => setNewOrder(prev => ({...prev, quantity: String(Math.min(99, Number(prev.quantity||1) + 1))}))} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-green-50 hover:text-green-600 text-slate-600 font-black text-lg flex items-center justify-center transition-colors border border-slate-200 select-none">+</button>
+                                                        <span className="text-xs font-bold text-slate-400 mr-1">قطعة</span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {/* كروت الأسعار */}
@@ -3678,7 +3695,7 @@
                                 </div>
 
                                 {/* أزرار الحفظ والإلغاء - خارج منطقة التمرير */}
-                                <div className={`shrink-0 px-3 py-3 md:px-5 md:py-4 border-t-2 border-white/60 ${currentTheme.bgLight}`}>
+                                <div className="shrink-0 px-3 py-3 md:px-5 md:py-4 border-t border-white/40" style={{background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(12px)'}}>
                                     <div className="flex gap-2.5">
                                         <button type="submit" disabled={isSubmitting} className={`flex-1 relative overflow-hidden font-black text-base py-3.5 rounded-2xl transition-all shadow-lg ${currentTheme.btnPrimary} ${isSubmitting ? 'opacity-60 cursor-not-allowed scale-95' : 'hover:scale-[1.02] active:scale-[0.98]'} flex items-center justify-center gap-2`}>
                                             {isSubmitting ? (
