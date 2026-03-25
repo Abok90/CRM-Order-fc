@@ -23,6 +23,9 @@
 
     <!-- Supabase — مثبت على إصدار محدد -->
     <script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+
+    <!-- SheetJS — تصدير Excel حقيقي (.xlsx) يعمل على كل الأجهزة -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     
     <!-- الخطوط -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -1286,20 +1289,29 @@
             const exportSelectedToCSV = () => {
                 if (selectedOrders.length === 0) return;
                 const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
-                const headers = ['رقم الطلب', 'اسم العميل', 'رقم الموبايل', 'العنوان', 'الصفحة', 'المنتج/الوصف', 'حالة الطلب', 'سعر المنتج', 'سعر الشحن', 'رقم البوليصة', 'تاريخ الطلب', 'الملاحظات'];
-                const rows = toExport.map(o => [`"${String(o.id || '')}"`, `"${String(o.customer || '').replace(/"/g, '""')}"`, `"${String(o.phone || '').replace(/"/g, '""')}"`, `"${String(o.address || '').replace(/"/g, '""')}"`, `"${String(o.page || '').replace(/"/g, '""')}"`, `"${String(o.item || '').replace(/"/g, '""')}"`, `"${String(o.status || '')}"`, Number(o.productPrice) || 0, Number(o.shippingPrice) || 0, `"${String(o.trackingNumber || '').replace(/"/g, '""')}"`, `"${String(o.date || '')}"`, `"${String(o.notes || '').replace(/"/g, '""')}"`].join(','));
-                const content = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-                const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8;' })); link.download = `نسخة_احتياطية_طلبات_${new Date().toISOString().split('T')[0]}.csv`; link.click();
+                const wsData = [
+                    ['رقم الطلب', 'اسم العميل', 'رقم الموبايل', 'العنوان', 'الصفحة', 'المنتج/الوصف', 'حالة الطلب', 'سعر المنتج', 'سعر الشحن', 'رقم البوليصة', 'تاريخ الطلب', 'الملاحظات'],
+                    ...toExport.map(o => [String(o.id||''), String(o.customer||''), String(o.phone||''), String(o.address||''), String(o.page||''), String(o.item||''), String(o.status||''), Number(o.productPrice)||0, Number(o.shippingPrice)||0, String(o.trackingNumber||''), String(o.date||''), String(o.notes||'')])
+                ];
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                ws['!cols'] = [10,20,15,25,12,25,14,12,12,18,14,25].map(w => ({wch:w}));
+                XLSX.utils.book_append_sheet(wb, ws, 'الطلبات');
+                XLSX.writeFile(wb, `نسخة_احتياطية_طلبات_${new Date().toISOString().split('T')[0]}.xlsx`);
             };
 
             const exportShippingCSV = () => {
                 if (selectedOrders.length === 0) return;
                 const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
-                const headers = ['كود التاجر', 'اسم الراسل على البوليصة', 'اسم المستلم', 'موبايل المستلم', 'ملاحظات', 'المنطقة', 'العنوان', 'محتوى الشحنة', 'الكمية', 'قيمة الشحنة'];
-                const csvClean = (v) => String(v || '').replace(/"/g, '""').replace(/\r?\n/g, ' ').trim();
-                const rows = toExport.map(o => [`"${csvClean(o.id)}"`, `"${csvClean(o.page)}"`, `"${csvClean(o.customer)}"`, `"${csvClean(o.phone)}"`, `"${csvClean(o.notes)}"`, `"${csvClean(o.address)}"`, `"${csvClean(o.address)}"`, `"${csvClean(o.item)}"`, Number(o.quantity) || 1, (Number(o.productPrice) || 0) + (Number(o.shippingPrice) || 0)].join(','));
-                const content = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-                const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8;' })); link.download = `شيت_شحن_${new Date().toISOString().split('T')[0]}.csv`; link.click();
+                const wsData = [
+                    ['كود التاجر', 'اسم الراسل على البوليصة', 'اسم المستلم', 'موبايل المستلم', 'ملاحظات', 'المنطقة', 'العنوان', 'محتوى الشحنة', 'الكمية', 'قيمة الشحنة'],
+                    ...toExport.map(o => [String(o.id||''), String(o.page||''), String(o.customer||''), String(o.phone||''), String((o.notes||'').replace(/\r?\n/g,' ')), String(o.address||''), String(o.address||''), String(o.item||''), Number(o.quantity)||1, (Number(o.productPrice)||0)+(Number(o.shippingPrice)||0)])
+                ];
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                ws['!cols'] = [12,20,20,15,25,20,25,25,8,12].map(w => ({wch:w}));
+                XLSX.utils.book_append_sheet(wb, ws, 'شيت الشحن');
+                XLSX.writeFile(wb, `شيت_شحن_${new Date().toISOString().split('T')[0]}.xlsx`);
                 logActivity(`تنزيل شيت شحن (${toExport.length} طلب)`, 'متعدد');
             };
 
@@ -2149,7 +2161,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.20</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.21</span>
                             </div>
                         </nav>
                     </aside>
