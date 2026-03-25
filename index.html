@@ -1656,17 +1656,37 @@
                     shippingPrice: Number(newOrder.shippingPrice) || 0, trackingNumber: newOrder.trackingNumber || '', date: finalDate, user_id: user.id
                 };
 
+                const savePayload = async (payload, editing, origId, newId) => {
+                    const tryOp = async (p) => {
+                        if (editing) {
+                            if (origId !== newId) {
+                                const r1 = await supabase.from('orders').insert([p]);
+                                if (r1.error) throw r1.error;
+                                await supabase.from('orders').delete().eq('id', origId);
+                            } else {
+                                const up = { ...p }; delete up.id;
+                                const r2 = await supabase.from('orders').update(up).eq('id', newId);
+                                if (r2.error) throw r2.error;
+                            }
+                        } else {
+                            const r3 = await supabase.from('orders').insert([p]);
+                            if (r3.error) throw r3.error;
+                        }
+                    };
+                    try {
+                        await tryOp(payload);
+                    } catch (err) {
+                        if (err.message && err.message.includes("'quantity'")) {
+                            const { quantity, ...payloadWithout } = payload;
+                            await tryOp(payloadWithout);
+                        } else { throw err; }
+                    }
+                };
+
                 try {
                     if (isEditing) {
                         if (originalOrderData) saveUndoEntry(originalOrderId, 'edit', originalOrderData);
-                        if (originalOrderId !== finalOrderId) {
-                            await supabase.from('orders').insert([orderPayload]);
-                            await supabase.from('orders').delete().eq('id', originalOrderId);
-                        } else {
-                            const updatePayload = { ...orderPayload };
-                            delete updatePayload.id;
-                            await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
-                        }
+                        await savePayload(orderPayload, true, originalOrderId, finalOrderId);
                         let changes = [];
                         if(originalOrderData) {
                             if(originalOrderData.status !== orderPayload.status) changes.push(`الحالة من [${originalOrderData.status}] إلى [${orderPayload.status}]`);
@@ -1684,15 +1704,14 @@
                         syncToGoogleSheet('upsert', orderPayload);
                         closeModal();
                     } else {
-                        const { error } = await supabase.from('orders').insert([orderPayload]);
-                        if (error) throw error;
+                        await savePayload(orderPayload, false, null, finalOrderId);
                         logActivity('إضافة أوردر جديد', finalOrderId);
                         syncToGoogleSheet('upsert', orderPayload);
                         localStorage.removeItem('crmOrderDraft'); setHasDraft(false);
                         closeModal();
                         setSuccessOrderMessage(orderPayload);
                     }
-                    fetchOrdersData(); 
+                    fetchOrdersData();
                 } catch (error) { notify(`فشل الحفظ: ${error.message}`); } finally { setIsSubmitting(false); }
             };
 
@@ -2130,7 +2149,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.19</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.20</span>
                             </div>
                         </nav>
                     </aside>
