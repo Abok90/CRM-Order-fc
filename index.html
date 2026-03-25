@@ -430,6 +430,13 @@
             const [duplicateWarnings, setDuplicateWarnings] = useState([]);
             const [editingProduct, setEditingProduct] = useState({ id: null, name: '', price: '', colors: '', sizes: '', image: '' });
             const [hasDraft, setHasDraft] = useState(() => !!localStorage.getItem('crmOrderDraft'));
+            const [undoHistory, setUndoHistory] = useState(() => {
+                try {
+                    const stored = JSON.parse(localStorage.getItem('crm_undo_history') || '[]');
+                    const now = Date.now();
+                    return stored.filter(e => now - new Date(e.createdAt).getTime() < 24 * 60 * 60 * 1000);
+                } catch { return []; }
+            });
             const [swipedOrderId, setSwipedOrderId] = useState(null);
             const swipeStartXRef = useRef(0);
             const [onlinePresence, setOnlinePresence] = useState({});
@@ -635,6 +642,43 @@
             const logActivity = async (actionDesc, relatedOrderId) => {
                 if (!userRole) return;
                 try { await supabase.from('activity_logs').insert([{ user_name: userRole.name, action: actionDesc, order_id: relatedOrderId }]); } catch(e) { console.error('Activity log failed:', e); }
+            };
+
+            const saveUndoEntry = (orderId, action, orderSnapshot) => {
+                const entry = { id: Date.now() + '-' + Math.random().toString(36).slice(2), orderId, action, orderSnapshot, createdAt: new Date().toISOString() };
+                setUndoHistory(prev => {
+                    const now = Date.now();
+                    const filtered = prev.filter(e => now - new Date(e.createdAt).getTime() < 24 * 60 * 60 * 1000);
+                    const next = [entry, ...filtered].slice(0, 200);
+                    localStorage.setItem('crm_undo_history', JSON.stringify(next));
+                    return next;
+                });
+            };
+
+            const handleUndo = async (entry) => {
+                if (!user) return;
+                try {
+                    if (entry.action === 'delete') {
+                        const { error } = await supabase.from('orders').insert([entry.orderSnapshot]);
+                        if (error) throw error;
+                        setOrders(prev => [entry.orderSnapshot, ...prev]);
+                        logActivity('استرجاع أوردر محذوف', entry.orderId);
+                    } else if (entry.action === 'edit') {
+                        const updateData = { ...entry.orderSnapshot };
+                        delete updateData.id;
+                        const { error } = await supabase.from('orders').update(updateData).eq('id', entry.orderId);
+                        if (error) throw error;
+                        setOrders(prev => prev.map(o => o.id === entry.orderId ? entry.orderSnapshot : o));
+                        logActivity('تراجع عن تعديل الأوردر', entry.orderId);
+                    }
+                    setUndoHistory(prev => {
+                        const next = prev.filter(e => e.id !== entry.id);
+                        localStorage.setItem('crm_undo_history', JSON.stringify(next));
+                        return next;
+                    });
+                    notify('تم الاسترجاع بنجاح!', 'success');
+                    fetchOrdersData();
+                } catch (err) { notify('فشل الاسترجاع: ' + err.message); }
             };
 
             const generateCustomerMsg = (order) => {
@@ -1227,7 +1271,7 @@
             const openEditModal = (order) => {
                 if (userRole?.role === 'agent' && (order.status === 'الشحن' || order.trackingNumber) && !userRole.can_edit_after_shipping) { notify("عفواً، لا تملك صلاحية تعديل هذا الطلب لأنه تم تحويله للشحن."); return; }
                 setEditReason(''); setProductSearchStr(''); setSelectedProductDetails(null); setShowProductSuggestions(false);
-                setNewOrder(order); setIsEditing(true); setOriginalOrderId(order.id); setIsAddModalOpen(true); 
+                setNewOrder({...order, quantity: order.quantity || '1'}); setIsEditing(true); setOriginalOrderId(order.id); setIsAddModalOpen(true);
             };
             
             const closeModal = () => { localStorage.removeItem('crmOrderDraft'); setHasDraft(false); setIsAddModalOpen(false); setIsEditing(false); setOriginalOrderId(null); setEditReason(''); setNewOrder(initialOrderState); setDuplicateWarnings([]); setProductSearchStr(''); setShowProductSuggestions(false); setSelectedProductDetails(null); };
@@ -1604,21 +1648,23 @@
                     }
                 }
 
-                const orderPayload = { 
+                const orderPayload = {
                     id: finalOrderId, customer: newOrder.customer, address: newOrder.address, phone: newOrder.phone,
                     page: newOrder.page || (availablePages.length > 0 ? availablePages[0] : pages[0]), item: newOrder.item,
-                    status: newOrder.status || 'جاري التحضير', notes: finalNotes, productPrice: Number(newOrder.productPrice) || 0, 
+                    quantity: Number(newOrder.quantity) || 1,
+                    status: newOrder.status || 'جاري التحضير', notes: finalNotes, productPrice: Number(newOrder.productPrice) || 0,
                     shippingPrice: Number(newOrder.shippingPrice) || 0, trackingNumber: newOrder.trackingNumber || '', date: finalDate, user_id: user.id
                 };
 
                 try {
                     if (isEditing) {
+                        if (originalOrderData) saveUndoEntry(originalOrderId, 'edit', originalOrderData);
                         if (originalOrderId !== finalOrderId) {
                             await supabase.from('orders').insert([orderPayload]);
                             await supabase.from('orders').delete().eq('id', originalOrderId);
                         } else {
                             const updatePayload = { ...orderPayload };
-                            delete updatePayload.id; 
+                            delete updatePayload.id;
                             await supabase.from('orders').update(updatePayload).eq('id', finalOrderId);
                         }
                         let changes = [];
@@ -1695,6 +1741,7 @@
                 const orderToDelete = orders.find(o => o.id === exactId);
                 const previousOrders = [...orders];
                 setOrders(prev => prev.filter(o => o.id !== exactId));
+                if (orderToDelete) saveUndoEntry(exactId, 'delete', orderToDelete);
                 try {
                     const { error } = await supabase.from('orders').delete().eq('id', exactId);
                     if(error) throw error;
@@ -2083,7 +2130,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.18</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.19</span>
                             </div>
                         </nav>
                     </aside>
@@ -2655,17 +2702,24 @@
                                                         <div className="space-y-3 pr-2 md:pr-4 border-r-2 border-slate-100 mr-2 md:mr-4">
                                                             {groupedDisplayedLogs[dateStr].map(log => {
                                                                 const timeStr = new Date(log.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                                                                const undoEntry = log.order_id && log.order_id !== 'متعدد' ? undoHistory.find(e => e.orderId === log.order_id) : null;
+                                                                const isUndoable = undoEntry && (log.action?.includes('مسح') || log.action?.includes('تعديل'));
                                                                 return (
                                                                     <div key={log.id} className="relative bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:border-sky-200 transition-colors mr-4 group">
                                                                         <div className="absolute -right-[27px] md:-right-[33px] top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-sky-100 border-2 border-sky-500 group-hover:scale-125 transition-transform"></div>
-                                                                        <div className="flex items-start gap-3">
+                                                                        <div className="flex items-start gap-3 flex-1">
                                                                             <div className="bg-sky-50 p-2 rounded-lg text-sky-500 shrink-0 mt-1 sm:mt-0"><IconBell size={18} /></div>
                                                                             <div>
                                                                                 <p className="text-xs md:text-sm font-bold text-slate-800 leading-relaxed">الموظف <span className="text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded mx-1">{log.user_name}</span> <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{log.action}</span></p>
                                                                                 {log.order_id && log.order_id !== 'متعدد' && <p className="text-[10px] md:text-xs text-slate-500 mt-1 font-mono bg-slate-50 inline-block px-2 py-0.5 rounded border border-slate-100">رقم الطلب: {log.order_id}</p>}
                                                                             </div>
                                                                         </div>
-                                                                        <div className="text-[10px] md:text-xs font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded shrink-0 self-start sm:self-center border border-slate-100">{timeStr}</div>
+                                                                        <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                                                                            {isUndoable && (
+                                                                                <button onClick={() => handleUndo(undoEntry)} className="flex items-center gap-1 text-[10px] md:text-xs font-bold px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-colors" title="تراجع عن هذه العملية">↩ تراجع</button>
+                                                                            )}
+                                                                            <div className="text-[10px] md:text-xs font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-100">{timeStr}</div>
+                                                                        </div>
                                                                     </div>
                                                                 )
                                                             })}
