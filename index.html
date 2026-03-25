@@ -1310,6 +1310,7 @@
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(wsData);
                 ws['!cols'] = [12,20,20,15,25,20,25,25,8,12].map(w => ({wch:w}));
+                ws['!views'] = [{ rightToLeft: true }];
                 XLSX.utils.book_append_sheet(wb, ws, 'شيت الشحن');
                 XLSX.writeFile(wb, `شيت_شحن_${new Date().toISOString().split('T')[0]}.xlsx`);
                 logActivity(`تنزيل شيت شحن (${toExport.length} طلب)`, 'متعدد');
@@ -2161,7 +2162,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.21</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.22</span>
                             </div>
                         </nav>
                     </aside>
