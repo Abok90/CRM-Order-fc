@@ -1303,14 +1303,15 @@
             const exportShippingCSV = () => {
                 if (selectedOrders.length === 0) return;
                 const toExport = filteredOrders.filter(o => selectedOrders.includes(o.id));
+                const txt = (v) => ({ v: String(v||''), t: 's' });
                 const wsData = [
                     ['كود التاجر', 'اسم الراسل على البوليصة', 'اسم المستلم', 'موبايل المستلم', 'ملاحظات', 'المنطقة', 'العنوان', 'محتوى الشحنة', 'الكمية', 'قيمة الشحنة'],
-                    ...toExport.map(o => [String(o.id||''), String(o.page||''), String(o.customer||''), String(o.phone||''), String((o.notes||'').replace(/\r?\n/g,' ')), String(o.address||''), String(o.address||''), String(o.item||''), Number(o.quantity)||1, (Number(o.productPrice)||0)+(Number(o.shippingPrice)||0)])
+                    ...toExport.map(o => [txt(o.id), txt(o.page), txt(o.customer), txt(o.phone), txt((o.notes||'').replace(/\r?\n/g,' ')), txt(o.address), txt(o.address), txt(o.item), Number(o.quantity)||1, (Number(o.productPrice)||0)+(Number(o.shippingPrice)||0)])
                 ];
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(wsData);
                 ws['!cols'] = [12,20,20,15,25,20,25,25,8,12].map(w => ({wch:w}));
-                ws['!views'] = [{ rightToLeft: true }];
+                ws['!views'] = [{ RTL: true }];
                 XLSX.utils.book_append_sheet(wb, ws, 'شيت الشحن');
                 XLSX.writeFile(wb, `شيت_شحن_${new Date().toISOString().split('T')[0]}.xlsx`);
                 logActivity(`تنزيل شيت شحن (${toExport.length} طلب)`, 'متعدد');
@@ -2162,7 +2163,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.22</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.23</span>
                             </div>
                         </nav>
                     </aside>
