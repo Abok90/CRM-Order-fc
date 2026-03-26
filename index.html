@@ -409,6 +409,7 @@
             const [searchResults, setSearchResults] = useState([]); 
             const [isSearchingDb, setIsSearchingDb] = useState(false); 
             const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
+            const [loadAllHistory, setLoadAllHistory] = useState(false);
 
             const [logSearchQuery, setLogSearchQuery] = useState('');
             const [logFilterUser, setLogFilterUser] = useState('الكل');
@@ -543,7 +544,8 @@
                 } catch (e) { notify('تعذر تحميل المنتجات. تحقق من الاتصال وأعد المحاولة.'); }
             };
 
-            const DISPLAY_LIMIT = 3000; // آخر عدد أوردر يُحمَّل في الذاكرة للعرض العادي - البحث يشمل كل الأوردرات
+            const DISPLAY_LIMIT = 500; // عدد الأوردرات الأقصى المحملة في الذاكرة — البحث يشمل كل قاعدة البيانات
+            const HISTORY_DAYS = 90; // النافذة الزمنية الافتراضية بالأيام
 
             const fetchRealStats = async () => {
                 try {
@@ -566,17 +568,19 @@
             const fetchOrdersData = useCallback(async () => {
                 if (!user) return;
                 try {
-                    const { data, error } = await supabase
-                        .from('orders')
-                        .select('*')
-                        .order('created_at', { ascending: false })
-                        .limit(DISPLAY_LIMIT);
+                    let query = supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(DISPLAY_LIMIT);
+                    if (!loadAllHistory) {
+                        const since = new Date();
+                        since.setDate(since.getDate() - HISTORY_DAYS);
+                        query = query.gte('created_at', since.toISOString());
+                    }
+                    const { data, error } = await query;
                     if (error) throw error;
                     const safeOrders = (data || []).map(o => ({ ...o, productPrice: Number(o.productPrice) || 0, shippingPrice: Number(o.shippingPrice) || 0 }));
                     setOrders(safeOrders);
                     ordersRef.current = safeOrders;
                 } catch (error) { notify('تعذر تحميل الأوردرات. تحقق من الاتصال وأعد المحاولة.'); }
-            }, [user]);
+            }, [user, loadAllHistory]);
 
             const fetchUsersList = async () => {
                 try {
@@ -2163,7 +2167,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.23</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.24</span>
                             </div>
                         </nav>
                     </aside>
@@ -2539,7 +2543,13 @@
                                         </div>{/* end desktop table wrapper */}
 
                                         <div className="px-3 py-2 md:px-4 md:py-3 bg-slate-800 text-white text-[10px] md:text-sm font-bold shadow-inner flex flex-wrap justify-between items-center gap-2">
-                                            <div className="flex items-center gap-2 md:gap-4"><span>نتائج الفلتر: {filteredOrders.length} طلب</span>{selectedOrders.length > 0 && <span className="text-sky-300 bg-sky-900/50 px-2 py-0.5 rounded">محدد: {selectedOrders.length}</span>}</div>
+                                            <div className="flex items-center gap-2 md:gap-4 flex-wrap">
+                                                <span>نتائج الفلتر: {filteredOrders.length} طلب</span>
+                                                {selectedOrders.length > 0 && <span className="text-sky-300 bg-sky-900/50 px-2 py-0.5 rounded">محدد: {selectedOrders.length}</span>}
+                                                <button onClick={() => { setLoadAllHistory(v => !v); setCurrentPage(1); }} className={`text-[10px] px-2 py-0.5 rounded font-bold transition-colors ${loadAllHistory ? 'bg-amber-500/30 text-amber-300 hover:bg-amber-500/50' : 'bg-slate-600 text-slate-300 hover:bg-slate-500'}`}>
+                                                    {loadAllHistory ? '📂 كل التاريخ' : `🕐 آخر ${HISTORY_DAYS} يوم`}
+                                                </button>
+                                            </div>
                                             <div className="flex items-center gap-2 md:gap-4 flex-wrap"><div className="flex items-center gap-1.5 md:gap-2"><label className="text-slate-300 text-[10px] md:text-xs">عرض:</label><select className="bg-slate-700 border border-slate-600 text-white rounded px-1 py-0.5 md:px-2 md:py-1 outline-none focus:ring-1 focus:ring-sky-400" value={ordersPerPage} onChange={(e) => { setOrdersPerPage(e.target.value === 'All' ? 'All' : Number(e.target.value)); setCurrentPage(1); }}><option value={50}>50</option><option value={100}>100</option><option value={500}>500</option><option value="All">الكل</option></select></div>{ordersPerPage !== 'All' && totalPages > 1 && (<div className="flex items-center gap-1 bg-slate-700 rounded-lg p-1"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="px-2 py-1 md:px-3 md:py-1 bg-slate-600 hover:bg-slate-500 disabled:opacity-30 rounded text-[10px] md:text-xs transition-colors">السابق</button><span className="px-1 md:px-2 text-[10px] md:text-xs">صفحة {currentPage} من {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className="px-2 py-1 md:px-3 md:py-1 bg-slate-600 hover:bg-slate-500 disabled:opacity-30 rounded text-[10px] md:text-xs transition-colors">التالي</button></div>)}</div>
                                         </div>
                                     </div>
