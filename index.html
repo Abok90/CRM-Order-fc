@@ -7,12 +7,19 @@
     <title>نظام إدارة الطلبات (CRM)</title>
     
     <!-- إعدادات تطبيق الويب التقدمي (PWA) للأندرويد والآيفون -->
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="CRM">
-    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNGY0NmU1IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDE2VjhhMiAyIDAgMCAwLTEtMS43M2wtNy00YTIgMiAwIDAgMC0yIDBsLTcgNEEyIDIgMCAwIDAgMyA4djhhMiAyIDAgMCAwIDEgMS43M2w3IDRhMiAyIDAgMCAwIDIgMGw3LTRBMiAyIDAgMCAwIDIxIDE2eiIvPjxwb2x5bGluZSBwb2ludHM9IjMuMjcgNi45NiAxMiAxMi4wMSAyMC43MyA2Ljk2Ii8+PGxpbmUgeDE9IjEyIiB5MT0iMjIuMDgiIHgyPSIxMiIgeTI9IjEyIi8+PC9zdmc+">
-    <link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoi2YbYuNin2YUg2KXZkdiv2KfYsdipINin2YTYt9mE2KjYp9iqIChDUk0pIiwic2hvcnRfbmFtZSI6IkNSTSIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3ciOiIjZjhmYWZjIiwidGhlbWVfY29sb3ciOiIjNGY0NmU1IiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlppQjRiV3h1Y3owaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1qQXdNQzlzZG1jaUlIWnBaWGRDYjNnOUlqQWdNQ0F5TkNBeU5DSWdabWxzYkQwaWJtOXVaU2lnYzNSeWIydGxQU0lqTkdZME5tVTFJaUJ6ZEhKdmEyVXVkMmxrZEdnOUlqSWlJSE4wY205clpTMXNhVzVsWTJGd1BTSnliM1Z1WkNJZ2MzUnliMnRsTFd4cGJtVnFiMmx1UFNKeWIzVnVaQ0k+UEhCaGRHOGdaRDBpVFRJeElERTJWamhoTWlBeUlEQWdNQ0F3TFRFdE1TNDNNbXd0TnkwdE5HRXlJREFnTUMwd0xUSWdNR3d0Tnkwa05FRXlJRElnTUMwd0lETWdPSFk0YVRJZ01pQXdNQ0F3SURFZ01TNDNNbXc0SURSaE1pQXlJREFnTUMwd0lESWdNR3czTFRSQk1pQXlJREFnTUMwd0lESXhJREUyZWlJdlBqeHdiMnhwYkdsdVpTQndiMmx1ZEhNdlBzaXpMakkzSURZdU9UWWdNVElnTVRJdU1ERWdNakF1TnpNZ05pNDVOaUkvPjxsaW5lIHgxPSIxMiIgeTE9IjIyLjA4IiB4Mj0iMTIiIHkyPSIxMiIvPjwvc3ZnPiIsInNpemVzIjoiNTEyeDUxMiIsInR5cGUiOiJpbWFnZS9zdmcreG1sIn1dfQ==">
+    <meta name="apple-mobile-web-app-title" content="CRM Pro">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/0f172a/14b8a6?text=CRM">
+    <link rel="manifest" href="/manifest.json">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
 
     <!-- مكتبة التصميم -->
     <script src="https://cdn.tailwindcss.com"></script>
