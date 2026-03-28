@@ -33,7 +33,7 @@ async function getRawBody(req) {
 function getStoreConfig(shopDomain) {
   // ندعم custom domains و myshopify.com
   const d = (shopDomain || '').toLowerCase();
-  if (d.includes('aidaset') || d === (process.env.SHOPIFY_AIDA_STORE || '').toLowerCase()) {
+  if (d.includes('aidaset') || d.includes('hfgnj-h0') || d === (process.env.SHOPIFY_AIDA_STORE || '').toLowerCase()) {
     return {
       secret: process.env.SHOPIFY_AIDA_WEBHOOK_SECRET,
       storeKey: 'aida_web',
