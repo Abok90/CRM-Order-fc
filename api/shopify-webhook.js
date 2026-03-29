@@ -9,13 +9,13 @@ const crypto = require('crypto');
 function verifyHmac(rawBody, receivedHmac, secret) {
   const computed = crypto
     .createHmac('sha256', secret)
-    .update(rawBody, 'utf8')
+    .update(rawBody)
     .digest('base64');
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(computed),
-      Buffer.from(receivedHmac)
-    );
+    const a = Buffer.from(computed);
+    const b = Buffer.from(receivedHmac);
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
   } catch {
     return false;
   }
@@ -131,6 +131,8 @@ module.exports = async function handler(req, res) {
   const receivedHmac = req.headers['x-shopify-hmac-sha256'] || '';
   const topic = req.headers['x-shopify-topic'] || '';
 
+  console.log(`[shopify-webhook] topic=${topic} shop=${shopDomain} bodyLen=${rawBody.length}`);
+
   // نحدد المتجر
   const storeConfig = getStoreConfig(shopDomain);
   if (!storeConfig) {
@@ -140,13 +142,13 @@ module.exports = async function handler(req, res) {
 
   // نتحقق من HMAC
   if (!storeConfig.secret) {
-    console.error('[shopify-webhook] Missing webhook secret env var');
+    console.error('[shopify-webhook] Missing webhook secret env var for', storeConfig.storeKey);
     return res.status(500).json({ error: 'Server misconfigured' });
   }
 
   const valid = verifyHmac(rawBody, receivedHmac, storeConfig.secret);
   if (!valid) {
-    console.warn(`[shopify-webhook] Invalid HMAC for ${shopDomain}`);
+    console.warn(`[shopify-webhook] Invalid HMAC for ${shopDomain} — secret starts with: ${storeConfig.secret.substring(0,8)}`);
     return res.status(401).json({ error: 'Invalid HMAC' });
   }
 
@@ -177,4 +179,12 @@ module.exports = async function handler(req, res) {
   }
 
   return res.status(200).json({ ok: true });
+};
+
+// مهم جداً — بيمنع Vercel من عمل parse للـ body
+// عشان نقدر نقرأ الـ raw bytes للـ HMAC verification
+module.exports.config = {
+  api: {
+    bodyParser: false,
+  },
 };
