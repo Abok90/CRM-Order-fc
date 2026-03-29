@@ -81,18 +81,27 @@ async function handler(req, res) {
     if (topic === 'orders/create') {
       const b = order.billing_address || {};
       const s = order.shipping_address || {};
-      const item = (order.line_items || [])[0] || {};
-      const ship = (order.shipping_lines || [])[0] || {};
+      const items = order.line_items || [];
+      const totalQty = items.reduce((sum, it) => sum + (it.quantity || 1), 0);
+      const itemStr = items.map(it => {
+        const name = it.variant_title ? `${it.title} - ${it.variant_title}` : it.title;
+        return it.quantity > 1 ? `${name} (${it.quantity})` : name;
+      }).join(' + ');
+      const totalShipping = parseFloat(
+        order.total_shipping_price_set?.shop_money?.amount ||
+        (order.shipping_lines || []).reduce((sum, sl) => sum + parseFloat(sl.price || 0), 0) ||
+        0
+      );
 
       await supabaseRequest('POST', 'orders', {
         id: order.name || `#${order.order_number}` || `SH-${Date.now().toString(36).toUpperCase()}`,
         customer: b.name || s.name || `${order.customer?.first_name || ''} ${order.customer?.last_name || ''}`.trim() || 'عميل Shopify',
         phone: order.phone || b.phone || s.phone || '',
         address: s.address1 || b.address1 || '',
-        item: item.variant_title ? `${item.title} - ${item.variant_title}` : (item.title || ''),
-        quantity: item.quantity || 1,
+        item: itemStr || 'منتج Shopify',
+        quantity: totalQty,
         productPrice: parseFloat(order.subtotal_price || 0),
-        shippingPrice: parseFloat(ship.price || 0),
+        shippingPrice: totalShipping,
         notes: order.note || '',
         status: 'جاري التحضير',
         page: store.pageName,
