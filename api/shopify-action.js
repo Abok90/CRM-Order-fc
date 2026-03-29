@@ -1,5 +1,8 @@
 const SHOPIFY_API_VERSION = '2024-01';
 
+// كاش التوكن في الذاكرة — يصلح لنفس الـ warm instance
+const tokenCache = {};
+
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -10,9 +13,26 @@ function readRawBody(req) {
 }
 
 function getStore(storeKey) {
-  if (storeKey === 'aida_web')  return { url: process.env.SHOPIFY_AIDA_STORE,  token: process.env.SHOPIFY_AIDA_ACCESS_TOKEN };
-  if (storeKey === 'offer_web') return { url: process.env.SHOPIFY_OFFER_STORE, token: process.env.SHOPIFY_OFFER_ACCESS_TOKEN };
+  if (storeKey === 'aida_web')  return { url: process.env.SHOPIFY_AIDA_STORE,  clientId: process.env.SHOPIFY_AIDA_CLIENT_ID,  clientSecret: process.env.SHOPIFY_AIDA_CLIENT_SECRET };
+  if (storeKey === 'offer_web') return { url: process.env.SHOPIFY_OFFER_STORE, clientId: process.env.SHOPIFY_OFFER_CLIENT_ID, clientSecret: process.env.SHOPIFY_OFFER_CLIENT_SECRET };
   return null;
+}
+
+// جلب أو تجديد التوكن تلقائياً (صالح 24 ساعة)
+async function getToken(storeUrl, clientId, clientSecret) {
+  const now = Date.now();
+  const cached = tokenCache[storeUrl];
+  if (cached && cached.expiresAt > now + 60000) return cached.token;
+
+  const res = await fetch(`https://${storeUrl}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, grant_type: 'client_credentials' }),
+  });
+  if (!res.ok) throw new Error(`Shopify token fetch failed: ${res.status} — ${await res.text()}`);
+  const data = await res.json();
+  tokenCache[storeUrl] = { token: data.access_token, expiresAt: now + (data.expires_in || 86400) * 1000 };
+  return data.access_token;
 }
 
 async function shopify(storeUrl, token, method, path, body) {
@@ -62,22 +82,30 @@ async function handler(req, res) {
   }
 
   const store = getStore(shopifyStore);
-  if (!store || !store.url || !store.token) {
+  if (!store || !store.url || !store.clientId || !store.clientSecret) {
     return res.status(400).json({ error: `Unknown or unconfigured store: ${shopifyStore}` });
+  }
+
+  let token;
+  try {
+    token = await getToken(store.url, store.clientId, store.clientSecret);
+  } catch (err) {
+    console.error(`[action] Token error: ${err.message}`);
+    return res.status(200).json({ ok: false, error: `Token error: ${err.message}` });
   }
 
   try {
     if (action === 'fulfill') {
-      await fulfill(store.url, store.token, shopifyOrderId);
+      await fulfill(store.url, token, shopifyOrderId);
     } else if (action === 'cancel') {
-      await shopify(store.url, store.token, 'POST', `/orders/${shopifyOrderId}/cancel.json`, {});
+      await shopify(store.url, token, 'POST', `/orders/${shopifyOrderId}/cancel.json`, {});
     } else if (action === 'complete') {
       // Shopify يغلق الأوردر تلقائياً بعد الشحن — مش محتاج action
     } else if (action === 'update') {
       const updateData = {};
       if (body.note !== undefined) updateData.note = body.note;
       if (body.status) updateData.tags = `crm-status:${body.status}`;
-      await shopify(store.url, store.token, 'PUT', `/orders/${shopifyOrderId}.json`, { order: updateData });
+      await shopify(store.url, token, 'PUT', `/orders/${shopifyOrderId}.json`, { order: updateData });
     } else {
       return res.status(400).json({ error: `Unknown action: ${action}` });
     }
