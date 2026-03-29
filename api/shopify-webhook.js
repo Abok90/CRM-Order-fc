@@ -22,7 +22,7 @@ function verifyHmac(rawBody, receivedHmac, secret) {
 
 function getStore(shopDomain) {
   const d = (shopDomain || '').toLowerCase();
-  if (d.includes('aidaset') || d.includes('hfgnj-h0')) {
+  if (d.includes('aidaset') || d.includes('hfgnj')) {
     return { secret: process.env.SHOPIFY_AIDA_WEBHOOK_SECRET, storeKey: 'aida_web', pageName: 'عايدة ويب' };
   }
   if (d.includes('oversizewear') || d.includes('febwqx-4i')) {
