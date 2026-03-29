@@ -1,4 +1,4 @@
-const SHOPIFY_API_VERSION = '2024-01';
+const SHOPIFY_API_VERSION = '2026-01';
 
 // كاش التوكن في الذاكرة — يصلح لنفس الـ warm instance
 const tokenCache = {};
