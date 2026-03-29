@@ -57,19 +57,20 @@ function mapShopifyToCRM(order, storeConfig) {
   const firstShipping = (order.shipping_lines || [])[0] || {};
 
   return {
-    customer: billing.name || shipping.name || order.customer?.first_name + ' ' + order.customer?.last_name || 'عميل Shopify',
+    customer: billing.name || shipping.name || ((order.customer?.first_name || '') + ' ' + (order.customer?.last_name || '')).trim() || 'عميل Shopify',
     phone: order.phone || billing.phone || shipping.phone || '',
     address: shipping.address1 || billing.address1 || '',
     item: firstItem.title || '',
     quantity: firstItem.quantity || 1,
-    product_price: parseFloat(order.subtotal_price || 0),
-    shipping_price: parseFloat(firstShipping.price || 0),
+    productPrice: parseFloat(order.subtotal_price || 0),
+    shippingPrice: parseFloat(firstShipping.price || 0),
     notes: order.note || '',
     status: 'جاري التحضير',
     page: storeConfig.pageName,
     shopify_order_id: order.id,
     shopify_store: storeConfig.storeKey,
     source: 'shopify',
+    date: new Date().toLocaleDateString('ar-EG'),
   };
 }
 
