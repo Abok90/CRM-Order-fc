@@ -25,7 +25,7 @@ function getStore(shopDomain) {
   if (d.includes('aidaset') || d.includes('hfgnj-h0')) {
     return { secret: process.env.SHOPIFY_AIDA_WEBHOOK_SECRET, storeKey: 'aida_web', pageName: 'عايدة ويب' };
   }
-  if (d.includes('oversizewear')) {
+  if (d.includes('oversizewear') || d.includes('febwqx-4i')) {
     return { secret: process.env.SHOPIFY_OFFER_WEBHOOK_SECRET, storeKey: 'offer_web', pageName: 'اوفر ويب' };
   }
   return null;
