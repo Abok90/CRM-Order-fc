@@ -73,6 +73,11 @@ async function handler(req, res) {
       await shopify(store.url, store.token, 'POST', `/orders/${shopifyOrderId}/cancel.json`, {});
     } else if (action === 'complete') {
       // Shopify يغلق الأوردر تلقائياً بعد الشحن — مش محتاج action
+    } else if (action === 'update') {
+      const updateData = {};
+      if (body.note !== undefined) updateData.note = body.note;
+      if (body.status) updateData.tags = `crm-status:${body.status}`;
+      await shopify(store.url, store.token, 'PUT', `/orders/${shopifyOrderId}.json`, { order: updateData });
     } else {
       return res.status(400).json({ error: `Unknown action: ${action}` });
     }

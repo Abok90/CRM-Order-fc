@@ -1852,6 +1852,17 @@
                         }
                         logActivity(changes.length > 0 ? `تعديل: ${changes.join(' | ')}` : 'تحديث بيانات بدون تغييرات فعلية', finalOrderId);
                         syncToGoogleSheet('upsert', orderPayload);
+                        // Shopify sync: تحديث الملاحظات والحالة في Shopify لو الأوردر من Shopify
+                        if (originalOrderData?.shopify_order_id && originalOrderData?.shopify_store) {
+                            supabase.auth.getSession().then(({ data: { session: sess } }) => {
+                                const authToken = sess?.access_token || '';
+                                fetch('/api/shopify-action', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'x-crm-auth': authToken },
+                                    body: JSON.stringify({ action: 'update', shopifyOrderId: originalOrderData.shopify_order_id, shopifyStore: originalOrderData.shopify_store, note: orderPayload.notes || '', status: orderPayload.status })
+                                }).catch(() => {});
+                            });
+                        }
                         closeModal();
                     } else {
                         await savePayload(orderPayload, false, null, finalOrderId);
