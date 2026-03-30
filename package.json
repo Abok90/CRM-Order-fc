@@ -1,0 +1,14 @@
+{
+  "name": "crm-order-fc",
+  "version": "1.0.0",
+  "description": "CRM Order Management System",
+  "private": true,
+  "scripts": {
+    "build": "echo 'No build step required for static HTML'",
+    "lint": "echo 'No linting configured'",
+    "test": "echo 'No tests configured'"
+  },
+  "dependencies": {
+    "@vercel/speed-insights": "^1.0.12"
+  }
+}
