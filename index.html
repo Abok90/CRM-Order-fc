@@ -419,6 +419,10 @@
             const [toasts, setToasts] = useState([]);
             const [activityLogs, setActivityLogs] = useState([]);
             const [allMonthStats, setAllMonthStats] = useState([]);
+            const [historyEmployee, setHistoryEmployee] = useState(null); // { name, uid }
+            const [historyMonths, setHistoryMonths] = useState([]);
+            const [historyLoading, setHistoryLoading] = useState(false);
+            const [historyMonthIdx, setHistoryMonthIdx] = useState(0);
             const [inventoryStock, setInventoryStock] = useState(() => { try { return JSON.parse(localStorage.getItem('crmInventoryStock') || '{}'); } catch { return {}; } });
             const updateInventoryStock = (productName, qty) => { setInventoryStock(prev => { const next = { ...prev, [productName]: qty === '' ? '' : qty }; localStorage.setItem('crmInventoryStock', JSON.stringify(next)); return next; }); };
             
@@ -631,22 +635,79 @@
                 try {
                     const now = new Date();
                     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-                    const { data } = await supabase.from('orders').select('user_id,status').gte('created_at', firstOfMonth);
+                    const { data } = await supabase.from('orders').select('user_id,updated_by,status').gte('created_at', firstOfMonth);
                     if (!data) return;
+                    // بناء خريطة الأسماء
                     const nameMap = {};
                     usersList.forEach(u => { nameMap[u.id] = u.name || u.email?.split('@')[0] || 'موظف'; });
                     Object.keys(publicUserNames).forEach(id => { if (!nameMap[id]) nameMap[id] = publicUserNames[id]; });
+                    // الأدوار الإدارية — نستبعدها من لوحة المنافسة
+                    const adminUids = new Set(usersList.filter(u => SUPER_ADMIN_ROLES.includes(u.role)).map(u => u.id));
+                    const buildEntry = (uid) => ({
+                        uid, name: uid === null ? 'شوبيفاي' : (nameMap[uid] || 'موظف'),
+                        created: 0, edited: 0, total: 0,
+                        delivered: 0, shipped: 0, cancelled: 0, isMe: uid === user?.id
+                    });
                     const stats = {};
                     data.forEach(o => {
-                        const uid = o.user_id;
-                        if (!uid) return;
-                        if (!stats[uid]) stats[uid] = { name: nameMap[uid] || 'موظف', total: 0, delivered: 0, isMe: uid === user?.id };
-                        stats[uid].total++;
-                        if (o.status === 'تم') stats[uid].delivered++;
+                        const cid = o.user_id;   // المنشئ (أو null = شوبيفاي)
+                        const eid = o.updated_by; // المعدّل الأخير
+                        if (cid !== null && adminUids.has(cid)) return; // تجاهل الإدارة
+                        // احسب للمنشئ
+                        const cidKey = cid ?? '__shopify__';
+                        if (!stats[cidKey]) stats[cidKey] = buildEntry(cid);
+                        stats[cidKey].created++;
+                        stats[cidKey].total++;
+                        if (o.status === 'تم') stats[cidKey].delivered++;
+                        else if (o.status === 'الشحن') stats[cidKey].shipped++;
+                        else if (o.status === 'الغاء') stats[cidKey].cancelled++;
+                        // احسب للمعدّل لو مختلف عن المنشئ ومش إدارة
+                        if (eid && eid !== cid && !adminUids.has(eid)) {
+                            if (!stats[eid]) stats[eid] = buildEntry(eid);
+                            stats[eid].edited++;
+                            stats[eid].total++;
+                            if (o.status === 'تم') stats[eid].delivered++;
+                            else if (o.status === 'الشحن') stats[eid].shipped++;
+                            else if (o.status === 'الغاء') stats[eid].cancelled++;
+                        }
                     });
                     setAllMonthStats(Object.values(stats).filter(s => s.total > 0).sort((a, b) => b.total - a.total));
                 } catch(e) { console.error('fetchMonthlyEmployeeStats:', e); }
             }, [user, usersList, publicUserNames]);
+
+            const fetchEmployeeHistory = async (uid) => {
+                setHistoryLoading(true);
+                setHistoryMonths([]);
+                setHistoryMonthIdx(0);
+                try {
+                    const months = [];
+                    const now = new Date();
+                    for (let i = 5; i >= 0; i--) {
+                        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                        const first = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+                        const last  = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString();
+                        const { data } = await supabase.from('orders')
+                            .select('user_id,updated_by,status')
+                            .gte('created_at', first).lte('created_at', last);
+                        if (!data) { months.push({ label: d.toLocaleDateString('ar-EG',{month:'long',year:'numeric'}), total: 0, created: 0, edited: 0, delivered: 0, shipped: 0, cancelled: 0 }); continue; }
+                        let total=0, created=0, edited=0, delivered=0, shipped=0, cancelled=0;
+                        data.forEach(o => {
+                            const cid = o.user_id; const eid = o.updated_by;
+                            const isCr = cid === uid || (uid === null && cid === null);
+                            const isEd = eid === uid && eid !== cid;
+                            if (!isCr && !isEd) return;
+                            total++; if (isCr) created++; if (isEd) edited++;
+                            if (o.status === 'تم') delivered++;
+                            else if (o.status === 'الشحن') shipped++;
+                            else if (o.status === 'الغاء') cancelled++;
+                        });
+                        months.push({ label: d.toLocaleDateString('ar-EG',{month:'long',year:'numeric'}), total, created, edited, delivered, shipped, cancelled });
+                    }
+                    setHistoryMonths(months);
+                    setHistoryMonthIdx(months.length - 1); // ابدأ بالشهر الحالي
+                } catch(e) { console.error('fetchEmployeeHistory:', e); }
+                setHistoryLoading(false);
+            };
 
             const fetchActivityLogs = async () => {
                 if(!isSuperAdmin && !isPageManager) return;
@@ -1827,7 +1888,10 @@
                     page: newOrder.page || (availablePages.length > 0 ? availablePages[0] : pages[0]), item: newOrder.item,
                     quantity: Number(newOrder.quantity) || 1,
                     status: newOrder.status || 'جاري التحضير', notes: finalNotes, productPrice: Number(newOrder.productPrice) || 0,
-                    shippingPrice: Number(newOrder.shippingPrice) || 0, trackingNumber: newOrder.trackingNumber || '', date: finalDate, user_id: user.id
+                    shippingPrice: Number(newOrder.shippingPrice) || 0, trackingNumber: newOrder.trackingNumber || '', date: finalDate,
+                    // إذا تعديل: احتفظ بـ user_id الأصلي وسجّل المعدّل في updated_by
+                    user_id: isEditing ? (originalOrderData?.user_id ?? user.id) : user.id,
+                    updated_by: isEditing ? user.id : null
                 };
 
                 const savePayload = async (payload, editing, origId, newId) => {
@@ -2349,7 +2413,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.32</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.33</span>
                             </div>
                         </nav>
                     </aside>
@@ -2452,37 +2516,72 @@
                                     </div>
                                     )}
 
-                                    {/* لوحة المنافسة الشهرية للموظفين */}
-                                    {allMonthStats.length > 0 && (
-                                    <div>
-                                        <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 md:mb-4 flex items-center gap-2">
-                                            🏆 لوحة المنافسة
-                                            <span className="text-[10px] md:text-sm font-bold text-slate-500">(كل أوردرات {new Date().toLocaleDateString('ar-EG', {month:'long'})} من قاعدة البيانات)</span>
-                                        </h2>
-                                        <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-hidden">
+                                    {/* لوحة المنافسة الشهرية */}
+                                    {allMonthStats.length > 0 && (() => {
+                                        const now = new Date();
+                                        const monthName = now.toLocaleDateString('ar-EG',{month:'long'});
+                                        const daysLeft = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate() - now.getDate();
+                                        const RANK_COLORS = ['#f59e0b','#94a3b8','#b45309'];
+                                        const RANK_BG    = ['from-amber-50 to-yellow-50 border-amber-200','from-slate-50 to-gray-50 border-slate-200','from-orange-50 to-amber-50 border-orange-200'];
+                                        const MEDALS = ['🥇','🥈','🥉'];
+                                        const maxTotal = allMonthStats[0]?.total || 1;
+                                        return (
+                                        <div>
+                                            {/* Header */}
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h2 className="font-black text-sm md:text-base text-slate-800 flex items-center gap-2">
+                                                    🏆 <span>لوحة المنافسة</span>
+                                                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">{monthName}</span>
+                                                </h2>
+                                                <span className="text-[10px] font-bold text-slate-400">{daysLeft} يوم متبقي</span>
+                                            </div>
+                                            {/* Cards */}
+                                            <div className="flex flex-col gap-2">
                                             {allMonthStats.map((agent, i) => {
-                                                const medals = ['🥇','🥈','🥉'];
-                                                const maxTotal = allMonthStats[0]?.total || 1;
                                                 const pct = Math.round((agent.total / maxTotal) * 100);
+                                                const barColor = i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#0ea5e9';
+                                                const isTop3 = i < 3;
                                                 return (
-                                                    <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-0 ${agent.isMe ? 'bg-sky-50' : ''}`}>
-                                                        <div className="text-xl w-8 text-center shrink-0">{medals[i] || `${i+1}`}</div>
+                                                <div key={i}
+                                                    onClick={() => { setHistoryEmployee({name: agent.name, uid: agent.uid ?? null}); fetchEmployeeHistory(agent.uid ?? null); }}
+                                                    className={`cursor-pointer rounded-2xl border px-3 pt-3 pb-2.5 transition-all hover:scale-[1.01] hover:shadow-md active:scale-[0.99] ${isTop3 ? 'bg-gradient-to-l '+RANK_BG[i] : `bg-white border-slate-100 ${agent.isMe ? 'ring-2 ring-sky-400' : ''}`}`}>
+                                                    <div className="flex items-start gap-2.5">
+                                                        {/* Rank */}
+                                                        <div className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl font-black text-sm"
+                                                            style={{background: isTop3 ? RANK_COLORS[i]+'22' : '#f1f5f9', color: isTop3 ? RANK_COLORS[i] : '#64748b'}}>
+                                                            {isTop3 ? MEDALS[i] : i+1}
+                                                        </div>
+                                                        {/* Body */}
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="flex justify-between items-center mb-1">
-                                                                <span className={`font-black text-sm truncate ${agent.isMe ? 'text-sky-700' : 'text-slate-800'}`}>{agent.name}{agent.isMe ? ' (أنا)' : ''}</span>
-                                                                <span className="font-black text-sm text-slate-700 shrink-0 mr-2">{agent.total} طلب</span>
+                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                <span className={`font-black text-sm leading-tight ${agent.isMe ? 'text-sky-700' : isTop3 ? 'text-slate-900' : 'text-slate-700'}`}>
+                                                                    {agent.name}{agent.isMe ? ' 👤' : ''}
+                                                                </span>
+                                                                <span className="font-black text-sm text-slate-800 shrink-0">{agent.total} <span className="font-bold text-[10px] text-slate-400">طلب</span></span>
                                                             </div>
-                                                            <div className="w-full bg-slate-100 rounded-full h-1.5">
-                                                                <div className="h-1.5 rounded-full transition-all" style={{width: pct + '%', background: i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#0ea5e9'}}/>
+                                                            {/* Progress bar */}
+                                                            <div className="w-full bg-slate-100 rounded-full h-1.5 mb-2">
+                                                                <div className="h-1.5 rounded-full transition-all duration-700" style={{width: pct+'%', background: barColor}}/>
+                                                            </div>
+                                                            {/* Stats row */}
+                                                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-bold">
+                                                                <span className="text-slate-400">أنشأ: <span className="text-slate-600">{agent.created}</span></span>
+                                                                <span className="text-slate-400">عدّل: <span className="text-slate-600">{agent.edited}</span></span>
+                                                                <span className="text-slate-300">|</span>
+                                                                <span className="text-green-600">✓ {agent.delivered} تم</span>
+                                                                <span className="text-blue-500">🚚 {agent.shipped} شحن</span>
+                                                                <span className="text-red-400">✕ {agent.cancelled} إلغاء</span>
                                                             </div>
                                                         </div>
-                                                        <div className="text-[10px] font-bold text-green-600 shrink-0">{agent.delivered} تم</div>
                                                     </div>
+                                                </div>
                                                 );
                                             })}
+                                            </div>
+                                            <p className="text-center text-[10px] text-slate-400 mt-2 font-bold">اضغط على أي موظف لعرض سجل الأشهر السابقة</p>
                                         </div>
-                                    </div>
-                                    )}
+                                        );
+                                    })()}
 
                                     {/* الرسم البياني للإيرادات الشهرية (للإدارة فقط) */}
                                     {userRole?.role !== 'agent' && monthlyRevenue.length >= 2 && (
@@ -3915,6 +4014,130 @@
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* ===== مودال سجل الموظف الشهري ===== */}
+                    {historyEmployee && (
+                    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[95] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setHistoryEmployee(null)}>
+                        <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                            {/* Header */}
+                            <div className="bg-gradient-to-l from-indigo-600 to-violet-600 px-5 py-4 flex items-center justify-between">
+                                <div>
+                                    <p className="text-white/70 text-[10px] font-bold mb-0.5">سجل الأداء</p>
+                                    <h3 className="text-white font-black text-base">{historyEmployee.name}</h3>
+                                </div>
+                                <button onClick={() => setHistoryEmployee(null)} className="text-white/70 hover:text-white text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20">✕</button>
+                            </div>
+                            {historyLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"/>
+                                </div>
+                            ) : historyMonths.length > 0 ? (
+                            <div className="p-5">
+                                {/* Month Navigator */}
+                                <div className="flex items-center justify-between mb-4">
+                                    <button onClick={() => setHistoryMonthIdx(i => Math.max(0, i-1))} disabled={historyMonthIdx === 0}
+                                        className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-indigo-100 text-slate-600 font-black text-sm disabled:opacity-30 transition-all">‹</button>
+                                    <span className="font-black text-slate-800 text-sm">{historyMonths[historyMonthIdx]?.label}</span>
+                                    <button onClick={() => setHistoryMonthIdx(i => Math.min(historyMonths.length-1, i+1))} disabled={historyMonthIdx === historyMonths.length-1}
+                                        className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-indigo-100 text-slate-600 font-black text-sm disabled:opacity-30 transition-all">›</button>
+                                </div>
+                                {/* Month dots */}
+                                <div className="flex justify-center gap-1.5 mb-5">
+                                    {historyMonths.map((_, idx) => (
+                                        <button key={idx} onClick={() => setHistoryMonthIdx(idx)}
+                                            className={`h-1.5 rounded-full transition-all ${idx === historyMonthIdx ? 'w-6 bg-indigo-500' : 'w-1.5 bg-slate-200 hover:bg-slate-300'}`}/>
+                                    ))}
+                                </div>
+                                {/* Current month stats */}
+                                {(() => {
+                                    const m = historyMonths[historyMonthIdx];
+                                    const prev = historyMonthIdx > 0 ? historyMonths[historyMonthIdx - 1] : null;
+                                    const diff = prev ? m.total - prev.total : null;
+                                    const isLast = historyMonthIdx === historyMonths.length - 1;
+                                    return (
+                                    <div>
+                                        {/* Total + trend */}
+                                        <div className="flex items-center justify-center gap-3 mb-4">
+                                            <div className="text-center">
+                                                <div className="font-black text-4xl text-slate-900">{m.total}</div>
+                                                <div className="text-[11px] font-bold text-slate-400">إجمالي الطلبات</div>
+                                            </div>
+                                            {diff !== null && (
+                                                <div className={`flex flex-col items-center px-3 py-1.5 rounded-xl font-black text-sm ${diff >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
+                                                    <span>{diff >= 0 ? '▲' : '▼'} {Math.abs(diff)}</span>
+                                                    <span className="text-[9px] font-bold opacity-70">{diff >= 0 ? 'أحسن من' : 'أقل من'} الشهر السابق</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {/* Stats grid */}
+                                        <div className="grid grid-cols-2 gap-2 mb-4">
+                                            <div className="bg-slate-50 rounded-xl p-3 text-center">
+                                                <div className="font-black text-xl text-slate-700">{m.created}</div>
+                                                <div className="text-[10px] font-bold text-slate-400">طلبات أنشأها</div>
+                                            </div>
+                                            <div className="bg-slate-50 rounded-xl p-3 text-center">
+                                                <div className="font-black text-xl text-slate-700">{m.edited}</div>
+                                                <div className="text-[10px] font-bold text-slate-400">طلبات عدّل عليها</div>
+                                            </div>
+                                            <div className="bg-green-50 rounded-xl p-3 text-center">
+                                                <div className="font-black text-xl text-green-600">{m.delivered}</div>
+                                                <div className="text-[10px] font-bold text-green-400">تم التسليم</div>
+                                            </div>
+                                            <div className="bg-blue-50 rounded-xl p-3 text-center">
+                                                <div className="font-black text-xl text-blue-600">{m.shipped}</div>
+                                                <div className="text-[10px] font-bold text-blue-400">في الشحن</div>
+                                            </div>
+                                            {m.cancelled > 0 && (
+                                            <div className="bg-red-50 rounded-xl p-3 text-center col-span-2">
+                                                <div className="font-black text-xl text-red-500">{m.cancelled}</div>
+                                                <div className="text-[10px] font-bold text-red-400">ملغاة</div>
+                                            </div>
+                                            )}
+                                        </div>
+                                        {/* Mini bar chart for all months */}
+                                        <div className="bg-slate-50 rounded-xl p-3">
+                                            <p className="text-[10px] font-bold text-slate-400 mb-2 text-center">مقارنة الأشهر الـ6</p>
+                                            <div className="flex items-end gap-1 justify-around" style={{height:56}}>
+                                                {historyMonths.map((hm, idx) => {
+                                                    const maxH = Math.max(...historyMonths.map(x => x.total), 1);
+                                                    const h = Math.max(4, Math.round((hm.total / maxH) * 48));
+                                                    return (
+                                                    <div key={idx} className="flex flex-col items-center gap-1 flex-1 cursor-pointer" onClick={() => setHistoryMonthIdx(idx)}>
+                                                        <span className="text-[8px] font-black text-slate-500">{hm.total || ''}</span>
+                                                        <div className="w-full rounded-t-sm transition-all" style={{height: h, background: idx === historyMonthIdx ? '#6366f1' : '#e2e8f0', minWidth: 18}}/>
+                                                    </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div className="flex justify-around mt-1">
+                                                {historyMonths.map((hm, idx) => (
+                                                    <span key={idx} className={`text-[7px] font-bold text-center flex-1 truncate ${idx === historyMonthIdx ? 'text-indigo-500' : 'text-slate-300'}`}>
+                                                        {hm.label.split(' ')[0]}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {/* Motivational message */}
+                                        {isLast && diff !== null && diff < 0 && (
+                                            <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-center">
+                                                <p className="font-black text-amber-700 text-sm">💪 الشهر الماضي كنت أقوى!</p>
+                                                <p className="text-[11px] text-amber-500 font-bold mt-0.5">تقدر تعوّض الفرق في باقي الشهر 🔥</p>
+                                            </div>
+                                        )}
+                                        {isLast && diff !== null && diff > 0 && (
+                                            <div className="mt-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-center">
+                                                <p className="font-black text-green-700 text-sm">🚀 أداء رائع هذا الشهر!</p>
+                                                <p className="text-[11px] text-green-500 font-bold mt-0.5">+{diff} طلب أكتر من الشهر الماضي، استمر! ⭐</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    );
+                                })()}
+                            </div>
+                            ) : <p className="text-center py-8 text-slate-400 font-bold text-sm">لا يوجد بيانات</p>}
+                        </div>
+                    </div>
                     )}
 
                     {/* Modals */}
