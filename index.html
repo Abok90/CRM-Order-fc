@@ -3,15 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script>if(location.hostname==='abok90.github.io')location.replace('https://crm-order-fc.vercel.app'+location.search);</script>
     <title>نظام إدارة الطلبات (CRM)</title>
     
     <!-- إعدادات تطبيق الويب التقدمي (PWA) للأندرويد والآيفون -->
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="CRM">
-    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNGY0NmU1IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDE2VjhhMiAyIDAgMCAwLTEtMS43M2wtNy00YTIgMiAwIDAgMC0yIDBsLTcgNEEyIDIgMCAwIDAgMyA4djhhMiAyIDAgMCAwIDEgMS43M2w3IDRhMiAyIDAgMCAwIDIgMGw3LTRBMiAyIDAgMCAwIDIxIDE2eiIvPjxwb2x5bGluZSBwb2ludHM9IjMuMjcgNi45NiAxMiAxMi4wMSAyMC43MyA2Ljk2Ii8+PGxpbmUgeDE9IjEyIiB5MT0iMjIuMDgiIHgyPSIxMiIgeTI9IjEyIi8+PC9zdmc+">
-    <link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoi2YbYuNin2YUg2KXZkdiv2KfYsdipINin2YTYt9mE2KjYp9iqIChDUk0pIiwic2hvcnRfbmFtZSI6IkNSTSIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3ciOiIjZjhmYWZjIiwidGhlbWVfY29sb3ciOiIjNGY0NmU1IiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlppQjRiV3h1Y3owaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1qQXdNQzlzZG1jaUlIWnBaWGRDYjNnOUlqQWdNQ0F5TkNBeU5DSWdabWxzYkQwaWJtOXVaU2lnYzNSeWIydGxQU0lqTkdZME5tVTFJaUJ6ZEhKdmEyVXVkMmxrZEdnOUlqSWlJSE4wY205clpTMXNhVzVsWTJGd1BTSnliM1Z1WkNJZ2MzUnliMnRsTFd4cGJtVnFiMmx1UFNKeWIzVnVaQ0k+UEhCaGRHOGdaRDBpVFRJeElERTJWamhoTWlBeUlEQWdNQ0F3TFRFdE1TNDNNbXd0TnkwdE5HRXlJREFnTUMwd0xUSWdNR3d0Tnkwa05FRXlJRElnTUMwd0lETWdPSFk0YVRJZ01pQXdNQ0F3SURFZ01TNDNNbXc0SURSaE1pQXlJREFnTUMwd0lESWdNR3czTFRSQk1pQXlJREFnTUMwd0lESXhJREUyZWlJdlBqeHdiMnhwYkdsdVpTQndiMmx1ZEhNdlBzaXpMakkzSURZdU9UWWdNVElnTVRJdU1ERWdNakF1TnpNZ05pNDVOaUkvPjxsaW5lIHgxPSIxMiIgeTE9IjIyLjA4IiB4Mj0iMTIiIHkyPSIxMiIvPjwvc3ZnPiIsInNpemVzIjoiNTEyeDUxMiIsInR5cGUiOiJpbWFnZS9zdmcreG1sIn1dfQ==">
+    <meta name="apple-mobile-web-app-title" content="CRM Pro">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/0f172a/14b8a6?text=CRM">
+    <link rel="manifest" href="/manifest.json">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
 
     <!-- مكتبة التصميم -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -26,6 +34,11 @@
 
     <!-- SheetJS — تصدير Excel حقيقي (.xlsx) يعمل على كل الأجهزة -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <!-- Vercel Speed Insights -->
+    <script type="module">
+        import { injectSpeedInsights } from './speed-insights.js';
+        injectSpeedInsights();
+    </script>
     
     <!-- الخطوط -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -405,6 +418,7 @@
             
             const [toasts, setToasts] = useState([]);
             const [activityLogs, setActivityLogs] = useState([]);
+            const [allMonthStats, setAllMonthStats] = useState([]);
             const [inventoryStock, setInventoryStock] = useState(() => { try { return JSON.parse(localStorage.getItem('crmInventoryStock') || '{}'); } catch { return {}; } });
             const updateInventoryStock = (productName, qty) => { setInventoryStock(prev => { const next = { ...prev, [productName]: qty === '' ? '' : qty }; localStorage.setItem('crmInventoryStock', JSON.stringify(next)); return next; }); };
             
@@ -612,6 +626,28 @@
                 } catch (e) { console.error('fetchPublicUserNames:', e); }
             };
 
+            const fetchMonthlyEmployeeStats = useCallback(async () => {
+                if (!user) return;
+                try {
+                    const now = new Date();
+                    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+                    const { data } = await supabase.from('orders').select('user_id,status').gte('created_at', firstOfMonth);
+                    if (!data) return;
+                    const nameMap = {};
+                    usersList.forEach(u => { nameMap[u.id] = u.name || u.email?.split('@')[0] || 'موظف'; });
+                    Object.keys(publicUserNames).forEach(id => { if (!nameMap[id]) nameMap[id] = publicUserNames[id]; });
+                    const stats = {};
+                    data.forEach(o => {
+                        const uid = o.user_id;
+                        if (!uid) return;
+                        if (!stats[uid]) stats[uid] = { name: nameMap[uid] || 'موظف', total: 0, delivered: 0, isMe: uid === user?.id };
+                        stats[uid].total++;
+                        if (o.status === 'تم') stats[uid].delivered++;
+                    });
+                    setAllMonthStats(Object.values(stats).filter(s => s.total > 0).sort((a, b) => b.total - a.total));
+                } catch(e) { console.error('fetchMonthlyEmployeeStats:', e); }
+            }, [user, usersList, publicUserNames]);
+
             const fetchActivityLogs = async () => {
                 if(!isSuperAdmin && !isPageManager) return;
                 try {
@@ -742,6 +778,7 @@
                 // باقي البيانات في الخلفية بعد ما الصفحة تظهر
                 fetchRealStats();
                 fetchPublicUserNames();
+                fetchMonthlyEmployeeStats();
                 if (isSuperAdmin || isPageManager) fetchUsersList();
                 if (isSuperAdmin || isPageManager) fetchActivityLogs();
                 if (canAccessFinance) fetchFinanceRecords();
@@ -1839,6 +1876,17 @@
                         }
                         logActivity(changes.length > 0 ? `تعديل: ${changes.join(' | ')}` : 'تحديث بيانات بدون تغييرات فعلية', finalOrderId);
                         syncToGoogleSheet('upsert', orderPayload);
+                        // Shopify sync: تحديث الملاحظات والحالة في Shopify لو الأوردر من Shopify
+                        if (originalOrderData?.shopify_order_id && originalOrderData?.shopify_store) {
+                            supabase.auth.getSession().then(({ data: { session: sess } }) => {
+                                const authToken = sess?.access_token || '';
+                                fetch('/api/shopify-action', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'x-crm-auth': authToken },
+                                    body: JSON.stringify({ action: 'update', shopifyOrderId: originalOrderData.shopify_order_id, shopifyStore: originalOrderData.shopify_store, note: orderPayload.notes || '', status: orderPayload.status, customer: orderPayload.customer, phone: orderPayload.phone, address: orderPayload.address })
+                                }).catch(() => {});
+                            });
+                        }
                         closeModal();
                     } else {
                         await savePayload(orderPayload, false, null, finalOrderId);
@@ -2301,7 +2349,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.27</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.32</span>
                             </div>
                         </nav>
                     </aside>
@@ -2405,16 +2453,16 @@
                                     )}
 
                                     {/* لوحة المنافسة الشهرية للموظفين */}
-                                    {(userRole?.role === 'agent' || userRole?.role === 'page_manager') && agentLeaderboard.length > 0 && (
+                                    {allMonthStats.length > 0 && (
                                     <div>
                                         <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 md:mb-4 flex items-center gap-2">
                                             🏆 لوحة المنافسة
-                                            <span className="text-[10px] md:text-sm font-bold text-slate-500">(أوردرات {new Date().toLocaleDateString('ar-EG', {month:'long'})})</span>
+                                            <span className="text-[10px] md:text-sm font-bold text-slate-500">(كل أوردرات {new Date().toLocaleDateString('ar-EG', {month:'long'})} من قاعدة البيانات)</span>
                                         </h2>
                                         <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-hidden">
-                                            {agentLeaderboard.map((agent, i) => {
+                                            {allMonthStats.map((agent, i) => {
                                                 const medals = ['🥇','🥈','🥉'];
-                                                const maxTotal = agentLeaderboard[0]?.total || 1;
+                                                const maxTotal = allMonthStats[0]?.total || 1;
                                                 const pct = Math.round((agent.total / maxTotal) * 100);
                                                 return (
                                                     <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-0 ${agent.isMe ? 'bg-sky-50' : ''}`}>
@@ -2598,7 +2646,7 @@
                                                             <span className="truncate opacity-70">{order.address}</span>
                                                         </div>
                                                         <div className="text-xs text-slate-600 font-bold mb-0 line-clamp-2 leading-relaxed">
-                                                            <span className="inline bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[9px] font-black ml-1">{order.page}</span>{order.item}
+                                                            <span className="inline bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[9px] font-black ml-1">{order.page}</span>{order.item}{Number(order.quantity) > 1 && <span className="inline bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded text-[9px] font-black mr-1">×{order.quantity}</span>}
                                                         </div>
                                                         {order.trackingNumber && <div className="text-[10px] font-bold text-orange-600 flex items-center gap-1 mt-1"><IconTruck size={11}/>{order.trackingNumber}</div>}
                                                         <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
@@ -2653,7 +2701,7 @@
                                                                 {isDuplicate && <div className="text-[8px] md:text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black mt-1 inline-block border border-red-200">مكرر ({phoneCounts[order.phone]} مرات)</div>}
                                                             </td>
                                                             <td className="hidden md:table-cell align-top whitespace-normal break-words whitespace-pre-wrap leading-tight text-[11px] font-medium opacity-80">{order.notes || '-'}</td>
-                                                            <td className="align-top whitespace-normal break-words"><span className={`px-1.5 py-0.5 border rounded text-[8px] md:text-[9px] font-black mb-1 inline-block shadow-sm bg-white/60`}>{order.page}</span><div className="text-[10px] md:text-xs font-bold mt-1 leading-snug line-clamp-3 whitespace-pre-wrap">{order.item}</div></td>
+                                                            <td className="align-top whitespace-normal break-words"><span className={`px-1.5 py-0.5 border rounded text-[8px] md:text-[9px] font-black mb-1 inline-block shadow-sm bg-white/60`}>{order.page}</span><div className="text-[10px] md:text-xs font-bold mt-1 leading-snug line-clamp-3 whitespace-pre-wrap">{order.item}{Number(order.quantity) > 1 && <span className="inline bg-violet-100 text-violet-700 px-1 rounded text-[8px] font-black mr-1">×{order.quantity}</span>}</div></td>
                                                             <td className="align-top text-center">
                                                                 <select value={order.status} onChange={(e) => handleStatusChange(order.id, e.target.value)} disabled={agentCannotQuickEdit} className={`text-[10px] md:text-xs rounded-lg w-full px-1 py-1 md:px-2 md:py-1.5 outline-none focus:ring-2 focus:ring-black/20 font-bold ${agentCannotQuickEdit ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} border shadow-sm ${getSelectStatusColor(order.status)}`}>
                                                                     {orderStatuses.map(status => <option key={status} value={status} className="text-slate-800 bg-white">{status}</option>)}
@@ -4028,6 +4076,7 @@
                                         <div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">رقم الهاتف:</span><span className="text-sky-700 font-black text-sm md:text-lg" dir="ltr">{viewOrder.phone}</span></div>
                                         <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">العنوان:</span><span className="text-slate-800 font-semibold text-xs md:text-base">{viewOrder.address}</span></div>
                                         <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">المنتج:</span><span className="text-slate-800 font-semibold text-xs md:text-base whitespace-pre-wrap">{viewOrder.item}</span></div>
+                                        {Number(viewOrder.quantity) > 1 && <div className="flex justify-between border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold">عدد القطع:</span><span className="text-violet-700 font-black text-sm md:text-lg">{viewOrder.quantity} قطعة</span></div>}
                                         <div className="flex flex-col border-b border-slate-100 pb-1.5 md:pb-2"><span className="text-slate-500 text-xs md:text-sm font-bold mb-0.5 md:mb-1">الملاحظات:</span><span className="text-red-600 font-bold text-xs md:text-base whitespace-pre-wrap">{viewOrder.notes || 'لا يوجد'}</span></div>
                                         <div className="flex justify-between bg-slate-800 text-white p-2 md:p-3 rounded-lg mt-1.5 md:mt-2"><span className="font-bold text-xs md:text-base">المبلغ للتحصيل:</span><span className="font-black text-base md:text-xl">{(Number(viewOrder.productPrice) || 0) + (Number(viewOrder.shippingPrice) || 0)} ج.م</span></div>
                                         <div className="flex justify-between bg-teal-50 border border-teal-100 p-2 md:p-3 rounded-lg mt-1.5 md:mt-2"><span className="font-bold text-teal-800 text-xs md:text-sm flex items-center gap-1"><IconTruck size={14}/> رقم البوليصة:</span><span className="font-black text-teal-900 text-xs md:text-sm">{viewOrder.trackingNumber || 'لم يتم تحديده'}</span></div>

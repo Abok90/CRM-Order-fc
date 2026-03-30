@@ -18,6 +18,7 @@ function getStore(storeKey) {
   return null;
 }
 
+// جلب أو تجديد التوكن تلقائياً (صالح 24 ساعة)
 async function getToken(storeUrl, clientId, clientSecret) {
   const now = Date.now();
   const cached = tokenCache[storeUrl];

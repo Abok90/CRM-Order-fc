@@ -114,7 +114,7 @@ async function handler(req, res) {
 
     } else if (topic === 'orders/cancelled') {
       await supabaseRequest('PATCH', `orders?shopify_order_id=eq.${order.id}&shopify_store=eq.${store.storeKey}`, { status: 'الغاء' });
-      console.log(`[webhook] Cancelled order ${order.name}`);
+      console.log(`[webhook] Cancelled order ${order.id}`);
 
     } else {
       console.log(`[webhook] Ignored topic: ${topic}`);
