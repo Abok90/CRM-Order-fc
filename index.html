@@ -419,6 +419,7 @@
             const [toasts, setToasts] = useState([]);
             const [activityLogs, setActivityLogs] = useState([]);
             const [allMonthStats, setAllMonthStats] = useState([]);
+            const [adminUserIds, setAdminUserIds] = useState(new Set());
             const [historyEmployee, setHistoryEmployee] = useState(null); // { name, uid }
             const [historyMonths, setHistoryMonths] = useState([]);
             const [historyLoading, setHistoryLoading] = useState(false);
@@ -630,6 +631,15 @@
                 } catch (e) { console.error('fetchPublicUserNames:', e); }
             };
 
+            // جلب IDs الإدارة (متاح لكل الأدوار) عشان نستبعدهم من المنافسة
+            const fetchAdminUserIds = useCallback(async () => {
+                if (!user) return;
+                try {
+                    const { data } = await supabase.from('user_roles').select('user_id').in('role', SUPER_ADMIN_ROLES);
+                    if (data) setAdminUserIds(new Set(data.map(r => r.user_id).filter(Boolean)));
+                } catch(e) { console.error('fetchAdminUserIds:', e); }
+            }, [user]);
+
             const fetchMonthlyEmployeeStats = useCallback(async () => {
                 if (!user) return;
                 try {
@@ -641,39 +651,39 @@
                     const nameMap = {};
                     usersList.forEach(u => { nameMap[u.id] = u.name || u.email?.split('@')[0] || 'موظف'; });
                     Object.keys(publicUserNames).forEach(id => { if (!nameMap[id]) nameMap[id] = publicUserNames[id]; });
-                    // الأدوار الإدارية — نستبعدها من لوحة المنافسة
-                    const adminUids = new Set(usersList.filter(u => SUPER_ADMIN_ROLES.includes(u.role)).map(u => u.id));
                     const buildEntry = (uid) => ({
                         uid, name: uid === null ? 'شوبيفاي' : (nameMap[uid] || 'موظف'),
                         created: 0, edited: 0, total: 0,
                         delivered: 0, shipped: 0, cancelled: 0, isMe: uid === user?.id
                     });
+                    const countStatus = (entry, status) => {
+                        if (status === 'تم') entry.delivered++;
+                        else if (status === 'الشحن') entry.shipped++;
+                        else if (status === 'الغاء') entry.cancelled++;
+                    };
                     const stats = {};
                     data.forEach(o => {
-                        const cid = o.user_id;   // المنشئ (أو null = شوبيفاي)
+                        const cid = o.user_id;    // المنشئ (null = شوبيفاي)
                         const eid = o.updated_by; // المعدّل الأخير
-                        if (cid !== null && adminUids.has(cid)) return; // تجاهل الإدارة
-                        // احسب للمنشئ
-                        const cidKey = cid ?? '__shopify__';
-                        if (!stats[cidKey]) stats[cidKey] = buildEntry(cid);
-                        stats[cidKey].created++;
-                        stats[cidKey].total++;
-                        if (o.status === 'تم') stats[cidKey].delivered++;
-                        else if (o.status === 'الشحن') stats[cidKey].shipped++;
-                        else if (o.status === 'الغاء') stats[cidKey].cancelled++;
-                        // احسب للمعدّل لو مختلف عن المنشئ ومش إدارة
-                        if (eid && eid !== cid && !adminUids.has(eid)) {
+                        const cidIsAdmin = cid !== null && adminUserIds.has(cid);
+                        const eidIsAdmin = eid != null && adminUserIds.has(eid);
+                        // المنشئ يحسب له لو مش إدارة
+                        if (!cidIsAdmin) {
+                            const k = cid ?? '__shopify__';
+                            if (!stats[k]) stats[k] = buildEntry(cid);
+                            stats[k].created++; stats[k].total++;
+                            countStatus(stats[k], o.status);
+                        }
+                        // المعدّل يحسب له لو مختلف عن المنشئ ومش إدارة
+                        if (eid && eid !== cid && !eidIsAdmin) {
                             if (!stats[eid]) stats[eid] = buildEntry(eid);
-                            stats[eid].edited++;
-                            stats[eid].total++;
-                            if (o.status === 'تم') stats[eid].delivered++;
-                            else if (o.status === 'الشحن') stats[eid].shipped++;
-                            else if (o.status === 'الغاء') stats[eid].cancelled++;
+                            stats[eid].edited++; stats[eid].total++;
+                            countStatus(stats[eid], o.status);
                         }
                     });
                     setAllMonthStats(Object.values(stats).filter(s => s.total > 0).sort((a, b) => b.total - a.total));
                 } catch(e) { console.error('fetchMonthlyEmployeeStats:', e); }
-            }, [user, usersList, publicUserNames]);
+            }, [user, usersList, publicUserNames, adminUserIds]);
 
             const fetchEmployeeHistory = async (uid) => {
                 setHistoryLoading(true);
@@ -839,6 +849,7 @@
                 // باقي البيانات في الخلفية بعد ما الصفحة تظهر
                 fetchRealStats();
                 fetchPublicUserNames();
+                fetchAdminUserIds();
                 fetchMonthlyEmployeeStats();
                 if (isSuperAdmin || isPageManager) fetchUsersList();
                 if (isSuperAdmin || isPageManager) fetchActivityLogs();
@@ -2413,7 +2424,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.33</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.34</span>
                             </div>
                         </nav>
                     </aside>
