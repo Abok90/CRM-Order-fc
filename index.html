@@ -418,6 +418,7 @@
             
             const [toasts, setToasts] = useState([]);
             const [activityLogs, setActivityLogs] = useState([]);
+            const [allMonthStats, setAllMonthStats] = useState([]);
             const [inventoryStock, setInventoryStock] = useState(() => { try { return JSON.parse(localStorage.getItem('crmInventoryStock') || '{}'); } catch { return {}; } });
             const updateInventoryStock = (productName, qty) => { setInventoryStock(prev => { const next = { ...prev, [productName]: qty === '' ? '' : qty }; localStorage.setItem('crmInventoryStock', JSON.stringify(next)); return next; }); };
             
@@ -625,6 +626,28 @@
                 } catch (e) { console.error('fetchPublicUserNames:', e); }
             };
 
+            const fetchMonthlyEmployeeStats = useCallback(async () => {
+                if (!user) return;
+                try {
+                    const now = new Date();
+                    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+                    const { data } = await supabase.from('orders').select('user_id,status').gte('created_at', firstOfMonth);
+                    if (!data) return;
+                    const nameMap = {};
+                    usersList.forEach(u => { nameMap[u.id] = u.name || u.email?.split('@')[0] || 'موظف'; });
+                    Object.keys(publicUserNames).forEach(id => { if (!nameMap[id]) nameMap[id] = publicUserNames[id]; });
+                    const stats = {};
+                    data.forEach(o => {
+                        const uid = o.user_id;
+                        if (!uid) return;
+                        if (!stats[uid]) stats[uid] = { name: nameMap[uid] || 'موظف', total: 0, delivered: 0, isMe: uid === user?.id };
+                        stats[uid].total++;
+                        if (o.status === 'تم') stats[uid].delivered++;
+                    });
+                    setAllMonthStats(Object.values(stats).filter(s => s.total > 0).sort((a, b) => b.total - a.total));
+                } catch(e) { console.error('fetchMonthlyEmployeeStats:', e); }
+            }, [user, usersList, publicUserNames]);
+
             const fetchActivityLogs = async () => {
                 if(!isSuperAdmin && !isPageManager) return;
                 try {
@@ -755,6 +778,7 @@
                 // باقي البيانات في الخلفية بعد ما الصفحة تظهر
                 fetchRealStats();
                 fetchPublicUserNames();
+                fetchMonthlyEmployeeStats();
                 if (isSuperAdmin || isPageManager) fetchUsersList();
                 if (isSuperAdmin || isPageManager) fetchActivityLogs();
                 if (canAccessFinance) fetchFinanceRecords();
@@ -1859,7 +1883,7 @@
                                 fetch('/api/shopify-action', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json', 'x-crm-auth': authToken },
-                                    body: JSON.stringify({ action: 'update', shopifyOrderId: originalOrderData.shopify_order_id, shopifyStore: originalOrderData.shopify_store, note: orderPayload.notes || '', status: orderPayload.status })
+                                    body: JSON.stringify({ action: 'update', shopifyOrderId: originalOrderData.shopify_order_id, shopifyStore: originalOrderData.shopify_store, note: orderPayload.notes || '', status: orderPayload.status, customer: orderPayload.customer, phone: orderPayload.phone, address: orderPayload.address })
                                 }).catch(() => {});
                             });
                         }
@@ -2429,16 +2453,16 @@
                                     )}
 
                                     {/* لوحة المنافسة الشهرية للموظفين */}
-                                    {(userRole?.role === 'agent' || userRole?.role === 'page_manager') && agentLeaderboard.length > 0 && (
+                                    {allMonthStats.length > 0 && (
                                     <div>
                                         <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 md:mb-4 flex items-center gap-2">
                                             🏆 لوحة المنافسة
-                                            <span className="text-[10px] md:text-sm font-bold text-slate-500">(أوردرات {new Date().toLocaleDateString('ar-EG', {month:'long'})})</span>
+                                            <span className="text-[10px] md:text-sm font-bold text-slate-500">(كل أوردرات {new Date().toLocaleDateString('ar-EG', {month:'long'})} من قاعدة البيانات)</span>
                                         </h2>
                                         <div className="glass-panel rounded-2xl shadow-sm border border-white overflow-hidden">
-                                            {agentLeaderboard.map((agent, i) => {
+                                            {allMonthStats.map((agent, i) => {
                                                 const medals = ['🥇','🥈','🥉'];
-                                                const maxTotal = agentLeaderboard[0]?.total || 1;
+                                                const maxTotal = allMonthStats[0]?.total || 1;
                                                 const pct = Math.round((agent.total / maxTotal) * 100);
                                                 return (
                                                     <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-0 ${agent.isMe ? 'bg-sky-50' : ''}`}>
