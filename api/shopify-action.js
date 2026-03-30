@@ -1,4 +1,4 @@
-const SHOPIFY_API_VERSION = '2024-01';
+const SHOPIFY_API_VERSION = '2026-01';
 
 // كاش التوكن في الذاكرة — يصلح لنفس الـ warm instance
 const tokenCache = {};
@@ -18,7 +18,6 @@ function getStore(storeKey) {
   return null;
 }
 
-// جلب أو تجديد التوكن تلقائياً (صالح 24 ساعة)
 async function getToken(storeUrl, clientId, clientSecret) {
   const now = Date.now();
   const cached = tokenCache[storeUrl];
@@ -105,6 +104,12 @@ async function handler(req, res) {
       const updateData = {};
       if (body.note !== undefined) updateData.note = body.note;
       if (body.status) updateData.tags = `crm-status:${body.status}`;
+      if (body.customer || body.phone || body.address) {
+        updateData.shipping_address = {};
+        if (body.customer) updateData.shipping_address.name = body.customer;
+        if (body.phone) updateData.shipping_address.phone = body.phone;
+        if (body.address) updateData.shipping_address.address1 = body.address;
+      }
       await shopify(store.url, token, 'PUT', `/orders/${shopifyOrderId}.json`, { order: updateData });
     } else {
       return res.status(400).json({ error: `Unknown action: ${action}` });
