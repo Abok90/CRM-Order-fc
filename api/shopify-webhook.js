@@ -115,7 +115,7 @@ async function handler(req, res) {
         shopify_order_id: order.id,
         shopify_store: store.storeKey,
         source: 'shopify',
-        date: new Date().toLocaleDateString('ar-EG'),
+        date: new Date().toISOString().split('T')[0],
         product_urls: productUrls.length > 0 ? JSON.stringify(productUrls) : null,
       });
       console.log(`[webhook] Inserted order ${order.name}`);
