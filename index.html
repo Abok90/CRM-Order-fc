@@ -617,6 +617,19 @@
                 } catch(e) { console.error('fetchPageDbStats:', e); }
             };
 
+            const normalizeDate = (dateStr) => {
+                if (!dateStr) return '';
+                const arabicNums = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+                let d = String(dateStr).replace(/[٠-٩]/g, w => arabicNums.indexOf(w));
+                if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.substring(0, 10);
+                const parts = d.split(/[\/\-]/);
+                if (parts.length === 3) {
+                    const [y, m, day] = parts;
+                    return `${y.padStart(4,'0')}-${m.padStart(2,'0')}-${day.padStart(2,'0')}`;
+                }
+                return d;
+            };
+
             const getIsoDate = (o) => {
                 const d = o.date || '';
                 if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.substring(0, 10);
@@ -634,7 +647,7 @@
                     }
                     const { data, error } = await query;
                     if (error) throw error;
-                    const safeOrders = (data || []).map(o => ({ ...o, productPrice: Number(o.productPrice) || 0, shippingPrice: Number(o.shippingPrice) || 0 }));
+                    const safeOrders = (data || []).map(o => ({ ...o, productPrice: Number(o.productPrice) || 0, shippingPrice: Number(o.shippingPrice) || 0, date: normalizeDate(o.date) || o.date }));
                     setOrders(safeOrders);
                     ordersRef.current = safeOrders;
                 } catch (error) { notify('تعذر تحميل الأوردرات. تحقق من الاتصال وأعد المحاولة.'); }
