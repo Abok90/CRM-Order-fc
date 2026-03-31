@@ -647,7 +647,7 @@
                     }
                     const { data, error } = await query;
                     if (error) throw error;
-                    const safeOrders = (data || []).map(o => ({ ...o, productPrice: Number(o.productPrice) || 0, shippingPrice: Number(o.shippingPrice) || 0, date: normalizeDate(o.date) || o.date }));
+                    const safeOrders = (data || []).map(o => ({ ...o, productPrice: Number(o.productPrice) || 0, shippingPrice: Number(o.shippingPrice) || 0, date: normalizeDate(o.date) || (o.created_at ? o.created_at.split('T')[0] : '') }));
                     setOrders(safeOrders);
                     ordersRef.current = safeOrders;
                 } catch (error) { notify('تعذر تحميل الأوردرات. تحقق من الاتصال وأعد المحاولة.'); }
@@ -1163,8 +1163,8 @@
                     const matchesStatus = filterStatus === 'الكل' || order.status === filterStatus;
                     const matchesPage = filterPage === 'الكل' ? true : order.page === filterPage;
                     const matchesRole = isSuperAdmin ? true : (availablePages.includes(order.page));
-                    const matchesDateFrom = !dateFrom || (order.date && order.date >= dateFrom);
-                    const matchesDateTo = !dateTo || (order.date && order.date <= dateTo);
+                    const matchesDateFrom = !dateFrom || order.date >= dateFrom;
+                    const matchesDateTo = !dateTo || order.date <= dateTo;
                     const matchesDuplicates = showDuplicatesOnly ? phoneCounts[order.phone] > 1 : true;
                     return matchesSearch && matchesStatus && matchesPage && matchesRole && matchesDateFrom && matchesDateTo && matchesDuplicates;
                 });
@@ -1188,7 +1188,10 @@
 
             const totalPages = ordersPerPage === 'All' ? 1 : Math.ceil(filteredOrders.length / ordersPerPage);
 
-            const statsFilteredOrders = useMemo(() => filteredOrders.filter(order => (!statsDateFrom || order.date >= statsDateFrom) && (!statsDateTo || order.date <= statsDateTo)), [filteredOrders, statsDateFrom, statsDateTo]);
+            const statsFilteredOrders = useMemo(() => filteredOrders.filter(order => {
+                const d = order.date || '';
+                return (!statsDateFrom || d >= statsDateFrom) && (!statsDateTo || d <= statsDateTo);
+            }), [filteredOrders, statsDateFrom, statsDateTo]);
 
             const globalStats = useMemo(() => {
                 const delivered = filteredOrders.filter(o => o.status === 'تم');
@@ -2475,7 +2478,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.38</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.39</span>
                             </div>
                         </nav>
                     </aside>
