@@ -388,6 +388,7 @@
             const ordersRef = useRef([]);
             const [usersList, setUsersList] = useState([]);
             const [realStats, setRealStats] = useState({ total: null, processing: null, delivered: null, revenue: null });
+            const [pageDbStats, setPageDbStats] = useState([]);
             const [appNotifs, setAppNotifs] = useState([]);
             const [notifPanelOpen, setNotifPanelOpen] = useState(false);
             const addAppNotif = (type, title, msg, data = {}) => {
@@ -594,6 +595,26 @@
                         revenue
                     });
                 } catch(e) { console.error('fetchRealStats error', e); }
+            };
+
+            // جلب page+status+date+prices لكل الاوردرات — بدون حد 500 — لإحصائيات دقيقة
+            const fetchPageDbStats = async () => {
+                if (!user) return;
+                try {
+                    let all = [];
+                    const batchSize = 1000;
+                    let from = 0;
+                    while (true) {
+                        const { data } = await supabase.from('orders')
+                            .select('page,status,date,productPrice,shippingPrice')
+                            .range(from, from + batchSize - 1);
+                        if (!data || data.length === 0) break;
+                        all = all.concat(data);
+                        if (data.length < batchSize) break;
+                        from += batchSize;
+                    }
+                    setPageDbStats(all);
+                } catch(e) { console.error('fetchPageDbStats:', e); }
             };
 
             const fetchOrdersData = useCallback(async () => {
@@ -864,6 +885,7 @@
                 setLoadingDB(false);
                 // باقي البيانات في الخلفية بعد ما الصفحة تظهر
                 fetchRealStats();
+                fetchPageDbStats();
                 fetchPublicUserNames();
                 fetchAdminUserIds();
                 fetchMonthlyEmployeeStats();
@@ -2434,7 +2456,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.36</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.37</span>
                             </div>
                         </nav>
                     </aside>
@@ -2514,7 +2536,7 @@
                                         <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 md:mb-4 flex items-center gap-2">متابعة الحالات السريعة <span className="text-[10px] md:text-sm font-bold text-slate-500">(انقر لعرض الطلبات)</span></h2>
                                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
                                             {availablePages.map(page => {
-                                                const pageOrders = filteredOrders.filter(o => o.page === page);
+                                                const pageOrders = (pageDbStats.length > 0 ? pageDbStats : filteredOrders).filter(o => o.page === page && (!dateFrom || o.date >= dateFrom) && (!dateTo || o.date <= dateTo));
                                                 if (pageOrders.length === 0) return null;
                                                 return (
                                                     <div key={page} className="glass-panel p-4 md:p-5 rounded-2xl shadow-sm border border-white hover:shadow-md transition-shadow">
@@ -2862,7 +2884,7 @@
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     <div className="glass-panel p-4 md:p-5 rounded-2xl shadow-sm border border-white flex flex-col md:flex-row items-center gap-3 md:gap-4 justify-between"><div className="flex items-center gap-2 font-bold text-sm md:text-base text-slate-700"><IconCalendar /> <span>تحديد فترة الإحصائيات:</span></div><div className="flex items-center gap-2 md:gap-3 w-full md:w-auto flex-wrap"><div className="flex items-center gap-2 flex-1 md:flex-none"><label className="text-xs md:text-sm text-slate-500">من:</label><input type="date" className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-xs md:text-sm font-bold w-full" value={statsDateFrom} onChange={e => setStatsDateFrom(e.target.value)} /></div><div className="flex items-center gap-2 flex-1 md:flex-none"><label className="text-xs md:text-sm text-slate-500">إلى:</label><input type="date" className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-xs md:text-sm font-bold w-full" value={statsDateTo} onChange={e => setStatsDateTo(e.target.value)} /></div>{(statsDateFrom || statsDateTo) && (<button onClick={() => { setStatsDateFrom(''); setStatsDateTo(''); }} className="w-full md:w-auto px-4 py-1.5 md:py-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs md:text-sm rounded-lg border border-red-200 transition-colors">إلغاء الفلتر ✖</button>)}</div></div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">{pages.map((page, idx) => {
-                                        const pageOrders = statsFilteredOrders.filter(o => o.page === page);
+                                        const pageOrders = (pageDbStats.length > 0 ? pageDbStats : filteredOrders).filter(o => o.page === page && (!statsDateFrom || o.date >= statsDateFrom) && (!statsDateTo || o.date <= statsDateTo));
                                         const activeStatuses = selectedPageStatus[page] || ['تم'];
                                         const togglePageStatus = (st) => {
                                             const cur = selectedPageStatus[page] || ['تم'];
