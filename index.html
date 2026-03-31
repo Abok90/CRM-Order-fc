@@ -645,17 +645,26 @@
                 try {
                     const now = new Date();
                     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-                    let { data } = await supabase.from('orders').select('user_id,updated_by,status').gte('created_at', firstOfMonth);
+                    // جلب البيانات مباشرةً — يحل مشكلة التوقيت ويضمن صحة الأسماء والأدوار
+                    const [ordersRes, rolesRes] = await Promise.all([
+                        supabase.from('orders').select('user_id,updated_by,status').gte('created_at', firstOfMonth),
+                        supabase.from('user_roles').select('id,name,email,role'),
+                    ]);
+                    let data = ordersRes.data;
                     if (!data) {
-                        // fallback لو عمود updated_by لسه مش موجود
                         const r2 = await supabase.from('orders').select('user_id,status').gte('created_at', firstOfMonth);
                         if (!r2.data) return;
                         data = r2.data.map(o => ({ ...o, updated_by: null }));
                     }
-                    // بناء خريطة الأسماء
+                    // بناء خريطة الأسماء والأدوار مباشرةً
                     const nameMap = {};
-                    usersList.forEach(u => { nameMap[u.id] = u.name || u.email?.split('@')[0] || 'موظف'; });
-                    Object.keys(publicUserNames).forEach(id => { if (!nameMap[id]) nameMap[id] = publicUserNames[id]; });
+                    const adminSet = new Set();
+                    if (rolesRes.data) {
+                        rolesRes.data.forEach(u => {
+                            if (u.id) nameMap[u.id] = u.name || u.email?.split('@')[0] || 'موظف';
+                            if (SUPER_ADMIN_ROLES.includes(u.role)) adminSet.add(u.id);
+                        });
+                    }
                     const buildEntry = (uid) => ({
                         uid, name: uid === null ? 'شوبيفاي' : (nameMap[uid] || 'موظف'),
                         created: 0, edited: 0, total: 0,
@@ -668,18 +677,16 @@
                     };
                     const stats = {};
                     data.forEach(o => {
-                        const cid = o.user_id;    // المنشئ (null = شوبيفاي)
-                        const eid = o.updated_by; // المعدّل الأخير
-                        const cidIsAdmin = cid !== null && adminUserIds.has(cid);
-                        const eidIsAdmin = eid != null && adminUserIds.has(eid);
-                        // المنشئ يحسب له لو مش إدارة
+                        const cid = o.user_id;
+                        const eid = o.updated_by;
+                        const cidIsAdmin = cid !== null && adminSet.has(cid);
+                        const eidIsAdmin = eid != null && adminSet.has(eid);
                         if (!cidIsAdmin) {
                             const k = cid ?? '__shopify__';
                             if (!stats[k]) stats[k] = buildEntry(cid);
                             stats[k].created++; stats[k].total++;
                             countStatus(stats[k], o.status);
                         }
-                        // المعدّل يحسب له لو مختلف عن المنشئ ومش إدارة
                         if (eid && eid !== cid && !eidIsAdmin) {
                             if (!stats[eid]) stats[eid] = buildEntry(eid);
                             stats[eid].edited++; stats[eid].total++;
@@ -688,7 +695,7 @@
                     });
                     setAllMonthStats(Object.values(stats).filter(s => s.total > 0).sort((a, b) => b.total - a.total));
                 } catch(e) { console.error('fetchMonthlyEmployeeStats:', e); }
-            }, [user, usersList, publicUserNames, adminUserIds]);
+            }, [user]);
 
             const fetchEmployeeHistory = async (uid) => {
                 setHistoryLoading(true);
@@ -1563,64 +1570,54 @@
             const printSelectedOrders = () => {
                 if (selectedOrders.length === 0) return;
                 const toPrint = filteredOrders.filter(o => selectedOrders.includes(o.id));
-                const statusColors = {'جاري التحضير':'#0ea5e9','تم':'#22c55e','الشحن':'#f97316','مراجعة':'#eab308','تاجيل':'#94a3b8','استبدال':'#8b5cf6','مرتجع':'#f43f5e','الغاء':'#ef4444','اعادة ارسال':'#6366f1','خارجي':'#14b8a6'};
-                const ORDERS_PER_PAGE = 10;
-                let pagesHtml = '';
-                for (let p = 0; p < toPrint.length; p += ORDERS_PER_PAGE) {
-                    const chunk = toPrint.slice(p, p + ORDERS_PER_PAGE);
-                    const rows = chunk.map((o, idx) => {
-                        const color = statusColors[o.status] || '#64748b';
-                        const total = (Number(o.productPrice)||0) + (Number(o.shippingPrice)||0);
-                        const pageColors = {'عايدة':'#db2777','عايدة ويب':'#db2777','Elite EG':'#334155','اوفر':'#7c3aed','اوفر ويب':'#7c3aed'};
-                        const pageColor = pageColors[o.page] || '#0284c7';
-                        return `<tr style="border-bottom:1px solid #e2e8f0;${(p+idx)%2===1?'background:#f8fafc':''}">
-                            <td style="padding:6px 8px;font-size:11px;color:#64748b;text-align:center;">${p+idx+1}</td>
-                            <td style="padding:6px 8px;font-size:11px;font-weight:700;">${escapeHtml(o.id)}</td>
-                            <td style="padding:6px 8px;font-size:10px;text-align:center;"><span style="background:${pageColor}18;color:${pageColor};border:1px solid ${pageColor}44;border-radius:6px;padding:2px 6px;font-size:9px;font-weight:700;white-space:nowrap;">${escapeHtml(o.page||'')}</span></td>
-                            <td style="padding:6px 8px;font-size:11px;font-weight:700;">${escapeHtml(o.customer)}</td>
-                            <td style="padding:6px 8px;font-size:10px;color:#475569;">${escapeHtml(o.phone)}</td>
-                            <td style="padding:6px 8px;font-size:10px;color:#475569;max-width:100px;overflow:hidden;">${escapeHtml((o.address||'').substring(0,40))}</td>
-                            <td style="padding:6px 8px;font-size:10px;max-width:120px;overflow:hidden;">${escapeHtml((o.item||'').split('\n')[0].substring(0,35))}</td>
-                            <td style="padding:6px 8px;font-size:11px;font-weight:900;text-align:center;color:#0f172a;">${Number(o.quantity)||1}</td>
-                            <td style="padding:6px 8px;text-align:center;"><span style="background:${color}22;color:${color};border:1px solid ${color}55;border-radius:6px;padding:2px 7px;font-size:9px;font-weight:700;white-space:nowrap;">${escapeHtml(o.status)}</span></td>
-                            <td style="padding:6px 8px;font-size:11px;font-weight:700;text-align:center;">${total} ج.م</td>
-                            <td style="padding:6px 8px;font-size:10px;color:#475569;text-align:center;">${escapeHtml(o.trackingNumber||'—')}</td>
-                            <td style="padding:6px 8px;font-size:10px;color:#64748b;text-align:center;">${escapeHtml(o.date)}</td>
-                        </tr>`;
-                    }).join('');
-                    const pageLabel = `صفحة ${Math.floor(p/ORDERS_PER_PAGE)+1} / ${Math.ceil(toPrint.length/ORDERS_PER_PAGE)}`;
-                    const isLast = p + ORDERS_PER_PAGE >= toPrint.length;
-                    pagesHtml += `<div style="${isLast?'':'page-break-after:always;'}padding:16px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:2px solid #1e293b;padding-bottom:8px;">
-                            <div>
-                                <div style="font-size:16px;font-weight:900;color:#1e293b;">قائمة الطلبات المحددة</div>
-                                <div style="font-size:10px;color:#64748b;margin-top:2px;">إجمالي: ${toPrint.length} طلب — تاريخ الطباعة: ${new Date().toLocaleDateString('ar-EG')}</div>
-                            </div>
-                            <div style="font-size:10px;color:#64748b;">${pageLabel}</div>
-                        </div>
-                        <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;direction:rtl;">
-                            <thead>
-                                <tr style="background:#1e293b;color:white;">
-                                    <th style="padding:7px 8px;font-size:9px;text-align:center;">#</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:right;">رقم الأوردر</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:center;">الصفحة</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:right;">الاسم</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:right;">الموبايل</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:right;">العنوان</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:right;">المنتج</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:center;">الكمية</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:center;">الحالة</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:center;">الإجمالي</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:center;">البوليصة</th>
-                                    <th style="padding:7px 8px;font-size:9px;text-align:center;">التاريخ</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rows}</tbody>
-                        </table>
-                    </div>`;
-                }
+                const pageColors = {'عايدة':'#db2777','عايدة ويب':'#db2777','Elite EG':'#334155','اوفر':'#7c3aed','اوفر ويب':'#7c3aed'};
+                const rows = toPrint.map((o, idx) => {
+                    const total = (Number(o.productPrice)||0) + (Number(o.shippingPrice)||0);
+                    const pageColor = pageColors[o.page] || '#0284c7';
+                    return `<tr style="border-bottom:1.5px solid #e2e8f0;${idx%2===1?'background:#f8fafc':''}">
+                        <td style="padding:7px 10px;font-size:12px;font-weight:900;color:#64748b;text-align:center;">${idx+1}</td>
+                        <td style="padding:7px 10px;font-size:12px;font-weight:900;">${escapeHtml(o.id)}</td>
+                        <td style="padding:7px 10px;font-size:11px;text-align:center;"><span style="background:${pageColor}18;color:${pageColor};border:1px solid ${pageColor}55;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:900;white-space:nowrap;">${escapeHtml(o.page||'')}</span></td>
+                        <td style="padding:7px 10px;font-size:13px;font-weight:900;">${escapeHtml(o.customer)}</td>
+                        <td style="padding:7px 10px;font-size:12px;font-weight:700;">${escapeHtml(o.phone)}</td>
+                        <td style="padding:7px 10px;font-size:11px;font-weight:700;">${escapeHtml(o.address||'')}</td>
+                        <td style="padding:7px 10px;font-size:11px;font-weight:700;">${escapeHtml((o.item||'').split('\n').join(' | '))}</td>
+                        <td style="padding:7px 10px;font-size:13px;font-weight:900;text-align:center;color:#0f172a;">${Number(o.quantity)||1}</td>
+                        <td style="padding:7px 10px;font-size:13px;font-weight:900;text-align:center;">${total > 0 ? total+' ج.م' : '—'}</td>
+                    </tr>`;
+                }).join('');
+                const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>طباعة الطلبات</title>
+                <style>
+                    *{box-sizing:border-box;margin:0;padding:0;}
+                    body{font-family:Arial,sans-serif;direction:rtl;background:white;font-weight:700;}
+                    table{width:100%;border-collapse:collapse;}
+                    th,td{font-weight:700;}
+                    @media print{@page{size:A4 landscape;margin:8mm;} body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+                </style></head><body>
+                <div style="padding:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:3px solid #1e293b;padding-bottom:8px;">
+                        <div style="font-size:18px;font-weight:900;color:#1e293b;">قائمة الطلبات</div>
+                        <div style="font-size:12px;font-weight:700;color:#64748b;">إجمالي: ${toPrint.length} طلب — ${new Date().toLocaleDateString('ar-EG')}</div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr style="background:#1e293b;color:white;">
+                                <th style="padding:8px 10px;font-size:11px;text-align:center;">#</th>
+                                <th style="padding:8px 10px;font-size:11px;text-align:right;">رقم الأوردر</th>
+                                <th style="padding:8px 10px;font-size:11px;text-align:center;">الصفحة</th>
+                                <th style="padding:8px 10px;font-size:11px;text-align:right;">الاسم</th>
+                                <th style="padding:8px 10px;font-size:11px;text-align:right;">الموبايل</th>
+                                <th style="padding:8px 10px;font-size:11px;text-align:right;">العنوان</th>
+                                <th style="padding:8px 10px;font-size:11px;text-align:right;">المنتج</th>
+                                <th style="padding:8px 10px;font-size:11px;text-align:center;">الكمية</th>
+                                <th style="padding:8px 10px;font-size:11px;text-align:center;">الإجمالي</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div></body></html>`;
                 const win = window.open('', '_blank');
-                win.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>طباعة الطلبات</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;direction:rtl;background:white;}@media print{@page{size:A4 landscape;margin:10mm;}}</style></head><body>${pagesHtml}</body></html>`);
+                win.document.write(html);
                 win.document.close();
                 win.focus();
                 setTimeout(() => { win.print(); }, 400);
@@ -2437,7 +2434,7 @@
                                 <button onClick={handleInstallClick} className="sidebar-nav-item text-green-400 hover:text-green-300 w-full"><IconDownload size={18} /> <span>تثبيت التطبيق 📱</span></button>
                             </div>
                             <div className="pt-3 pb-1 text-center">
-                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.35</span>
+                                <span className="text-[10px] text-slate-600 font-bold tracking-widest">v5.36</span>
                             </div>
                         </nav>
                     </aside>
@@ -3109,10 +3106,13 @@
                                 const productMap = {};
                                 prepOrders.forEach(o => {
                                     const lines = (o.item || '').split('\n').map(l => l.replace(/^[-–•*]\s*/, '').trim()).filter(Boolean);
-                                    lines.forEach(line => {
+                                    let urls = [];
+                                    try { urls = o.product_urls ? JSON.parse(o.product_urls) : []; } catch {}
+                                    lines.forEach((line, li) => {
                                         const key = line;
-                                        if (!productMap[key]) productMap[key] = { name: line, count: 0, pages: {} };
+                                        if (!productMap[key]) productMap[key] = { name: line, count: 0, pages: {}, url: null };
                                         productMap[key].count++;
+                                        if (!productMap[key].url && urls[li]) productMap[key].url = urls[li];
                                         const pg = o.page || 'غير محدد';
                                         productMap[key].pages[pg] = (productMap[key].pages[pg] || 0) + 1;
                                     });
@@ -3210,7 +3210,16 @@
                                                             return (
                                                             <tr key={idx} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/30'}`}>
                                                                 <td className="px-4 py-3 text-[11px] font-bold text-slate-400">{idx + 1}</td>
-                                                                <td className="px-4 py-3 font-bold text-sm text-slate-800">{prod.name}</td>
+                                                                <td className="px-4 py-3">
+                                                                    <div className="font-bold text-sm text-slate-800">{prod.name}</div>
+                                                                    {prod.url && (
+                                                                        <a href={prod.url} target="_blank" rel="noopener noreferrer"
+                                                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-600 hover:text-sky-800 hover:underline mt-0.5">
+                                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                                                            عرض المنتج على Shopify
+                                                                        </a>
+                                                                    )}
+                                                                </td>
                                                                 <td className="px-4 py-3 text-center">
                                                                     <span className="bg-emerald-100 text-emerald-800 font-black text-sm px-3 py-1 rounded-xl border border-emerald-200">{prod.count}</span>
                                                                 </td>
@@ -4160,6 +4169,76 @@
                                 })()}
                             </div>
                             ) : <p className="text-center py-8 text-slate-400 font-bold text-sm">لا يوجد بيانات</p>}
+
+                            {/* إدارة حساب الموظف — للأدمن ومدير الصفحات فقط */}
+                            {(isSuperAdmin || isPageManager) && historyEmployee?.uid && (() => {
+                                const empUser = usersList.find(u => u.id === historyEmployee.uid);
+                                if (!empUser || SUPER_ADMIN_ROLES.includes(empUser.role)) return null;
+                                const canEdit = isSuperAdmin;
+                                const togglePerm = async (uid, field, val) => {
+                                    setUsersList(prev => prev.map(x => x.id === uid ? {...x, [field]: val} : x));
+                                    await supabase.from('user_roles').update({[field]: val}).eq('id', uid);
+                                };
+                                return (
+                                <div className="border-t border-slate-100 mt-4 pt-4 px-5 pb-2">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">إدارة الحساب</p>
+                                    {/* الدور */}
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-[11px] font-bold text-slate-600">الدور الوظيفي</span>
+                                        {canEdit ? (
+                                            <select value={empUser.role} onChange={async e => {
+                                                setUsersList(prev => prev.map(x => x.id === empUser.id ? {...x, role: e.target.value} : x));
+                                                await supabase.from('user_roles').update({role: e.target.value}).eq('id', empUser.id);
+                                            }} className="border border-slate-200 px-2 py-1 rounded-lg text-[11px] font-bold outline-none focus:ring-2 focus:ring-sky-400 bg-white">
+                                                {Object.entries(ROLE_NAMES).map(([r,n]) => <option key={r} value={r}>{n}</option>)}
+                                            </select>
+                                        ) : (
+                                            <span className="text-[11px] font-black text-slate-700 bg-slate-100 px-3 py-1 rounded-lg">{ROLE_NAMES[empUser.role]||empUser.role}</span>
+                                        )}
+                                    </div>
+                                    {/* الصفحات */}
+                                    <div className="mb-3">
+                                        <p className="text-[10px] font-black text-slate-500 mb-2">الصفحات المخصصة</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {pages.map(p => {
+                                                const isChecked = empUser.assigned_page ? empUser.assigned_page.split(',').filter(Boolean).includes(p) : false;
+                                                return (
+                                                    <label key={p} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer ${isChecked ? 'bg-sky-100 border-sky-400 text-sky-800' : 'bg-white border-slate-200 text-slate-500'} ${!canEdit ? 'opacity-60 pointer-events-none' : ''}`}>
+                                                        <input type="checkbox" className="w-3 h-3" checked={isChecked} disabled={!canEdit} onChange={async e => {
+                                                            let cur = empUser.assigned_page ? empUser.assigned_page.split(',').filter(Boolean) : [];
+                                                            if (e.target.checked) { if (!cur.includes(p)) cur.push(p); } else { cur = cur.filter(pg => pg !== p); }
+                                                            const newVal = cur.join(',');
+                                                            setUsersList(prev => prev.map(x => x.id === empUser.id ? {...x, assigned_page: newVal} : x));
+                                                            await supabase.from('user_roles').update({assigned_page: newVal}).eq('id', empUser.id);
+                                                        }}/> {p}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    {/* الصلاحيات */}
+                                    {canEdit && (
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-500 mb-2">الصلاحيات الإضافية</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {[
+                                                {field:'can_edit_after_shipping', label:'تعديل بعد الشحن'},
+                                                {field:'can_add_bulk', label:'إضافة جماعية'},
+                                                {field:'can_import_excel', label:'رفع إكسيل'},
+                                            ].map(({field, label}) => (
+                                                <label key={field} className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg hover:bg-slate-100">
+                                                    <input type="checkbox" className="w-3.5 h-3.5 accent-sky-600"
+                                                        checked={empUser[field] || false}
+                                                        onChange={e => togglePerm(empUser.id, field, e.target.checked)}
+                                                    /> {label}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    )}
+                                </div>
+                                );
+                            })()}
                         </div>
                     </div>
                     )}

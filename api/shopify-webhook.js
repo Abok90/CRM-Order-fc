@@ -87,6 +87,13 @@ async function handler(req, res) {
         const name = it.variant_title ? `${it.title} - ${it.variant_title}` : it.title;
         return it.quantity > 1 ? `${name} (${it.quantity})` : name;
       }).join(' + ');
+      // روابط المنتجات من Shopify — لكل منتج في الأوردر
+      const productUrls = items.map(it => {
+        const handle = it.handle || it.product_handle;
+        if (handle) return `https://${store.url}/products/${handle}`;
+        if (it.product_id) return `https://${store.url}/admin/products/${it.product_id}`;
+        return null;
+      }).filter(Boolean);
       const totalShipping = parseFloat(
         order.total_shipping_price_set?.shop_money?.amount ||
         (order.shipping_lines || []).reduce((sum, sl) => sum + parseFloat(sl.price || 0), 0) ||
@@ -109,6 +116,7 @@ async function handler(req, res) {
         shopify_store: store.storeKey,
         source: 'shopify',
         date: new Date().toLocaleDateString('ar-EG'),
+        product_urls: productUrls.length > 0 ? JSON.stringify(productUrls) : null,
       });
       console.log(`[webhook] Inserted order ${order.name}`);
 
