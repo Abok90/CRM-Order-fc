@@ -37,7 +37,7 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
           </div>
           <h1 className="flex flex-col items-start">
             <span className="text-2xl font-black bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">CRM Pro</span>
-            <span className="text-[10px] font-mono text-primary-500 font-bold bg-primary-50 px-2 py-0.5 rounded-full mt-1">v1.1.0</span>
+            <span className="text-[10px] font-mono text-primary-500 font-bold bg-primary-50 px-2 py-0.5 rounded-full mt-1">v2.5.0</span>
           </h1>
         </div>
       </div>

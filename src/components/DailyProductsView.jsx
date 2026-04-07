@@ -88,7 +88,7 @@ export default function DailyProductsView() {
   const today = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <div className="space-y-5 animate-fade-in relative h-full flex flex-col max-w-5xl mx-auto">
+    <div className="space-y-4 md:space-y-5 animate-fade-in pb-20 px-2 md:px-0 max-w-5xl mx-auto">
       {/* Header */}
       <div className="bg-gradient-to-l from-emerald-800 via-teal-800 to-cyan-800 rounded-2xl p-5 md:p-6 shadow-xl text-white">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
