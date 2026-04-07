@@ -13,16 +13,33 @@ export default function Reports({ userRole }) {
 
   const orderStatuses = ['جاري التحضير', 'مراجعة', 'الشحن', 'تم', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل'];
 
+  const [brandOrder, setBrandOrder] = useState([]);
+
   useEffect(() => {
     fetchReportData();
+    loadBrandOrder();
   }, []);
+
+  const loadBrandOrder = async () => {
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'reports_brand_order')
+        .maybeSingle();
+      if (data?.value) setBrandOrder(JSON.parse(data.value));
+    } catch {}
+  };
 
   const fetchReportData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Select only needed columns — reduces egress
+      let query = supabase
         .from('orders')
-        .select('status, page, productPrice, shippingPrice, date, created_at');
+        .select('status, page, "productPrice", "shippingPrice", date')
+        .limit(5000);
+      const { data, error } = await query;
       if (error) throw error;
       setOrders(data || []);
     } catch (err) {
@@ -32,44 +49,36 @@ export default function Reports({ userRole }) {
     }
   };
 
-  const getIsoDate = (o) => o.date || o.created_at?.split('T')[0] || '';
+  const getIsoDate = (o) => o.date || '';
 
-  // Pages available with ordering
-  const [pageOrder, setPageOrder] = useState([]);
-
+  // Pages sorted by admin-controlled brand order
   const pages = useMemo(() => {
     const pageSet = new Set(orders.map(o => o.page ? o.page.trim() : null).filter(Boolean));
     const allPages = [...pageSet].sort();
-    
-    // Sort based on saved order if available
-    const savedOrder = JSON.parse(localStorage.getItem('reports_page_order') || '[]');
-    if (savedOrder.length > 0) {
-      allPages.sort((a, b) => {
-        const ia = savedOrder.indexOf(a);
-        const ib = savedOrder.indexOf(b);
-        if (ia === -1 && ib === -1) return a.localeCompare(b);
-        if (ia === -1) return 1;
-        if (ib === -1) return -1;
-        return ia - ib;
-      });
-    }
-    return allPages;
-  }, [orders, pageOrder]); // Re-compute when pageOrder changes
+    if (brandOrder.length === 0) return allPages;
+    return [
+      ...brandOrder.filter(p => pageSet.has(p)),
+      ...allPages.filter(p => !brandOrder.includes(p))
+    ];
+  }, [orders, brandOrder]);
 
-  const movePage = (pageStr, direction) => {
+  const movePage = async (pageStr, direction) => {
     const currentIndex = pages.indexOf(pageStr);
     if (
-      (direction === -1 && currentIndex === 0) || 
+      (direction === -1 && currentIndex === 0) ||
       (direction === 1 && currentIndex === pages.length - 1)
     ) return;
-
     const newPages = [...pages];
-    const temp = newPages[currentIndex];
-    newPages[currentIndex] = newPages[currentIndex + direction];
-    newPages[currentIndex + direction] = temp;
-    
-    setPageOrder(newPages); // Trigger re-render
-    localStorage.setItem('reports_page_order', JSON.stringify(newPages));
+    [newPages[currentIndex], newPages[currentIndex + direction]] = [newPages[currentIndex + direction], newPages[currentIndex]];
+    setBrandOrder(newPages);
+    // Save globally to Supabase (admin only)
+    if (isAdmin) {
+      await supabase.from('app_settings').upsert({
+        key: 'reports_brand_order',
+        value: JSON.stringify(newPages),
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+    }
   };
 
   // Status counts
