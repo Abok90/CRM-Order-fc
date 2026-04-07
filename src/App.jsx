@@ -187,7 +187,7 @@ function App() {
         {/* Subtle Background Elements */}
         <div className="absolute top-0 right-0 w-full h-96 bg-gradient-to-b from-primary-50/50 to-transparent -z-10 blur-3xl pointer-events-none"></div>
         
-        {currentTab === 'dashboard' && <Dashboard onNavigateWithFilter={navigateToOrdersWithFilter} />}
+        {currentTab === 'dashboard' && <Dashboard onNavigateWithFilter={navigateToOrdersWithFilter} userRole={userRole} />}
         {currentTab === 'orders' && <OrdersList userRole={userRole} initialFilter={initialOrderFilter} onFilterConsumed={() => setInitialOrderFilter(null)} />}
         {currentTab === 'users' && <UsersList userRole={userRole} />}
         {currentTab === 'daily_products' && <DailyProductsView />}
