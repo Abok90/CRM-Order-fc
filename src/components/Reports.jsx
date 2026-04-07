@@ -1,24 +1,31 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { PieChart, BarChart3, Activity, Calendar, Tag, Store } from 'lucide-react';
+import { PieChart, Activity, Calendar, Store } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function Reports({ userRole }) {
   const isAdmin = ['admin', 'brand_owner'].includes(userRole?.role);
-  const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState([]);
+
+  // RPC data: [{page_name, status_name, cnt, product_total, shipping_total}]
+  const [pageStatsData, setPageStatsData] = useState([]);
+  const [loading, setLoading]             = useState(true);
+
   const [statsDateFrom, setStatsDateFrom] = useState('');
-  const [statsDateTo, setStatsDateTo] = useState('');
+  const [statsDateTo, setStatsDateTo]     = useState('');
   const [selectedPageStatus, setSelectedPageStatus] = useState({});
+  const [brandOrder, setBrandOrder]       = useState([]);
 
   const orderStatuses = ['جاري التحضير', 'مراجعة', 'الشحن', 'تم', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل'];
 
-  const [brandOrder, setBrandOrder] = useState([]);
-
+  // Load brand order once on mount
   useEffect(() => {
-    fetchReportData();
     loadBrandOrder();
   }, []);
+
+  // Refetch RPC whenever date range changes (including initial mount)
+  useEffect(() => {
+    fetchReportData();
+  }, [statsDateFrom, statsDateTo]);
 
   const loadBrandOrder = async () => {
     try {
@@ -34,14 +41,12 @@ export default function Reports({ userRole }) {
   const fetchReportData = async () => {
     setLoading(true);
     try {
-      // Select only needed columns — reduces egress
-      let query = supabase
-        .from('orders')
-        .select('status, page, "productPrice", "shippingPrice", date')
-        .limit(5000);
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc('get_page_stats', {
+        date_from: statsDateFrom || null,
+        date_to:   statsDateTo   || null,
+      });
       if (error) throw error;
-      setOrders(data || []);
+      setPageStatsData(data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -49,65 +54,63 @@ export default function Reports({ userRole }) {
     }
   };
 
-  const getIsoDate = (o) => o.date || '';
-
   // Pages sorted by admin-controlled brand order
   const pages = useMemo(() => {
-    const pageSet = new Set(orders.map(o => o.page ? o.page.trim() : null).filter(Boolean));
+    const pageSet = new Set(pageStatsData.map(d => d.page_name).filter(p => p && p !== 'غير محدد'));
     const allPages = [...pageSet].sort();
     if (brandOrder.length === 0) return allPages;
     return [
       ...brandOrder.filter(p => pageSet.has(p)),
-      ...allPages.filter(p => !brandOrder.includes(p))
+      ...allPages.filter(p => !brandOrder.includes(p)),
     ];
-  }, [orders, brandOrder]);
+  }, [pageStatsData, brandOrder]);
 
   const movePage = async (pageStr, direction) => {
-    const currentIndex = pages.indexOf(pageStr);
-    if (
-      (direction === -1 && currentIndex === 0) ||
-      (direction === 1 && currentIndex === pages.length - 1)
-    ) return;
+    const idx = pages.indexOf(pageStr);
+    if ((direction === -1 && idx === 0) || (direction === 1 && idx === pages.length - 1)) return;
     const newPages = [...pages];
-    [newPages[currentIndex], newPages[currentIndex + direction]] = [newPages[currentIndex + direction], newPages[currentIndex]];
+    [newPages[idx], newPages[idx + direction]] = [newPages[idx + direction], newPages[idx]];
     setBrandOrder(newPages);
-    // Save globally to Supabase (admin only)
     if (isAdmin) {
       await supabase.from('app_settings').upsert({
         key: 'reports_brand_order',
         value: JSON.stringify(newPages),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       }, { onConflict: 'key' });
     }
   };
 
-  // Status counts
+  // Global status totals (all pages) for the top bar chart
   const statusCounts = useMemo(() => {
-    return orders.reduce((acc, o) => {
-      const s = o.status || 'غير محدد';
-      acc[s] = (acc[s] || 0) + 1;
+    return pageStatsData.reduce((acc, d) => {
+      const s = d.status_name || 'غير محدد';
+      acc[s] = (acc[s] || 0) + Number(d.cnt);
       return acc;
     }, {});
-  }, [orders]);
+  }, [pageStatsData]);
 
-  const total = orders.length;
+  const total = useMemo(() => pageStatsData.reduce((sum, d) => sum + Number(d.cnt), 0), [pageStatsData]);
 
   const getStatusColor = (status) => {
     const colors = {
-      'تم': 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      'جاري التحضير': 'bg-blue-100 text-blue-800 border-blue-200',
-      'الشحن': 'bg-purple-100 text-purple-800 border-purple-200',
-      'مرتجع': 'bg-rose-100 text-rose-800 border-rose-200',
-      'استبدال': 'bg-orange-100 text-orange-800 border-orange-200',
-      'مراجعة': 'bg-amber-100 text-amber-800 border-amber-200',
-      'الغاء': 'bg-red-100 text-red-800 border-red-200',
-      'تاجيل': 'bg-slate-200 text-slate-800 border-slate-300',
+      'تم':             'bg-emerald-100 text-emerald-800 border-emerald-200',
+      'جاري التحضير':   'bg-blue-100 text-blue-800 border-blue-200',
+      'الشحن':          'bg-purple-100 text-purple-800 border-purple-200',
+      'مرتجع':          'bg-rose-100 text-rose-800 border-rose-200',
+      'استبدال':        'bg-orange-100 text-orange-800 border-orange-200',
+      'مراجعة':         'bg-amber-100 text-amber-800 border-amber-200',
+      'الغاء':          'bg-red-100 text-red-800 border-red-200',
+      'تاجيل':          'bg-slate-200 text-slate-800 border-slate-300',
     };
     return colors[status] || 'bg-slate-100 text-slate-700 border-slate-200';
   };
 
   const getBarColor = (status) => {
-    const c = { 'تم': 'bg-emerald-500', 'جاري التحضير': 'bg-blue-500', 'الشحن': 'bg-purple-500', 'مرتجع': 'bg-rose-500', 'استبدال': 'bg-orange-500', 'مراجعة': 'bg-amber-500', 'الغاء': 'bg-red-500', 'تاجيل': 'bg-slate-400' };
+    const c = {
+      'تم': 'bg-emerald-500', 'جاري التحضير': 'bg-blue-500', 'الشحن': 'bg-purple-500',
+      'مرتجع': 'bg-rose-500', 'استبدال': 'bg-orange-500', 'مراجعة': 'bg-amber-500',
+      'الغاء': 'bg-red-500', 'تاجيل': 'bg-slate-400',
+    };
     return c[status] || 'bg-slate-500';
   };
 
@@ -119,13 +122,16 @@ export default function Reports({ userRole }) {
   };
 
   const togglePageStatus = (page, status) => {
-    const cur = selectedPageStatus[page] || ['تم'];
-    const next = cur.includes(status) ? (cur.length > 1 ? cur.filter(s => s !== status) : cur) : [...cur, status];
+    const cur  = selectedPageStatus[page] || ['تم'];
+    const next = cur.includes(status)
+      ? (cur.length > 1 ? cur.filter(s => s !== status) : cur)
+      : [...cur, status];
     setSelectedPageStatus(prev => ({ ...prev, [page]: next }));
   };
 
   return (
     <div className="space-y-6 animate-fade-in relative h-full flex flex-col pb-20 overflow-y-auto custom-scrollbar">
+
       {/* Header */}
       <div className="flex items-center gap-3 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <div className="bg-fuchsia-100 p-2 rounded-lg text-fuchsia-600">
@@ -148,6 +154,7 @@ export default function Reports({ userRole }) {
             <div className="flex items-center gap-2 mb-6">
               <Activity className="w-5 h-5 text-slate-400" />
               <h3 className="text-lg font-bold text-slate-800">حالات الطلبات</h3>
+              <span className="text-xs text-slate-400 font-semibold mr-auto">الإجمالي: {total.toLocaleString()}</span>
             </div>
             <div className="space-y-5">
               {Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).map(([status, count]) => {
@@ -157,7 +164,7 @@ export default function Reports({ userRole }) {
                     <div className="flex justify-between items-end mb-1">
                       <span className="font-bold text-slate-700 text-sm">{status}</span>
                       <div className="text-right">
-                        <span className="font-black text-slate-800">{count}</span>
+                        <span className="font-black text-slate-800">{count.toLocaleString()}</span>
                         <span className="text-xs text-slate-400 mr-1 opacity-70">({percentage}%)</span>
                       </div>
                     </div>
@@ -170,23 +177,37 @@ export default function Reports({ userRole }) {
             </div>
           </div>
 
-          {/* ===== Page Statistics (like old system) ===== */}
+          {/* Date filter + Page cards */}
           <div>
             <div className="glass-panel p-4 md:p-5 rounded-2xl shadow-sm border border-white flex flex-col md:flex-row items-center gap-3 md:gap-4 justify-between mb-4">
               <div className="flex items-center gap-2 font-bold text-sm md:text-base text-slate-700">
-                <Calendar className="w-5 h-5" /> <span>تحديد فترة الإحصائيات:</span>
+                <Calendar className="w-5 h-5" />
+                <span>تحديد فترة الإحصائيات:</span>
               </div>
               <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto flex-wrap">
                 <div className="flex items-center gap-2 flex-1 md:flex-none">
                   <label className="text-xs md:text-sm text-slate-500">من:</label>
-                  <input type="date" className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-xs md:text-sm font-bold w-full" value={statsDateFrom} onChange={e => setStatsDateFrom(e.target.value)} />
+                  <input
+                    type="date"
+                    className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-xs md:text-sm font-bold w-full"
+                    value={statsDateFrom}
+                    onChange={e => setStatsDateFrom(e.target.value)}
+                  />
                 </div>
                 <div className="flex items-center gap-2 flex-1 md:flex-none">
                   <label className="text-xs md:text-sm text-slate-500">إلى:</label>
-                  <input type="date" className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-xs md:text-sm font-bold w-full" value={statsDateTo} onChange={e => setStatsDateTo(e.target.value)} />
+                  <input
+                    type="date"
+                    className="px-2 py-1.5 md:px-3 md:py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-xs md:text-sm font-bold w-full"
+                    value={statsDateTo}
+                    onChange={e => setStatsDateTo(e.target.value)}
+                  />
                 </div>
                 {(statsDateFrom || statsDateTo) && (
-                  <button onClick={() => { setStatsDateFrom(''); setStatsDateTo(''); }} className="w-full md:w-auto px-4 py-1.5 md:py-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs md:text-sm rounded-lg border border-red-200 transition-colors">
+                  <button
+                    onClick={() => { setStatsDateFrom(''); setStatsDateTo(''); }}
+                    className="w-full md:w-auto px-4 py-1.5 md:py-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs md:text-sm rounded-lg border border-red-200 transition-colors"
+                  >
                     إلغاء الفلتر ✖
                   </button>
                 )}
@@ -195,12 +216,14 @@ export default function Reports({ userRole }) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {pages.map((page, idx) => {
-                const pageOrders = orders.filter(o => (o.page || '').trim() === page && (!statsDateFrom || getIsoDate(o) >= statsDateFrom) && (!statsDateTo || getIsoDate(o) <= statsDateTo));
-                const activeStatuses = selectedPageStatus[page] || ['تم'];
-                const activeOrders = pageOrders.filter(o => activeStatuses.includes(o.status));
-                const totalShipping = activeOrders.reduce((sum, o) => sum + Number(o.shippingPrice || 0), 0);
-                const totalProducts = activeOrders.reduce((sum, o) => sum + Number(o.productPrice || 0), 0);
-                const pageRevenue = totalShipping + totalProducts;
+                const pageRows        = pageStatsData.filter(d => d.page_name === page);
+                const pageTotalOrders = pageRows.reduce((sum, d) => sum + Number(d.cnt), 0);
+                const activeStatuses  = selectedPageStatus[page] || ['تم'];
+                const activeRows      = pageRows.filter(d => activeStatuses.includes(d.status_name));
+                const totalProducts   = activeRows.reduce((sum, d) => sum + Number(d.product_total  || 0), 0);
+                const totalShipping   = activeRows.reduce((sum, d) => sum + Number(d.shipping_total || 0), 0);
+                const activeCount     = activeRows.reduce((sum, d) => sum + Number(d.cnt), 0);
+                const pageRevenue     = totalProducts + totalShipping;
 
                 return (
                   <div key={idx} className={`bg-white rounded-2xl shadow-md border-2 p-4 md:p-6 ${getThemeBorder(page)} transition-all hover:shadow-lg flex flex-col`}>
@@ -210,7 +233,9 @@ export default function Reports({ userRole }) {
                       </div>
                       <div className="flex-1">
                         <h3 className="font-black text-lg md:text-2xl text-sky-900">{page}</h3>
-                        <p className="text-slate-500 text-[10px] md:text-sm font-bold mt-1">إجمالي أوردرات الصفحة: <span className="text-slate-800">{pageOrders.length}</span></p>
+                        <p className="text-slate-500 text-[10px] md:text-sm font-bold mt-1">
+                          إجمالي أوردرات الصفحة: <span className="text-slate-800">{pageTotalOrders.toLocaleString()}</span>
+                        </p>
                       </div>
                       {isAdmin && (
                         <div className="flex flex-col gap-0.5">
@@ -234,20 +259,24 @@ export default function Reports({ userRole }) {
                       <p className="text-[10px] md:text-xs font-bold text-slate-400 mb-2 md:mb-3">اضغط للتحديد — يمكنك اختيار أكثر من حالة لحساب الإجمالي معاً</p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 md:gap-2">
                         {orderStatuses.map(status => {
-                          const count = pageOrders.filter(o => o.status === status).length;
+                          const row        = pageRows.find(d => d.status_name === status);
+                          const count      = row ? Number(row.cnt) : 0;
                           const isSelected = activeStatuses.includes(status);
                           return (
                             <button
                               key={status}
                               onClick={() => togglePageStatus(page, status)}
                               className={clsx(
-                                "flex justify-between items-center px-2 md:px-3 py-1.5 md:py-2 rounded-xl border text-[10px] md:text-xs font-bold transition-all hover:scale-105",
+                                'flex justify-between items-center px-2 md:px-3 py-1.5 md:py-2 rounded-xl border text-[10px] md:text-xs font-bold transition-all hover:scale-105',
                                 getStatusColor(status),
                                 isSelected ? 'ring-2 ring-slate-800 ring-offset-1 scale-105 shadow-md' : 'opacity-60 hover:opacity-100'
                               )}
                             >
-                              <span className="truncate mr-1 flex items-center gap-1">{isSelected && <span className="text-[8px]">✓</span>}{status}</span>
-                              <span className="bg-white/90 px-1.5 py-0.5 rounded shadow-sm border border-white text-slate-800">{count}</span>
+                              <span className="truncate mr-1 flex items-center gap-1">
+                                {isSelected && <span className="text-[8px]">✓</span>}
+                                {status}
+                              </span>
+                              <span className="bg-white/90 px-1.5 py-0.5 rounded shadow-sm border border-white text-slate-800">{count.toLocaleString()}</span>
                             </button>
                           );
                         })}
@@ -257,9 +286,11 @@ export default function Reports({ userRole }) {
                     <div className="mt-auto bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-100 space-y-2 md:space-y-3">
                       <div className="flex justify-between text-xs md:text-sm items-center border-b border-slate-200 pb-2 mb-2">
                         <span className="text-slate-700 font-black flex items-center gap-1 flex-wrap">
-                          إحصائيات: {activeStatuses.map(s => <span key={s} className={`px-2 py-0.5 rounded text-[10px] md:text-xs ${getStatusColor(s)}`}>{s}</span>)}
+                          إحصائيات: {activeStatuses.map(s => (
+                            <span key={s} className={`px-2 py-0.5 rounded text-[10px] md:text-xs ${getStatusColor(s)}`}>{s}</span>
+                          ))}
                         </span>
-                        <span className="font-bold text-slate-500 bg-white px-2 py-0.5 rounded border shadow-sm shrink-0">العدد: {activeOrders.length}</span>
+                        <span className="font-bold text-slate-500 bg-white px-2 py-0.5 rounded border shadow-sm shrink-0">العدد: {activeCount.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-xs md:text-sm items-center">
                         <span className="text-slate-500 font-bold">إجمالي مبالغ المنتجات:</span>

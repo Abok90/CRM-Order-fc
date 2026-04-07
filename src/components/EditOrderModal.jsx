@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { X, Save } from 'lucide-react';
+import { X, Save, Lock } from 'lucide-react';
+
+// Statuses that require can_edit_after_ship permission to edit
+const POST_SHIP_STATUSES = ['الشحن', 'تم', 'مرتجع', 'الغاء', 'استبدال'];
 
 export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, initialOrder }) {
   const [loading, setLoading] = useState(false);
@@ -16,6 +19,10 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
     }
   }, [initialOrder]);
 
+  const isAdmin = ['admin', 'super_admin', 'owner'].includes(userRole?.role);
+  // Lock the form if order is post-ship and user lacks the permission
+  const isLocked = POST_SHIP_STATUSES.includes(initialOrder?.status) && !isAdmin && !userRole?.can_edit_after_ship;
+
   const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
 
   const availablePages = userRole?.assigned_page 
@@ -24,6 +31,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLocked) return;
     setLoading(true);
 
     const cleanPhone = order.phone.replace(/\D/g, '');
@@ -71,44 +79,50 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {isLocked && (
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
+              <Lock className="w-5 h-5 shrink-0" />
+              <p className="text-sm font-bold">هذا الطلب في مرحلة <span className="underline">{initialOrder?.status}</span> — لا يمكنك تعديله. تواصل مع الأدمن إذا كنت بحاجة لتغيير.</p>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">اسم العميل <span className="text-rose-500">*</span></label>
-              <input required value={order.customer} onChange={e => setOrder({...order, customer: e.target.value})} type="text" className="custom-input" placeholder="مثال: أحمد محمد" />
+              <input required disabled={isLocked} value={order.customer} onChange={e => setOrder({...order, customer: e.target.value})} type="text" className="custom-input disabled:opacity-60 disabled:cursor-not-allowed" placeholder="مثال: أحمد محمد" />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">رقم الموبايل <span className="text-rose-500">*</span></label>
-              <input required pattern="^\d{8}$|^\d{11}$" title="يجب أن يكون الرقم 8 أو 11 رقم بالضبط" maxLength="11" value={order.phone} onChange={e => setOrder({...order, phone: e.target.value.replace(/\D/g, '')})} type="tel" className="custom-input text-right select-all" dir="ltr" placeholder="01XXXXXXXXX" />
+              <input required disabled={isLocked} pattern="^\d{8}$|^\d{11}$" title="يجب أن يكون الرقم 8 أو 11 رقم بالضبط" maxLength="11" value={order.phone} onChange={e => setOrder({...order, phone: e.target.value.replace(/\D/g, '')})} type="tel" className="custom-input text-right select-all disabled:opacity-60 disabled:cursor-not-allowed" dir="ltr" placeholder="01XXXXXXXXX" />
             </div>
             <div className="space-y-1 md:col-span-2">
               <label className="text-sm font-semibold text-slate-700">العنوان بالتفصيل <span className="text-rose-500">*</span></label>
-              <input required value={order.address} onChange={e => setOrder({...order, address: e.target.value})} type="text" className="custom-input" placeholder="المدينة، المنطقة، الشارع، رقم العمارة..." />
+              <input required disabled={isLocked} value={order.address} onChange={e => setOrder({...order, address: e.target.value})} type="text" className="custom-input disabled:opacity-60 disabled:cursor-not-allowed" placeholder="المدينة، المنطقة، الشارع، رقم العمارة..." />
             </div>
             
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">المنتج <span className="text-rose-500">*</span></label>
-              <input required value={order.item} onChange={e => setOrder({...order, item: e.target.value})} type="text" className="custom-input" placeholder="اسم المنتج وتفاصيله" />
+              <input required disabled={isLocked} value={order.item} onChange={e => setOrder({...order, item: e.target.value})} type="text" className="custom-input disabled:opacity-60 disabled:cursor-not-allowed" placeholder="اسم المنتج وتفاصيله" />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">الكمية</label>
-              <input value={order.quantity} onChange={e => setOrder({...order, quantity: e.target.value})} type="number" min="1" className="custom-input" />
+              <input disabled={isLocked} value={order.quantity} onChange={e => setOrder({...order, quantity: e.target.value})} type="number" min="1" className="custom-input disabled:opacity-60 disabled:cursor-not-allowed" />
             </div>
             
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">الصفحة التابع لها <span className="text-rose-500">*</span></label>
-              <select value={order.page} onChange={e => setOrder({...order, page: e.target.value})} className="custom-input cursor-pointer">
+              <select disabled={isLocked} value={order.page} onChange={e => setOrder({...order, page: e.target.value})} className="custom-input cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
                 {availablePages.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">سعر المنتج (ج.م) <span className="text-rose-500">*</span></label>
-              <input required value={order.productPrice} onChange={e => setOrder({...order, productPrice: e.target.value})} type="number" className="custom-input" placeholder="مثال: 350" />
+              <input required disabled={isLocked} value={order.productPrice} onChange={e => setOrder({...order, productPrice: e.target.value})} type="number" className="custom-input disabled:opacity-60 disabled:cursor-not-allowed" placeholder="مثال: 350" />
             </div>
 
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">سعر الشحن (ج.م) <span className="text-rose-500">*</span></label>
-              <input required value={order.shippingPrice} onChange={e => setOrder({...order, shippingPrice: e.target.value})} type="number" className="custom-input" placeholder="مثال: 50" />
+              <input required disabled={isLocked} value={order.shippingPrice} onChange={e => setOrder({...order, shippingPrice: e.target.value})} type="number" className="custom-input disabled:opacity-60 disabled:cursor-not-allowed" placeholder="مثال: 50" />
             </div>
 
             <div className="space-y-1 md:col-span-2 text-left bg-slate-50 p-4 rounded-lg flex items-center justify-between border border-slate-100">
@@ -120,14 +134,17 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
 
             <div className="space-y-1 md:col-span-2">
               <label className="text-sm font-semibold text-slate-700">ملاحظات إضافية</label>
-              <textarea value={order.notes} onChange={e => setOrder({...order, notes: e.target.value})} className="custom-input min-h-[80px]" placeholder="أي تفاصيل لشركة الشحن أو العميل..."></textarea>
+              <textarea disabled={isLocked} value={order.notes} onChange={e => setOrder({...order, notes: e.target.value})} className="custom-input min-h-[80px] disabled:opacity-60 disabled:cursor-not-allowed" placeholder="أي تفاصيل لشركة الشحن أو العميل..."></textarea>
             </div>
           </div>
           
           <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary px-6">إلغاء</button>
-            <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 px-8">
-              {loading ? 'جاري الحفظ...' : <><Save className="w-5 h-5" /> <span>حفظ التعديلات</span></>}
+            <button type="submit" disabled={loading || isLocked} className="btn-primary flex items-center gap-2 px-8 disabled:opacity-50 disabled:cursor-not-allowed">
+              {isLocked
+                ? <><Lock className="w-5 h-5" /><span>مقفل</span></>
+                : loading ? 'جاري الحفظ...' : <><Save className="w-5 h-5" /><span>حفظ التعديلات</span></>
+              }
             </button>
           </div>
         </form>
