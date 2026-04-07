@@ -251,6 +251,9 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     if (initialFilter) {
       if (initialFilter.type === 'status') setStatusFilter(initialFilter.value);
       if (initialFilter.type === 'page') setPageFilter(initialFilter.value);
+      // Support combined filters (page + status from Dashboard cards)
+      if (initialFilter.pageFilter) setPageFilter(initialFilter.pageFilter);
+      if (initialFilter.statusFilter) setStatusFilter(initialFilter.statusFilter);
       setPage(1);
       
       if (onFilterConsumed) onFilterConsumed();

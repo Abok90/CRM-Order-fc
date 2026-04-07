@@ -17,8 +17,8 @@ function App() {
   const [appLoading, setAppLoading] = useState(true);
 
   const [initialOrderFilter, setInitialOrderFilter] = useState(null);
-  const navigateToOrdersWithFilter = (type, value) => {
-    setInitialOrderFilter({ type, value });
+  const navigateToOrdersWithFilter = (type, value, extraFilters) => {
+    setInitialOrderFilter({ type, value, ...extraFilters });
     setCurrentTab('orders');
   };
 

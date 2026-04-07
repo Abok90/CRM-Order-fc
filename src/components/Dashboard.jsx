@@ -167,7 +167,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
                           return (
                             <button
                               key={status}
-                              onClick={() => onNavigateWithFilter('status', status)}
+                              onClick={() => onNavigateWithFilter('status', status, { pageFilter: page })}
                               className={`flex justify-between items-center px-2 md:px-3 py-1.5 md:py-2 rounded-xl border text-[10px] md:text-xs font-bold transition-transform hover:scale-105 ${getStatusColor(status)}`}
                             >
                               <span className="truncate ml-1">{status}</span>
