@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { Search, Filter, RefreshCw, Plus, FileSpreadsheet, Printer } from 'lucide-react';
+import { Search, Filter, RefreshCw, Plus, FileSpreadsheet, Printer, ChevronDown, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import * as XLSX from 'xlsx';
 import AddOrderModal from './AddOrderModal';
@@ -24,7 +24,12 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   // Selection state
   const [selectedOrders, setSelectedOrders] = useState(new Set());
 
+  // Quick status dropdown
+  const [activeStatusDropdown, setActiveStatusDropdown] = useState(null);
+
   const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+
+  const ALL_STATUSES = ['جاري التحضير', 'مراجعة', 'الشحن', 'تم', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل'];
 
   const STATUS_STYLES = {
     'جاري التحضير': { badge: 'bg-blue-100 text-blue-800 border-blue-200', row: 'hover:bg-blue-100/50 bg-blue-50/30' },
@@ -99,6 +104,19 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     setSelectedOrders(newSet);
   };
 
+  // Quick status change
+  const handleQuickStatusChange = async (orderId, newStatus) => {
+    setActiveStatusDropdown(null);
+    try {
+      const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+      if (error) throw error;
+      // Update locally for instant feedback
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    } catch (err) {
+      alert('خطأ في تغيير الحالة: ' + err.message);
+    }
+  };
+
   const exportToExcel = () => {
     const ordersToExport = selectedOrders.size > 0 
       ? orders.filter(o => selectedOrders.has(o.id))
@@ -115,7 +133,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       'اسم المستلم': order.customer,
       'موبايل المستلم': order.phone,
       'ملاحظات': order.notes || '',
-      'المنطقة': order.address ? order.address.split(' ')[0] : '', // Attempting to get first part of address or leaving it customizable
+      'المنطقة': order.address ? order.address.split(' ')[0] : '',
       'العنوان': order.address,
       'محتوى الشحنة': order.item,
       'الكمية': order.quantity || '1',
@@ -246,6 +264,57 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, statusFilter, pageFilter, page]);
 
+  // Close status dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = () => setActiveStatusDropdown(null);
+    if (activeStatusDropdown) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [activeStatusDropdown]);
+
+  // Status badge with quick-change dropdown
+  const renderStatusBadge = (order) => {
+    const statusStyle = STATUS_STYLES[order.status] || { badge: 'bg-slate-100 text-slate-700 border-slate-200' };
+    const isOpen = activeStatusDropdown === order.id;
+    
+    return (
+      <div className="relative">
+        <button
+          onClick={(e) => { e.stopPropagation(); setActiveStatusDropdown(isOpen ? null : order.id); }}
+          className={clsx("px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold border flex items-center gap-1 cursor-pointer transition-all hover:shadow-md", statusStyle.badge)}
+        >
+          {order.status || 'أخرى'}
+          <ChevronDown className="w-3 h-3" />
+        </button>
+        
+        {isOpen && (
+          <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 min-w-[140px] py-1 animate-fade-in" onClick={e => e.stopPropagation()}>
+            <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 border-b border-slate-100">تغيير سريع</div>
+            {ALL_STATUSES.map(s => (
+              <button
+                key={s}
+                onClick={() => handleQuickStatusChange(order.id, s)}
+                className={clsx(
+                  "w-full text-right px-3 py-2 text-xs font-bold hover:bg-slate-50 transition-colors flex items-center gap-2",
+                  s === order.status ? "text-primary-600 bg-primary-50/50" : "text-slate-700"
+                )}
+              >
+                {s === order.status && <span className="text-primary-500">✓</span>}
+                <span className={clsx("px-1.5 py-0.5 rounded text-[10px]", STATUS_STYLES[s]?.badge || 'bg-slate-100')}>{s}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Check if order is from Shopify (auto-imported)
+  const isShopifyOrder = (order) => {
+    return order.source === 'shopify' || order.source === 'Shopify' || order.shopify_id;
+  };
+
   // UI rendering helper for cards (Mobile view)
   const renderOrderCard = (order) => {
     const statusStyle = STATUS_STYLES[order.status] || { badge: 'bg-slate-100 text-slate-700 border-slate-200', row: 'bg-white' };
@@ -267,15 +336,18 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
               className="w-5 h-5 cursor-pointer accent-primary-600 rounded"
             />
             <span className="font-mono font-bold text-slate-800 text-sm">#{order.id}</span>
+            {isShopifyOrder(order) && (
+              <span className="bg-green-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm">
+                <Zap className="w-2.5 h-2.5" />Auto
+              </span>
+            )}
           </div>
           
           <div className="flex items-center gap-2">
             <span className={clsx("text-[10px] px-2 py-0.5 rounded-md font-bold shadow-sm", getPageColor(order.page))}>
               {order.page || 'بدون صفحة'}
             </span>
-            <span className={clsx("px-2 py-0.5 rounded-full text-[10px] font-bold border", statusStyle.badge)}>
-              {order.status || 'أخرى'}
-            </span>
+            {renderStatusBadge(order)}
           </div>
         </div>
 
@@ -339,7 +411,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
               className="custom-input w-full md:w-40 cursor-pointer"
             >
               <option value="الكل">جميع الحالات</option>
-              {Object.keys(STATUS_STYLES).map(s => <option key={s} value={s}>{s}</option>)}
+              {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
 
             <select 
@@ -370,7 +442,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
           <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex-1 md:flex-none justify-center flex items-center gap-2 shadow-primary-500/40">
             <Plus className="w-5 h-5" />
-            <span>عنصر</span>
+            <span>إضافة أوردر</span>
           </button>
         </div>
       </div>
@@ -380,7 +452,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
         <table className="w-full text-right text-sm whitespace-nowrap">
           <thead className="bg-slate-50/80 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-200 text-slate-600 font-bold">
             <tr>
-              <th className="px-6 py-4 w-10">
+              <th className="px-4 py-4 w-10">
                 <input 
                   type="checkbox" 
                   onChange={toggleSelectAll} 
@@ -388,36 +460,34 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                   className="w-4 h-4 cursor-pointer accent-primary-600 rounded"
                 />
               </th>
-              <th className="px-6 py-4">التحكم</th>
-              <th className="px-6 py-4">رقم الطلب</th>
-              <th className="px-6 py-4">الصفحة</th>
-              <th className="px-6 py-4">العميل</th>
-              <th className="px-6 py-4">المنتج</th>
-              <th className="px-6 py-4">الحالة</th>
-              <th className="px-6 py-4">الملاحظات</th>
-              <th className="px-6 py-4">الإجمالي (ج.م)</th>
-              <th className="px-6 py-4">التاريخ</th>
+              <th className="px-4 py-4">رقم الطلب</th>
+              <th className="px-4 py-4">الصفحة</th>
+              <th className="px-4 py-4">العميل</th>
+              <th className="px-4 py-4">المنتج</th>
+              <th className="px-4 py-4">الحالة</th>
+              <th className="px-4 py-4">الملاحظات</th>
+              <th className="px-4 py-4">الإجمالي (ج.م)</th>
+              <th className="px-4 py-4">التاريخ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               [...Array(10)].map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-4"></div></td>
-                  <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
-                  <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
-                  <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
-                  <td className="px-6 py-5"><div className="h-8 bg-slate-200 rounded w-32"></div></td>
-                  <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-40"></div></td>
-                  <td className="px-6 py-5"><div className="h-6 bg-slate-200 rounded-full w-24"></div></td>
-                  <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-32"></div></td>
-                  <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
-                  <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
+                  <td className="px-4 py-5"><div className="h-4 bg-slate-200 rounded w-4"></div></td>
+                  <td className="px-4 py-5"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
+                  <td className="px-4 py-5"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
+                  <td className="px-4 py-5"><div className="h-8 bg-slate-200 rounded w-32"></div></td>
+                  <td className="px-4 py-5"><div className="h-4 bg-slate-200 rounded w-40"></div></td>
+                  <td className="px-4 py-5"><div className="h-6 bg-slate-200 rounded-full w-24"></div></td>
+                  <td className="px-4 py-5"><div className="h-4 bg-slate-200 rounded w-32"></div></td>
+                  <td className="px-4 py-5"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
+                  <td className="px-4 py-5"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
                 </tr>
               ))
             ) : orders.length === 0 ? (
                <tr>
-                <td colSpan="10" className="px-6 py-16 text-center text-slate-500 font-medium">
+                <td colSpan="9" className="px-6 py-16 text-center text-slate-500 font-medium">
                   لا توجد طلبات مطابقة للبحث أو الفلتر المختار
                 </td>
               </tr>
@@ -425,8 +495,12 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
               orders.map(order => {
                 const statusStyle = STATUS_STYLES[order.status] || { badge: 'bg-slate-100 text-slate-700 border-slate-200', row: 'hover:bg-slate-50/80 bg-white' };
                 return (
-                <tr key={order.id} className={clsx("transition-colors group", statusStyle.row, selectedOrders.has(order.id) && "bg-primary-50/50")}>
-                  <td className="px-6 py-3">
+                <tr 
+                  key={order.id} 
+                  className={clsx("transition-colors group cursor-pointer", statusStyle.row, selectedOrders.has(order.id) && "bg-primary-50/50")}
+                  onDoubleClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }}
+                >
+                  <td className="px-4 py-3">
                     <input 
                       type="checkbox" 
                       checked={selectedOrders.has(order.id)}
@@ -434,45 +508,51 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                       className="w-4 h-4 cursor-pointer accent-primary-600 rounded"
                     />
                   </td>
-                  <td className="px-6 py-3">
-                    <button onClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }} className="text-primary-600 font-bold hover:underline opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      ✏️ تعديل
-                    </button>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-slate-700 text-xs">{order.id}</span>
+                      {isShopifyOrder(order) && (
+                        <span className="bg-green-500 text-white text-[7px] font-black px-1 py-0.5 rounded flex items-center gap-0.5" title="أوردر أوتوماتيك من شوبيفاي">
+                          <Zap className="w-2.5 h-2.5" />
+                        </span>
+                      )}
+                      <button 
+                        onClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }} 
+                        className="text-primary-600 font-bold hover:underline opacity-0 group-hover:opacity-100 transition-opacity text-xs bg-primary-50 px-2 py-0.5 rounded"
+                      >
+                        ✏️
+                      </button>
+                    </div>
                   </td>
-                  <td className="px-6 py-3 font-mono font-bold text-slate-700 text-xs">
-                    {order.id}
-                  </td>
-                  <td className="px-6 py-3">
+                  <td className="px-4 py-3">
                     <span className={clsx("text-xs px-2 py-1 rounded-md font-bold inline-block shadow-sm mr-2", getPageColor(order.page))}>
                       {order.page || 'بدون صفحة'}
                     </span>
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="px-4 py-3">
                     <div className="font-bold text-slate-800">{order.customer || 'عميل محتمل'}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <div className="text-xs text-slate-600 font-medium bg-white/60 px-1 rounded border border-slate-200" dir="ltr">{order.phone || 'بدون رقم'}</div>
                       <button onClick={(e) => { e.stopPropagation(); handleWhatsApp(order); }} className="text-emerald-500 hover:text-emerald-600 transition-colors" title="مراسلة واتساب">
-                         ...
+                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.015c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
                       </button>
                     </div>
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="px-4 py-3">
                     <div className="max-w-[150px] truncate font-medium text-slate-800" title={order.item}>{order.item || '—'}</div>
                   </td>
-                  <td className="px-6 py-3">
-                    <span className={clsx("px-3 py-1 rounded-full text-xs font-bold border", statusStyle.badge)}>
-                      {order.status || 'أخرى'}
-                    </span>
+                  <td className="px-4 py-3">
+                    {renderStatusBadge(order)}
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="px-4 py-3">
                     <div className="max-w-[150px] truncate text-slate-600 text-xs font-semibold bg-white/50 px-2 py-1 rounded" title={order.notes}>
                       {order.notes || '—'}
                     </div>
                   </td>
-                  <td className="px-6 py-3 font-black text-slate-800">
+                  <td className="px-4 py-3 font-black text-slate-800">
                     {(Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0)}
                   </td>
-                  <td className="px-6 py-3 text-slate-500 font-medium text-xs border-r border-slate-100/50">
+                  <td className="px-4 py-3 text-slate-500 font-medium text-xs border-r border-slate-100/50">
                     {order.date || order.created_at?.split('T')[0] || '—'}
                   </td>
                 </tr>
