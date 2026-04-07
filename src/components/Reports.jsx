@@ -33,11 +33,43 @@ export default function Reports() {
 
   const getIsoDate = (o) => o.date || o.created_at?.split('T')[0] || '';
 
-  // Pages available
+  // Pages available with ordering
+  const [pageOrder, setPageOrder] = useState([]);
+
   const pages = useMemo(() => {
-    const pageSet = new Set(orders.map(o => o.page).filter(Boolean));
-    return [...pageSet].sort();
-  }, [orders]);
+    const pageSet = new Set(orders.map(o => o.page ? o.page.trim() : null).filter(Boolean));
+    const allPages = [...pageSet].sort();
+    
+    // Sort based on saved order if available
+    const savedOrder = JSON.parse(localStorage.getItem('reports_page_order') || '[]');
+    if (savedOrder.length > 0) {
+      allPages.sort((a, b) => {
+        const ia = savedOrder.indexOf(a);
+        const ib = savedOrder.indexOf(b);
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      });
+    }
+    return allPages;
+  }, [orders, pageOrder]); // Re-compute when pageOrder changes
+
+  const movePage = (pageStr, direction) => {
+    const currentIndex = pages.indexOf(pageStr);
+    if (
+      (direction === -1 && currentIndex === 0) || 
+      (direction === 1 && currentIndex === pages.length - 1)
+    ) return;
+
+    const newPages = [...pages];
+    const temp = newPages[currentIndex];
+    newPages[currentIndex] = newPages[currentIndex + direction];
+    newPages[currentIndex + direction] = temp;
+    
+    setPageOrder(newPages); // Trigger re-render
+    localStorage.setItem('reports_page_order', JSON.stringify(newPages));
+  };
 
   // Status counts
   const statusCounts = useMemo(() => {
@@ -153,7 +185,7 @@ export default function Reports() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {pages.map((page, idx) => {
-                const pageOrders = orders.filter(o => o.page === page && (!statsDateFrom || getIsoDate(o) >= statsDateFrom) && (!statsDateTo || getIsoDate(o) <= statsDateTo));
+                const pageOrders = orders.filter(o => (o.page || '').trim() === page && (!statsDateFrom || getIsoDate(o) >= statsDateFrom) && (!statsDateTo || getIsoDate(o) <= statsDateTo));
                 const activeStatuses = selectedPageStatus[page] || ['تم'];
                 const activeOrders = pageOrders.filter(o => activeStatuses.includes(o.status));
                 const totalShipping = activeOrders.reduce((sum, o) => sum + Number(o.shippingPrice || 0), 0);
@@ -166,9 +198,23 @@ export default function Reports() {
                       <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shadow-inner bg-sky-50 text-sky-600">
                         <Store className="w-6 h-6" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-black text-lg md:text-2xl text-sky-900">{page}</h3>
                         <p className="text-slate-500 text-[10px] md:text-sm font-bold mt-1">إجمالي أوردرات الصفحة: <span className="text-slate-800">{pageOrders.length}</span></p>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          onClick={() => movePage(page, -1)}
+                          disabled={idx === 0}
+                          className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none font-bold"
+                          title="تحريك لأعلى"
+                        >↑</button>
+                        <button
+                          onClick={() => movePage(page, 1)}
+                          disabled={idx === pages.length - 1}
+                          className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none font-bold"
+                          title="تحريك لأسفل"
+                        >↓</button>
                       </div>
                     </div>
 

@@ -74,6 +74,7 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
         <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100 text-center">
           <p className="text-sm font-semibold text-slate-700 truncate">{userRole?.name || 'مستخدم'}</p>
           <p className="text-xs text-slate-500 mt-1">{userRole?.role || 'موظف'}</p>
+          <p className="text-[9px] text-slate-400 mt-1 font-bold">v2.5.0</p>
         </div>
         
         <button 

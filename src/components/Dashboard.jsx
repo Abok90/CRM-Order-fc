@@ -50,7 +50,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
 
   // ===== Page counts =====
   const pageCounts = useMemo(() => orders.reduce((acc, curr) => {
-    const p = curr.page || 'بدون صفحة';
+    const p = (curr.page || 'بدون صفحة').trim();
     acc[p] = (acc[p] || 0) + 1;
     return acc;
   }, {}), [orders]);
@@ -279,7 +279,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6">
           {sortedPages.map(([pg]) => {
-            const pageOrders = orders.filter(o => (o.page || 'بدون صفحة') === pg);
+            const pageOrders = orders.filter(o => (o.page || 'بدون صفحة').trim() === pg);
             if (pageOrders.length === 0) return null;
             return (
               <div key={pg} className="glass-panel p-3 md:p-5 rounded-2xl shadow-sm border border-white hover:shadow-md transition-shadow">
