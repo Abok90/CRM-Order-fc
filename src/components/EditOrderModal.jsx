@@ -1,14 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { X, Save } from 'lucide-react';
 
-export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) {
+export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, initialOrder }) {
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState({
     customer: '', phone: '', address: '', item: '', quantity: '1', 
     page: userRole?.default_page || 'الصفحة الرئيسية', 
     productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير'
   });
+
+  useEffect(() => {
+    if (initialOrder) {
+      setOrder({ ...initialOrder });
+    }
+  }, [initialOrder]);
 
   const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
 
@@ -28,17 +34,18 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     }
     
     try {
-      // Create a unique ID logic (For now using timestamp, but ideally query max ID)
-      const newId = Date.now().toString().slice(-6); 
-      
-      const payload = {
-        ...order,
-        id: newId,
-        user_id: userRole?.id || null, // Ensure userRole has an ID if tracking employees
-        date: new Date().toISOString().split('T')[0]
-      };
-
-      const { error } = await supabase.from('orders').insert([payload]);
+      const { error } = await supabase.from('orders').update({
+        customer: order.customer,
+        phone: order.phone,
+        address: order.address,
+        item: order.item,
+        quantity: order.quantity,
+        page: order.page,
+        productPrice: order.productPrice,
+        shippingPrice: order.shippingPrice,
+        notes: order.notes,
+        status: order.status
+      }).eq('id', order.id);
       
       if (error) throw error;
       
@@ -57,7 +64,7 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="sticky top-0 bg-white/90 backdrop-blur border-b border-slate-100 p-4 flex items-center justify-between z-10">
-          <h2 className="text-xl font-bold text-slate-800">إضافة طلب جديد</h2>
+          <h2 className="text-xl font-bold text-slate-800">تعديل الطلب #{order.id}</h2>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
             <X className="w-5 h-5 text-slate-500" />
           </button>
@@ -120,7 +127,7 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
           <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary px-6">إلغاء</button>
             <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 px-8">
-              {loading ? 'جاري الحفظ...' : <><Save className="w-5 h-5" /> <span>حفظ الأوردر</span></>}
+              {loading ? 'جاري الحفظ...' : <><Save className="w-5 h-5" /> <span>حفظ التعديلات</span></>}
             </button>
           </div>
         </form>

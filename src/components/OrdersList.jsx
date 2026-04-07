@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { Search, Filter, RefreshCw, Plus, FileSpreadsheet } from 'lucide-react';
 import clsx from 'clsx';
+import * as XLSX from 'xlsx';
 import AddOrderModal from './AddOrderModal';
+import EditOrderModal from './EditOrderModal';
 
 export default function OrdersList({ userRole }) {
   const [orders, setOrders] = useState([]);
@@ -15,6 +17,11 @@ export default function OrdersList({ userRole }) {
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(null);
+
+  // Selection state
+  const [selectedOrders, setSelectedOrders] = useState(new Set());
 
   const STATUS_STYLES = {
     'جاري التحضير': { badge: 'bg-blue-100 text-blue-800 border-blue-200', row: 'hover:bg-blue-100/50 bg-blue-50/30' },
@@ -69,6 +76,52 @@ export default function OrdersList({ userRole }) {
   const handleCopyMessage = (order) => {
     navigator.clipboard.writeText(generateOrderMessage(order));
     alert('تم نسخ الرسالة بنجاح!');
+  };
+
+  const toggleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedOrders(new Set(orders.map(o => o.id)));
+    } else {
+      setSelectedOrders(new Set());
+    }
+  };
+
+  const toggleSelect = (id) => {
+    const newSet = new Set(selectedOrders);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedOrders(newSet);
+  };
+
+  const exportToExcel = () => {
+    const ordersToExport = selectedOrders.size > 0 
+      ? orders.filter(o => selectedOrders.has(o.id))
+      : orders;
+      
+    if (ordersToExport.length === 0) {
+      alert('لا توجد طلبات لتصديرها');
+      return;
+    }
+
+    const dataRows = ordersToExport.map(order => ({
+      'رقم الطلب': order.id,
+      'إسم العميل': order.customer,
+      'رقم التليفون': order.phone,
+      'المدينة / المحافظة': '', // user needs to map it manually or if we parse
+      'العنوان بالتفصيل': order.address,
+      'ملاحظات': order.notes || '',
+      'الصنف': order.item,
+      'السعر الإجمالي': (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0)
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "الطلبات");
+    
+    XLSX.writeFile(workbook, `تصدير_الشحن_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const fetchOrders = async () => {
@@ -144,9 +197,9 @@ export default function OrdersList({ userRole }) {
             <span className="hidden sm:inline">تحديث</span>
           </button>
           
-          <button className="btn-secondary flex items-center gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300">
+          <button onClick={exportToExcel} className="btn-secondary flex items-center gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300">
             <FileSpreadsheet className="w-4 h-4" />
-            <span className="hidden sm:inline">إكسيل</span>
+            <span className="hidden sm:inline">تصدير الشحن</span>
           </button>
 
           <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex items-center gap-2 shadow-primary-500/40">
@@ -161,7 +214,16 @@ export default function OrdersList({ userRole }) {
         <table className="w-full text-right text-sm whitespace-nowrap">
           <thead className="bg-slate-50/80 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-200 text-slate-600 font-bold">
             <tr>
+              <th className="px-6 py-4 w-10">
+                <input 
+                  type="checkbox" 
+                  onChange={toggleSelectAll} 
+                  checked={orders.length > 0 && selectedOrders.size === orders.length}
+                  className="w-4 h-4 cursor-pointer accent-primary-600"
+                />
+              </th>
               <th className="px-6 py-4">التحكم</th>
+              <th className="px-6 py-4">رقم الطلب</th>
               <th className="px-6 py-4">الصفحة</th>
               <th className="px-6 py-4">العميل</th>
               <th className="px-6 py-4">المنتج</th>
@@ -176,6 +238,8 @@ export default function OrdersList({ userRole }) {
             {loading ? (
               [...Array(10)].map((_, i) => (
                 <tr key={i} className="animate-pulse">
+                  <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-4"></div></td>
+                  <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
                   <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
                   <td className="px-6 py-5"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
                   <td className="px-6 py-5">
@@ -194,7 +258,7 @@ export default function OrdersList({ userRole }) {
               ))
             ) : orders.length === 0 ? (
                <tr>
-                <td colSpan="9" className="px-6 py-16 text-center text-slate-500 font-medium">
+                <td colSpan="11" className="px-6 py-16 text-center text-slate-500 font-medium">
                   لا توجد طلبات مطابقة للبحث أو الفلتر المختار
                 </td>
               </tr>
@@ -203,11 +267,22 @@ export default function OrdersList({ userRole }) {
                 const statusStyle = STATUS_STYLES[order.status] || { badge: 'bg-slate-100 text-slate-700 border-slate-200', row: 'hover:bg-slate-50/80 bg-white' };
                 
                 return (
-                <tr key={order.id} className={clsx("transition-colors group", statusStyle.row)}>
+                <tr key={order.id} className={clsx("transition-colors group", statusStyle.row, selectedOrders.has(order.id) && "bg-primary-50/50")}>
                   <td className="px-6 py-3">
-                    <button className="text-primary-600 font-bold hover:underline opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedOrders.has(order.id)}
+                      onChange={() => toggleSelect(order.id)}
+                      className="w-4 h-4 cursor-pointer accent-primary-600"
+                    />
+                  </td>
+                  <td className="px-6 py-3">
+                    <button onClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }} className="text-primary-600 font-bold hover:underline opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                       ✏️ تعديل
                     </button>
+                  </td>
+                  <td className="px-6 py-3 font-mono font-bold text-slate-700 text-xs">
+                    {order.id}
                   </td>
                   <td className="px-6 py-3">
                     <span className={clsx("text-xs px-2 py-1 rounded-md font-bold inline-block shadow-sm mr-2", getPageColor(order.page))}>
@@ -287,6 +362,16 @@ export default function OrdersList({ userRole }) {
         onClose={() => setIsAddModalOpen(false)} 
         userRole={userRole} 
         onSuccess={fetchOrders} 
+      />
+      <EditOrderModal
+        isOpen={isEditModalOpen}
+        onClose={() => { setIsEditModalOpen(false); setEditingOrder(null); }}
+        userRole={userRole}
+        initialOrder={editingOrder}
+        onSuccess={() => {
+          fetchOrders();
+          setEditingOrder(null);
+        }}
       />
     </div>
   );

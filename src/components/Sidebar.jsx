@@ -34,8 +34,9 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
           <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
             <Package className="text-white w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-black bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-            CRM Pro
+          <h1 className="flex flex-col items-start">
+            <span className="text-2xl font-black bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">CRM Pro</span>
+            <span className="text-[10px] font-mono text-primary-500 font-bold bg-primary-50 px-2 py-0.5 rounded-full mt-1">v1.1.0</span>
           </h1>
         </div>
       </div>
