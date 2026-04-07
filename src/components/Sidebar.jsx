@@ -7,7 +7,8 @@ import {
   LogOut,
   Wallet,
   Building2,
-  ClipboardList
+  ClipboardList,
+  LineChart
 } from 'lucide-react';
 import clsx from 'clsx';
 
