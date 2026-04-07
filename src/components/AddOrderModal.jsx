@@ -80,9 +80,17 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
             
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">الصفحة التابع لها <span className="text-rose-500">*</span></label>
-              <select value={order.page} onChange={e => setOrder({...order, page: e.target.value})} className="custom-input cursor-pointer">
-                {availablePages.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <input 
+                required 
+                value={order.page} 
+                onChange={e => setOrder({...order, page: e.target.value})} 
+                list="pages-list"
+                className="custom-input" 
+                placeholder="اختر أو اكتب اسم الصفحة"
+              />
+              <datalist id="pages-list">
+                {availablePages.map(p => <option key={p} value={p} />)}
+              </datalist>
             </div>
             
             <div className="space-y-1">
