@@ -8,7 +8,7 @@ import DailyProductsView from './components/DailyProductsView';
 import FinanceView from './components/FinanceView';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
-import { Lock, Mail, LogIn } from 'lucide-react';
+import { Lock, Mail, LogIn, UserPlus } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -26,6 +26,7 @@ function App() {
   const [password, setPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [isLoginMode, setIsLoginMode] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -59,6 +60,8 @@ function App() {
       }
     } catch (e) {
       console.error(e);
+      const dummyRole = { id: userId, name: userEmail?.split('@')[0] || 'مستخدم', role: 'agent', is_approved: false };
+      setUserRole(dummyRole);
     } finally {
       setAppLoading(false);
     }
@@ -68,19 +71,23 @@ function App() {
     await supabase.auth.signOut();
   };
 
-  const handleLogin = async (e) => {
+  const handleAuth = async (e) => {
     e.preventDefault();
     setAuthLoading(true);
     setAuthError('');
     
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) {
-      setAuthError('كلمة المرور أو البريد الإلكتروني غير صحيح');
+    if (isLoginMode) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setAuthError('كلمة المرور أو البريد الإلكتروني غير صحيح');
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        setAuthError(error.message.includes('already registered') ? 'هذا الحساب مسجل بالفعل' : 'حدث خطأ أثناء التسجيل، يرجى المحاولة لاحقاً');
+      } else {
+        alert('تم التسجيل بنجاح! حسابك الآن قيد المراجعة.');
+      }
     }
+    
     setAuthLoading(false);
   };
 
@@ -96,9 +103,9 @@ function App() {
               <Lock className="w-8 h-8 text-white" />
            </div>
           <h1 className="text-3xl font-extrabold text-slate-800 mb-2 font-sans tracking-tight">CRM Pro</h1>
-          <p className="text-slate-500 mb-8 font-medium">تسجيل الدخول للموظفين</p>
+          <p className="text-slate-500 mb-8 font-medium">{isLoginMode ? 'تسجيل الدخول للموظفين' : 'انضم لفريق العمل'}</p>
           
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-4">
             {authError && <div className="text-rose-500 text-sm font-bold bg-rose-50 p-2 rounded">{authError}</div>}
             
             <div className="relative">
@@ -130,9 +137,23 @@ function App() {
               disabled={authLoading}
               className="btn-primary w-full shadow-lg flex justify-center items-center gap-2"
             >
-              {authLoading ? <div className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></div> : <><LogIn className="w-5 h-5"/> تسجيل الدخول</>}
+              {authLoading ? (
+                <div className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></div>
+              ) : (
+                <>{isLoginMode ? <LogIn className="w-5 h-5"/> : <UserPlus className="w-5 h-5"/>} {isLoginMode ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}</>
+              )}
             </button>
           </form>
+
+          <div className="mt-6 border-t border-slate-100 pt-6">
+            <button 
+              onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(''); }} 
+              className="text-primary-600 font-bold hover:underline text-sm"
+              type="button"
+            >
+              {isLoginMode ? 'لا تملك حساباً؟ أنشئ حساب جديد' : 'لديك حساب بالفعل؟ قم بتسجيل الدخول'}
+            </button>
+          </div>
         </div>
       </div>
     );
