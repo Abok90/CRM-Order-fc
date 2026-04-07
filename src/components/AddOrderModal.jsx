@@ -10,9 +10,11 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير'
   });
 
+  const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+
   const availablePages = userRole?.assigned_page 
     ? userRole.assigned_page.split(',') 
-    : ['الصفحة الرئيسية', 'صفحة الفيسبوك', 'الانستجرام'];
+    : fallbackPages;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,17 +82,9 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
             
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">الصفحة التابع لها <span className="text-rose-500">*</span></label>
-              <input 
-                required 
-                value={order.page} 
-                onChange={e => setOrder({...order, page: e.target.value})} 
-                list="pages-list"
-                className="custom-input" 
-                placeholder="اختر أو اكتب اسم الصفحة"
-              />
-              <datalist id="pages-list">
-                {availablePages.map(p => <option key={p} value={p} />)}
-              </datalist>
+              <select value={order.page} onChange={e => setOrder({...order, page: e.target.value})} className="custom-input cursor-pointer">
+                {availablePages.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
             </div>
             
             <div className="space-y-1">

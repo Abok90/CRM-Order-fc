@@ -90,7 +90,7 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-800">
+    <div className="flex h-[100dvh] bg-slate-50 overflow-hidden font-sans text-slate-800 pb-[72px] md:pb-0">
       {/* Sidebar Navigation */}
       <Sidebar 
         currentTab={currentTab} 

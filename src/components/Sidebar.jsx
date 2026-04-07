@@ -6,7 +6,8 @@ import {
   Settings, 
   LogOut,
   LineChart,
-  Wallet
+  Wallet,
+  Building2
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -18,15 +19,17 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
     { id: 'dashboard', label: 'لوحة القيادة', icon: Home },
     { id: 'orders', label: 'الطلبات', icon: Package },
     ...(isSuperAdmin ? [{ id: 'users', label: 'الموظفين', icon: Users }] : []),
-    ...(isSuperAdmin ? [{ id: 'factory', label: 'المصنع', icon: LogOut }] : []), // Update icon later
+    ...(isSuperAdmin ? [{ id: 'factory', label: 'المصنع', icon: Building2 }] : []),
     ...(canAccessFinance ? [{ id: 'finance', label: 'المالية', icon: Wallet }] : []),
     ...(isSuperAdmin ? [{ id: 'reports', label: 'التقارير', icon: LineChart }] : []),
     { id: 'settings', label: 'الإعدادات', icon: Settings }
   ];
 
   return (
-    <aside className="w-64 h-full bg-white/80 backdrop-blur-xl border-l border-slate-200/50 shadow-2xl flex flex-col transition-all duration-300">
-      <div className="p-6 flex items-center justify-center border-b border-slate-100">
+    <aside className="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 md:relative md:w-64 md:h-full md:bg-white/80 md:border-t-0 md:border-l md:shadow-2xl flex flex-row md:flex-col transition-all duration-300 pb-safe">
+      
+      {/* Desktop Branding */}
+      <div className="hidden md:flex p-6 items-center justify-center border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
             <Package className="text-white w-6 h-6" />
@@ -37,7 +40,8 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar">
+      {/* Navigation */}
+      <div className="flex-1 flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto w-full md:py-6 px-2 md:px-4 gap-1 md:space-y-2 custom-scrollbar">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
@@ -47,23 +51,24 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
               key={item.id}
               onClick={() => setCurrentTab(item.id)}
               className={clsx(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-300 group",
+                "flex md:w-full flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 p-2 md:px-4 md:py-3 rounded-xl font-semibold transition-all duration-300 group min-w-[70px] md:min-w-0",
                 isActive 
-                  ? "bg-primary-500 text-white shadow-md shadow-primary-500/25 translate-x-1" 
-                  : "text-slate-500 hover:bg-slate-50 hover:text-primary-600 hover:translate-x-1"
+                  ? "text-primary-600 md:bg-primary-500 md:text-white md:shadow-md md:shadow-primary-500/25 md:-translate-x-1" 
+                  : "text-slate-500 hover:bg-slate-50 hover:text-primary-600 md:hover:-translate-x-1"
               )}
             >
               <Icon className={clsx(
-                "w-5 h-5 transition-transform duration-300",
+                "w-6 h-6 md:w-5 md:h-5 transition-transform duration-300",
                 isActive ? "scale-110" : "group-hover:scale-110"
               )} />
-              <span>{item.label}</span>
+              <span className="text-[10px] md:text-sm whitespace-nowrap">{item.label}</span>
             </button>
           );
         })}
       </div>
 
-      <div className="p-4 border-t border-slate-100">
+      {/* Desktop user profile and logout */}
+      <div className="hidden md:block p-4 border-t border-slate-100">
         <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100 text-center">
           <p className="text-sm font-semibold text-slate-700 truncate">{userRole?.name || 'مستخدم'}</p>
           <p className="text-xs text-slate-500 mt-1">{userRole?.role || 'موظف'}</p>
