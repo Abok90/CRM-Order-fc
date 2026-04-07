@@ -19,7 +19,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
     }
   }, [initialOrder]);
 
-  const isAdmin = ['admin', 'super_admin', 'owner'].includes(userRole?.role);
+  const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
   // Lock the form if order is post-ship and user lacks the permission
   const isLocked = POST_SHIP_STATUSES.includes(initialOrder?.status) && !isAdmin && !userRole?.can_edit_after_ship;
 

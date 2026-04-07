@@ -4,7 +4,7 @@ import { PieChart, Activity, Calendar, Store } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function Reports({ userRole }) {
-  const isAdmin = ['admin', 'brand_owner'].includes(userRole?.role);
+  const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
 
   // RPC data: [{page_name, status_name, cnt, product_total, shipping_total}]
   const [pageStatsData, setPageStatsData] = useState([]);
@@ -68,13 +68,23 @@ export default function Reports({ userRole }) {
   const movePage = async (pageStr, direction) => {
     const idx = pages.indexOf(pageStr);
     if ((direction === -1 && idx === 0) || (direction === 1 && idx === pages.length - 1)) return;
-    const newPages = [...pages];
-    [newPages[idx], newPages[idx + direction]] = [newPages[idx + direction], newPages[idx]];
-    setBrandOrder(newPages);
+    
+    const targetStr = pages[idx + direction];
+    const base = brandOrder.length > 0 ? [...brandOrder] : [...pages];
+    
+    if (!base.includes(pageStr)) base.push(pageStr);
+    if (!base.includes(targetStr)) base.push(targetStr);
+
+    const baseIdxA = base.indexOf(pageStr);
+    const baseIdxB = base.indexOf(targetStr);
+
+    [base[baseIdxA], base[baseIdxB]] = [base[baseIdxB], base[baseIdxA]];
+
+    setBrandOrder(base);
     if (isAdmin) {
       await supabase.from('app_settings').upsert({
         key: 'reports_brand_order',
-        value: JSON.stringify(newPages),
+        value: JSON.stringify(base),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'key' });
     }

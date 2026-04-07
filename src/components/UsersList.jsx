@@ -18,7 +18,7 @@ export default function UsersList({ userRole }) {
   const [editingNameId, setEditingNameId] = useState(null);
   const [nameInput, setNameInput]         = useState('');
 
-  const isAdmin = ['admin', 'brand_owner'].includes(userRole?.role);
+  const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
   const currentUserId = userRole?.id;
 
   useEffect(() => { fetchUsers(); }, []);
