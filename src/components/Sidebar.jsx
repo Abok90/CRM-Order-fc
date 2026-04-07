@@ -5,9 +5,9 @@ import {
   Users, 
   Settings, 
   LogOut,
-  LineChart,
   Wallet,
-  Building2
+  Building2,
+  ClipboardList
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -19,7 +19,7 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
     { id: 'dashboard', label: 'لوحة القيادة', icon: Home },
     { id: 'orders', label: 'الطلبات', icon: Package },
     ...(isSuperAdmin ? [{ id: 'users', label: 'الموظفين', icon: Users }] : []),
-    ...(isSuperAdmin ? [{ id: 'factory', label: 'المصنع', icon: Building2 }] : []),
+    ...(isSuperAdmin ? [{ id: 'daily_products', label: 'منتجات اليوم', icon: ClipboardList }] : []),
     ...(canAccessFinance ? [{ id: 'finance', label: 'المالية', icon: Wallet }] : []),
     ...(isSuperAdmin ? [{ id: 'reports', label: 'التقارير', icon: LineChart }] : []),
     { id: 'settings', label: 'الإعدادات', icon: Settings }

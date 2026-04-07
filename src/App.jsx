@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import OrdersList from './components/OrdersList';
 import UsersList from './components/UsersList';
-import FactoryView from './components/FactoryView';
+import DailyProductsView from './components/DailyProductsView';
 import FinanceView from './components/FinanceView';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
@@ -15,6 +15,12 @@ function App() {
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [userRole, setUserRole] = useState(null);
   const [appLoading, setAppLoading] = useState(true);
+
+  const [initialOrderFilter, setInitialOrderFilter] = useState(null);
+  const navigateToOrdersWithFilter = (type, value) => {
+    setInitialOrderFilter({ type, value });
+    setCurrentTab('orders');
+  };
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -160,10 +166,10 @@ function App() {
         {/* Subtle Background Elements */}
         <div className="absolute top-0 right-0 w-full h-96 bg-gradient-to-b from-primary-50/50 to-transparent -z-10 blur-3xl pointer-events-none"></div>
         
-        {currentTab === 'dashboard' && <Dashboard stats={{ total: 1542, processing: 34, shipping: 120, delivered: 1300 }} />}
-        {currentTab === 'orders' && <OrdersList userRole={userRole} />}
+        {currentTab === 'dashboard' && <Dashboard onNavigateWithFilter={navigateToOrdersWithFilter} />}
+        {currentTab === 'orders' && <OrdersList userRole={userRole} initialFilter={initialOrderFilter} onFilterConsumed={() => setInitialOrderFilter(null)} />}
         {currentTab === 'users' && <UsersList userRole={userRole} />}
-        {currentTab === 'factory' && <FactoryView />}
+        {currentTab === 'daily_products' && <DailyProductsView />}
         {currentTab === 'finance' && <FinanceView />}
         {currentTab === 'reports' && <Reports />}
         {currentTab === 'settings' && <Settings userRole={userRole} />}
