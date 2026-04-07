@@ -10,8 +10,17 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
   const [order, setOrder] = useState({
     customer: '', phone: '', address: '', item: '', quantity: '1', 
     page: userRole?.default_page || 'الصفحة الرئيسية', 
-    productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير'
+    productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير', trackingNumber: ''
   });
+
+  const handleTrackingChange = (e) => {
+    const val = e.target.value;
+    let nextStatus = order.status;
+    if (val && order.status !== 'تم' && order.status !== 'مرتجع' && order.status !== 'الغاء') {
+       nextStatus = 'الشحن';
+    }
+    setOrder({ ...order, trackingNumber: val, status: nextStatus });
+  };
 
   useEffect(() => {
     if (initialOrder) {
@@ -52,7 +61,8 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
         productPrice: order.productPrice,
         shippingPrice: order.shippingPrice,
         notes: order.notes,
-        status: order.status
+        status: order.status,
+        trackingNumber: order.trackingNumber
       }).eq('id', order.id);
       
       if (error) throw error;
@@ -130,6 +140,11 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
                <span className="text-2xl font-black text-primary-600">
                  {(Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0)} ج.م
                </span>
+            </div>
+
+            <div className="space-y-1 md:col-span-2 text-right">
+              <label className="text-sm font-semibold text-slate-700">رقم البوليصة (Tracking Number)</label>
+              <input disabled={isLocked} value={order.trackingNumber || ''} onChange={handleTrackingChange} type="text" className="custom-input bg-yellow-50 focus:bg-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed" placeholder="عند تعديل أو إضافة رقم بوليصة سيتحول للـ 'الشحن'" />
             </div>
 
             <div className="space-y-1 md:col-span-2">

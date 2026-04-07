@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { Package, TrendingUp, Truck, CheckCircle, Tag, Layers, MousePointerClick, DollarSign, BarChart3, Clock, Trophy, ChevronDown, ChevronUp, Star, Zap, Award } from 'lucide-react';
+import AddOrderModal from './AddOrderModal';
+import { Package, TrendingUp, Truck, CheckCircle, Tag, Layers, MousePointerClick, DollarSign, BarChart3, Clock, Trophy, ChevronDown, ChevronUp, Star, Zap, Award, Plus } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function Dashboard({ onNavigateWithFilter, userRole }) {
@@ -15,16 +16,9 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   const [expandedUser, setExpandedUser]   = useState(null);
   const [sectionOrder, setSectionOrder]   = useState(['stats', 'leaderboard', 'quickStatus', 'revenue', 'statusGrid', 'brands']);
   const [brandOrder, setBrandOrder]       = useState([]); // admin-controlled, saved to Supabase
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
-
-  // Load section order from localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('dashboardSectionOrder');
-      if (saved) setSectionOrder(JSON.parse(saved));
-    } catch { /* ignore */ }
-  }, []);
 
   // Fetch all data via RPCs
   useEffect(() => {
@@ -34,12 +28,13 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [countsRes, userStatsRes, revenueRes, usersRes, brandOrderRes] = await Promise.all([
+      const [countsRes, userStatsRes, revenueRes, usersRes, brandOrderRes, sectionOrderRes] = await Promise.all([
         supabase.rpc('get_order_counts'),
         supabase.rpc('get_user_order_stats'),
         supabase.rpc('get_monthly_revenue'),
         supabase.from('user_roles').select('id, name, role, is_approved'),
-        supabase.from('app_settings').select('value').eq('key', 'dashboard_brand_order').maybeSingle()
+        supabase.from('app_settings').select('value').eq('key', 'dashboard_brand_order').maybeSingle(),
+        supabase.from('app_settings').select('value').eq('key', 'dashboard_section_order').maybeSingle()
       ]);
 
       if (countsRes.data)  setCountsData(countsRes.data);
@@ -48,6 +43,9 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
       if (usersRes.data)   setUsers(usersRes.data);
       if (brandOrderRes.data?.value) {
         try { setBrandOrder(JSON.parse(brandOrderRes.data.value)); } catch {}
+      }
+      if (sectionOrderRes.data?.value) {
+        try { setSectionOrder(JSON.parse(sectionOrderRes.data.value)); } catch {}
       }
     } catch (e) {
       console.error(e);
@@ -208,13 +206,22 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   // ===== Section reorder (Admin only) =====
   const sectionLabels = { stats: 'الإحصائيات', leaderboard: 'المنافسة', quickStatus: 'الحالات السريعة', revenue: 'الإيرادات', statusGrid: 'بطاقات الحالات', brands: 'البراندات' };
 
+  const saveSectionOrder = useCallback(async (newOrder) => {
+    setSectionOrder(newOrder);
+    if (!isAdmin) return;
+    await supabase.from('app_settings').upsert({
+      key: 'dashboard_section_order',
+      value: JSON.stringify(newOrder),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'key' });
+  }, [isAdmin]);
+
   const moveSection = (idx, dir) => {
     const newOrder = [...sectionOrder];
     const newIdx = idx + dir;
     if (newIdx < 0 || newIdx >= newOrder.length) return;
     [newOrder[idx], newOrder[newIdx]] = [newOrder[newIdx], newOrder[idx]];
-    setSectionOrder(newOrder);
-    localStorage.setItem('dashboardSectionOrder', JSON.stringify(newOrder));
+    saveSectionOrder(newOrder);
   };
 
   const renderSection = (sectionId) => {
@@ -481,21 +488,29 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
         </div>
       ) : (
         <>
-          {/* Admin section reorder controls */}
-          {isAdmin && (
-            <div className="glass-panel p-3 rounded-xl border border-dashed border-slate-300 flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] md:text-xs font-bold text-slate-500">ترتيب الأقسام:</span>
-              {sectionOrder.map((s, i) => (
-                <div key={s} className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5 text-[9px] md:text-[10px] font-bold text-slate-600">
-                  <button onClick={() => moveSection(i, -1)} disabled={i === 0} className="hover:text-primary-600 disabled:opacity-30"><ChevronUp className="w-3 h-3" /></button>
-                  <span>{sectionLabels[s] || s}</span>
-                  <button onClick={() => moveSection(i, 1)} disabled={i === sectionOrder.length - 1} className="hover:text-primary-600 disabled:opacity-30"><ChevronDown className="w-3 h-3" /></button>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            {/* Admin section reorder controls */}
+            {isAdmin ? (
+              <div className="glass-panel p-3 rounded-xl border border-dashed border-slate-300 flex items-center gap-2 flex-wrap flex-1">
+                <span className="text-[10px] md:text-xs font-bold text-slate-500">ترتيب الأقسام:</span>
+                {sectionOrder.map((s, i) => (
+                  <div key={s} className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5 text-[9px] md:text-[10px] font-bold text-slate-600">
+                    <button onClick={() => moveSection(i, -1)} disabled={i === 0} className="hover:text-primary-600 disabled:opacity-30"><ChevronUp className="w-3 h-3" /></button>
+                    <span>{sectionLabels[s] || s}</span>
+                    <button onClick={() => moveSection(i, 1)} disabled={i === sectionOrder.length - 1} className="hover:text-primary-600 disabled:opacity-30"><ChevronDown className="w-3 h-3" /></button>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="flex-1" />}
+            
+            <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex items-center justify-center gap-1.5 px-6 py-3 text-sm font-bold shadow-lg shadow-primary-500/30 whitespace-nowrap">
+              <Plus className="w-5 h-5" /><span>إضافة أوردر جديد</span>
+            </button>
+          </div>
 
           {sectionOrder.map(sId => renderSection(sId))}
+          
+          <AddOrderModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} userRole={userRole} onSuccess={fetchData} />
         </>
       )}
     </div>

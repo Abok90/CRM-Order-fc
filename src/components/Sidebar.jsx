@@ -68,6 +68,16 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
             </button>
           );
         })}
+        
+        {/* Mobile Logout Button */}
+        <button
+          onClick={handleLogout}
+          className="flex md:hidden flex-col items-center justify-center gap-1 p-2 rounded-xl font-semibold text-rose-500 hover:bg-rose-50 transition-all duration-300 group min-w-[70px]"
+          title="تسجيل الخروج"
+        >
+          <LogOut className="w-6 h-6 transition-transform duration-300 group-hover:scale-110" />
+          <span className="text-[10px] whitespace-nowrap">خروج</span>
+        </button>
       </div>
 
       {/* Desktop user profile and logout */}

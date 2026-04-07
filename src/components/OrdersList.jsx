@@ -15,6 +15,9 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+  // Filters toggle
+  const [showFilters, setShowFilters] = useState(false);
+
   // Bulk status change
   const [bulkStatusDropdown, setBulkStatusDropdown] = useState(false);
   
@@ -407,6 +410,13 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
             <span className="text-slate-400 text-xs ml-1">المنتج:</span> {order.item || '—'}
           </div>
 
+          {order.trackingNumber && (
+             <div className="text-xs font-semibold text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 flex items-center justify-between">
+                <span className="text-slate-400">بوليصة الشحن:</span>
+                <span className="font-mono font-bold select-all bg-white px-2 py-0.5 rounded border border-slate-200" dir="ltr">{order.trackingNumber}</span>
+             </div>
+          )}
+
           {order.notes && (
             <div className="text-xs text-yellow-800 bg-yellow-50 p-2 rounded-lg font-bold border border-yellow-100">
                {order.notes}
@@ -428,7 +438,6 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     <div className="space-y-6 animate-fade-in relative h-full flex flex-col">
       {/* Table Header Controls */}
       <div className="glass-panel p-3 flex flex-col gap-3 sticky top-0 z-20">
-        {/* Row 1: Search + Status + Brand + Actions */}
         <div className="flex flex-col md:flex-row gap-2 items-stretch md:items-center">
           <div className="relative flex-1 min-w-0">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -440,15 +449,15 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
               className="custom-input pl-4 pr-9 w-full text-sm"
             />
           </div>
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="custom-input w-full md:w-36 cursor-pointer text-sm">
-            <option value="الكل">كل الحالات</option>
-            {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select value={pageFilter} onChange={(e) => { setPageFilter(e.target.value); setPage(1); }} className="custom-input w-full md:w-36 cursor-pointer text-sm">
-            <option value="الكل">كل البراندات</option>
-            {AVAILABLE_PAGES.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <div className="flex gap-2 flex-shrink-0">
+          
+          <button 
+            onClick={() => setShowFilters(!showFilters)} 
+            className={clsx("btn-secondary p-2 md:px-4 flex items-center justify-center gap-2 text-sm", showFilters && "bg-slate-100 ring-2 ring-primary-500/20")}
+          >
+            <Filter className="w-4 h-4" /> <span>{showFilters ? 'إخفاء الفلاتر' : 'تصفية'}</span>
+          </button>
+          
+          <div className="flex gap-2 flex-shrink-0 justify-end mt-2 md:mt-0">
             <button onClick={fetchOrders} className="btn-secondary p-2" title="تحديث">
               <RefreshCw className={clsx("w-4 h-4", loading && "animate-spin text-primary-600")} />
             </button>
@@ -459,32 +468,45 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
               <FileSpreadsheet className="w-4 h-4" />
             </button>
             <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex items-center gap-1.5 px-3 py-2 text-sm">
-              <Plus className="w-4 h-4" /><span>إضافة أوردر</span>
+              <Plus className="w-4 h-4" /><span className="hidden sm:inline">إضافة أوردر</span>
             </button>
           </div>
         </div>
 
-        {/* Row 2: Date filter + Clear + Bulk status */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <Filter className="w-3.5 h-3.5" /> من:
+        {showFilters && (
+          <div className="flex flex-wrap gap-2 items-center bg-slate-50/80 p-2 md:p-3 rounded-xl border border-slate-200 animate-fade-in shadow-inner">
+            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="custom-input w-full md:w-36 cursor-pointer text-sm py-1.5">
+              <option value="الكل">كل الحالات</option>
+              {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            
+            <select value={pageFilter} onChange={(e) => { setPageFilter(e.target.value); setPage(1); }} className="custom-input w-full md:w-36 cursor-pointer text-sm py-1.5">
+              <option value="الكل">كل البراندات</option>
+              {AVAILABLE_PAGES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+              من:
+            </div>
+            <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+              className="custom-input text-xs py-1.5 w-full md:w-36 cursor-pointer" />
+            <span className="text-xs font-bold text-slate-400">إلى:</span>
+            <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }}
+              className="custom-input text-xs py-1.5 w-full md:w-36 cursor-pointer" />
+
+            {hasActiveFilters && (
+              <button onClick={clearAllFilters}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors mr-auto">
+                ✖ إلغاء الفلتر
+              </button>
+            )}
           </div>
-          <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }}
-            className="custom-input text-xs py-1.5 w-36 cursor-pointer" />
-          <span className="text-xs font-bold text-slate-400">إلى:</span>
-          <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }}
-            className="custom-input text-xs py-1.5 w-36 cursor-pointer" />
+        )}
 
-          {hasActiveFilters && (
-            <button onClick={clearAllFilters}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
-              ✖ إلغاء الفلتر
-            </button>
-          )}
-
+        <div className="flex items-center">
           {/* Bulk status change */}
           {selectedOrders.size > 0 && (
-            <div className="relative mr-auto">
+            <div className="relative">
               <button
                 onClick={() => setBulkStatusDropdown(v => !v)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-50 text-amber-700 border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors shadow-sm"
@@ -528,6 +550,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
               <th className="px-4 py-4">العميل</th>
               <th className="px-4 py-4">المنتج</th>
               <th className="px-4 py-4">الحالة</th>
+              <th className="px-4 py-4">البوليصة</th>
               <th className="px-4 py-4">الملاحظات</th>
               <th className="px-4 py-4">الإجمالي (ج.م)</th>
               <th className="px-4 py-4">التاريخ</th>
@@ -609,6 +632,13 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                   </td>
                   <td className="px-4 py-3">
                     {renderStatusBadge(order)}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {order.trackingNumber ? (
+                      <span className="font-mono text-[10px] bg-slate-50 text-slate-700 px-2 py-1.5 rounded-lg border border-slate-200 select-all" dir="ltr">{order.trackingNumber}</span>
+                    ) : (
+                      <span className="text-slate-300 text-xs">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="max-w-[150px] truncate text-slate-600 text-xs font-semibold bg-white/50 px-2 py-1 rounded" title={order.notes}>

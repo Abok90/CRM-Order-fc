@@ -8,7 +8,7 @@ import DailyProductsView from './components/DailyProductsView';
 import FinanceView from './components/FinanceView';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
-import { Lock, Mail, LogIn, UserPlus } from 'lucide-react';
+import { Lock, Mail, LogIn, UserPlus, Settings as SettingsIcon, ZoomIn, ZoomOut } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -27,6 +27,15 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isLoginMode, setIsLoginMode] = useState(true);
+
+  // UI Accessibility Zoom Settings
+  const [zoomLevel, setZoomLevel] = useState(Number(localStorage.getItem('appZoom')) || 1);
+  const [showConfig, setShowConfig] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${zoomLevel * 16}px`;
+    localStorage.setItem('appZoom', zoomLevel.toString());
+  }, [zoomLevel]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -194,6 +203,32 @@ function App() {
         {currentTab === 'finance' && <FinanceView />}
         {currentTab === 'reports' && <Reports userRole={userRole} />}
         {currentTab === 'settings' && <Settings userRole={userRole} />}
+        
+        {/* Floating Accessibility Settings Gear */}
+        <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50">
+          <button 
+            onClick={() => setShowConfig(!showConfig)} 
+            className="w-12 h-12 bg-white text-primary-600 rounded-full shadow-2xl flex items-center justify-center border border-primary-100 hover:scale-110 transition-transform"
+            title="إعدادات الرؤية"
+          >
+             <SettingsIcon className="w-6 h-6 hover:animate-spin" />
+          </button>
+          
+          {showConfig && (
+            <div className="absolute bottom-full right-0 mb-4 bg-white p-4 rounded-2xl shadow-2xl border border-slate-100 w-64 animate-fade-in flex flex-col gap-4">
+               <h4 className="font-bold text-slate-800 text-sm border-b pb-2 flex justify-between items-center">
+                 إعدادات العرض (Zoom)
+                 <button onClick={() => setShowConfig(false)} className="text-slate-400 hover:text-slate-700 text-xs text-rose-500 font-bold px-2 py-0.5 rounded-md hover:bg-rose-50">إغلاق</button>
+               </h4>
+               <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl">
+                   <button onClick={() => setZoomLevel(z => Math.max(0.6, parseFloat((z - 0.1).toFixed(1))))} className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 shadow-sm"><ZoomOut className="w-5 h-5"/></button>
+                   <span className="font-black text-primary-600 font-mono text-lg" dir="ltr">{Math.round(zoomLevel * 100)}%</span>
+                   <button onClick={() => setZoomLevel(z => Math.min(1.5, parseFloat((z + 0.1).toFixed(1))))} className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 shadow-sm"><ZoomIn className="w-5 h-5"/></button>
+               </div>
+               <button onClick={() => setZoomLevel(1)} className="text-xs text-slate-500 hover:text-slate-800 font-bold w-full text-center hover:bg-slate-50 py-1.5 rounded-lg transition-colors">إعادة الحجم الافتراضي (100%)</button>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
