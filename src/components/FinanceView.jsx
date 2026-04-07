@@ -76,7 +76,7 @@ export default function FinanceView() {
   const totalExpense = useMemo(() => records.filter(r => r.type === 'expense').reduce((s, r) => s + (Number(r.amount) || 0), 0), [records]);
   const totalIncome = useMemo(() => records.filter(r => r.type === 'income').reduce((s, r) => s + (Number(r.amount) || 0), 0), [records]);
   const filteredTotal = filteredRecords.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-  const net = (totalIncome + orderStats.totalIncome) - totalExpense;
+  const net = totalIncome - totalExpense;
 
   const openModal = (type, record = null) => {
     if (record) {
@@ -134,9 +134,9 @@ export default function FinanceView() {
         </div>
         <div className="glass-panel p-4 md:p-6 rounded-2xl shadow-sm border border-white flex flex-col gap-2 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-2 h-full bg-green-500"></div>
-          <p className="text-slate-500 text-xs md:text-sm font-bold">إجمالي الإيرادات (التحصيلات)</p>
-          <p className="text-2xl md:text-3xl font-black text-green-600">{(totalIncome + orderStats.totalIncome).toLocaleString()} <span className="text-sm">ج.م</span></p>
-          <p className="text-[10px] text-slate-400 font-bold">{orderStats.deliveredCount} أوردر مسلم + {records.filter(r => r.type === 'income').length} سجل يدوي</p>
+          <p className="text-slate-500 text-xs md:text-sm font-bold">إجمالي الإيرادات اليدوية</p>
+          <p className="text-2xl md:text-3xl font-black text-green-600">{totalIncome.toLocaleString()} <span className="text-sm">ج.م</span></p>
+          <p className="text-[10px] text-slate-400 font-bold mt-1 border-t border-slate-100 pt-1">تحصيلات الأوردرات (تم): <span className="text-slate-700 font-black">{orderStats.totalIncome.toLocaleString()} ج.م</span> — {orderStats.deliveredCount} أوردر</p>
         </div>
         <div className="glass-panel p-4 md:p-6 rounded-2xl shadow-sm border border-white flex flex-col gap-2 relative overflow-hidden bg-slate-800 text-white">
           <p className="text-slate-300 text-xs md:text-sm font-bold">الصافي</p>

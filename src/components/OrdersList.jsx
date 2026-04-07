@@ -12,6 +12,11 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('الكل');
   const [pageFilter, setPageFilter] = useState('الكل');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  // Bulk status change
+  const [bulkStatusDropdown, setBulkStatusDropdown] = useState(false);
   
   const [page, setPage] = useState(1);
   const itemsPerPage = 50;
@@ -112,6 +117,31 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       if (error) throw error;
       // Update locally for instant feedback
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    } catch (err) {
+      alert('خطأ في تغيير الحالة: ' + err.message);
+    }
+  };
+
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('الكل');
+    setPageFilter('الكل');
+    setDateFrom('');
+    setDateTo('');
+    setPage(1);
+  };
+
+  const hasActiveFilters = searchQuery || statusFilter !== 'الكل' || pageFilter !== 'الكل' || dateFrom || dateTo;
+
+  const handleBulkStatusChange = async (newStatus) => {
+    if (selectedOrders.size === 0) return;
+    setBulkStatusDropdown(false);
+    try {
+      const ids = [...selectedOrders];
+      const { error } = await supabase.from('orders').update({ status: newStatus }).in('id', ids);
+      if (error) throw error;
+      setOrders(prev => prev.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus } : o));
+      setSelectedOrders(new Set());
     } catch (err) {
       alert('خطأ في تغيير الحالة: ' + err.message);
     }
@@ -224,9 +254,11 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       }
       
       if (pageFilter !== 'الكل') {
-        // Use ilike to handle any trailing/leading spaces in the DB
         query = query.ilike('page', `%${pageFilter}%`);
       }
+
+      if (dateFrom) query = query.gte('date', dateFrom);
+      if (dateTo)   query = query.lte('date', dateTo);
 
       if (searchQuery.trim().length >= 3) {
         query = query.or(`customer.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%,id.ilike.%${searchQuery}%,trackingNumber.ilike.%${searchQuery}%`);
@@ -266,7 +298,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       fetchOrders();
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, statusFilter, pageFilter, page]);
+  }, [searchQuery, statusFilter, pageFilter, dateFrom, dateTo, page]);
 
   // Close status dropdown on outside click
   useEffect(() => {
@@ -395,59 +427,86 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   return (
     <div className="space-y-6 animate-fade-in relative h-full flex flex-col">
       {/* Table Header Controls */}
-      <div className="glass-panel p-4 flex flex-col md:flex-row gap-4 items-center justify-between sticky top-0 z-20">
-        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
-          <div className="relative w-full md:w-80">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="ابحث برقم الطلب، الاسم، أو الموبايل..." 
+      <div className="glass-panel p-3 flex flex-col gap-3 sticky top-0 z-20">
+        {/* Row 1: Search + Status + Brand + Actions */}
+        <div className="flex flex-col md:flex-row gap-2 items-stretch md:items-center">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="ابحث برقم الطلب، الاسم، أو الموبايل..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-              className="custom-input pl-4 pr-10 hover:shadow-md transition-shadow w-full"
+              className="custom-input pl-4 pr-9 w-full text-sm"
             />
           </div>
-          
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <select 
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-              className="custom-input w-full md:w-40 cursor-pointer"
-            >
-              <option value="الكل">جميع الحالات</option>
-              {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-
-            <select 
-              value={pageFilter}
-              onChange={(e) => { setPageFilter(e.target.value); setPage(1); }}
-              className="custom-input w-full md:w-40 cursor-pointer"
-            >
-              <option value="الكل">كل البراندات</option>
-              {AVAILABLE_PAGES.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="custom-input w-full md:w-36 cursor-pointer text-sm">
+            <option value="الكل">كل الحالات</option>
+            {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select value={pageFilter} onChange={(e) => { setPageFilter(e.target.value); setPage(1); }} className="custom-input w-full md:w-36 cursor-pointer text-sm">
+            <option value="الكل">كل البراندات</option>
+            {AVAILABLE_PAGES.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={fetchOrders} className="btn-secondary p-2" title="تحديث">
+              <RefreshCw className={clsx("w-4 h-4", loading && "animate-spin text-primary-600")} />
+            </button>
+            <button onClick={handlePrint} className="btn-secondary p-2 text-indigo-600" title="طباعة">
+              <Printer className="w-4 h-4" />
+            </button>
+            <button onClick={exportToExcel} className="btn-secondary p-2 text-emerald-600" title="تصدير إكسيل">
+              <FileSpreadsheet className="w-4 h-4" />
+            </button>
+            <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex items-center gap-1.5 px-3 py-2 text-sm">
+              <Plus className="w-4 h-4" /><span>إضافة أوردر</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-2 w-full md:w-auto flex-wrap">
-          <button onClick={fetchOrders} className="btn-secondary flex-1 md:flex-none justify-center flex items-center gap-2 group p-2 px-3">
-            <RefreshCw className={clsx("w-4 h-4 text-slate-600 transition-transform", loading && "animate-spin text-primary-600")} />
-          </button>
+        {/* Row 2: Date filter + Clear + Bulk status */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+            <Filter className="w-3.5 h-3.5" /> من:
+          </div>
+          <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+            className="custom-input text-xs py-1.5 w-36 cursor-pointer" />
+          <span className="text-xs font-bold text-slate-400">إلى:</span>
+          <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }}
+            className="custom-input text-xs py-1.5 w-36 cursor-pointer" />
 
-          <button onClick={handlePrint} className="btn-secondary flex-1 md:flex-none justify-center flex items-center gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300">
-            <Printer className="w-4 h-4" />
-            <span className="hidden sm:inline">طباعة</span>
-          </button>
-          
-          <button onClick={exportToExcel} className="btn-secondary flex-1 md:flex-none justify-center flex items-center gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300">
-            <FileSpreadsheet className="w-4 h-4" />
-            <span className="hidden sm:inline">إكسيل</span>
-          </button>
+          {hasActiveFilters && (
+            <button onClick={clearAllFilters}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
+              ✖ إلغاء الفلتر
+            </button>
+          )}
 
-          <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex-1 md:flex-none justify-center flex items-center gap-2 shadow-primary-500/40">
-            <Plus className="w-5 h-5" />
-            <span>إضافة أوردر</span>
-          </button>
+          {/* Bulk status change */}
+          {selectedOrders.size > 0 && (
+            <div className="relative mr-auto">
+              <button
+                onClick={() => setBulkStatusDropdown(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-50 text-amber-700 border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors shadow-sm"
+              >
+                ✏️ تغيير حالة {selectedOrders.size} أوردر
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              {bulkStatusDropdown && (
+                <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 min-w-[150px] py-1">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 border-b">اختر الحالة الجديدة</div>
+                  {ALL_STATUSES.map(s => (
+                    <button key={s} onClick={() => handleBulkStatusChange(s)}
+                      className={clsx("w-full text-right px-3 py-2 text-xs font-bold hover:bg-slate-50 flex items-center gap-2",
+                        STATUS_STYLES[s]?.badge ? STATUS_STYLES[s].badge.split(' ')[1] : 'text-slate-700'
+                      )}>
+                      <span className={clsx("px-1.5 py-0.5 rounded text-[10px]", STATUS_STYLES[s]?.badge || 'bg-slate-100')}>{s}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -604,23 +663,19 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
       {/* Pagination Footer */}
       {!loading && orders.length > 0 && (
-         <div className="glass-panel p-4 flex items-center justify-between text-sm font-semibold text-slate-600 sticky bottom-0 z-20">
-            <button 
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded disabled:opacity-50 transition-colors"
-            >
-              السابق
-            </button>
-            <span>الصفحة {page}</span>
-            <button 
-              onClick={() => setPage(p => p + 1)}
-              disabled={orders.length < itemsPerPage}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded disabled:opacity-50 transition-colors"
-            >
-              التالي
-            </button>
-         </div>
+        <div className="flex items-center justify-center gap-2 py-1 sticky bottom-0 z-20">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+            className="px-3 py-1 text-xs font-bold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 shadow-sm transition-colors">
+            ← السابق
+          </button>
+          <span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-3 py-1 rounded-lg shadow-sm">
+            صفحة {page}
+          </span>
+          <button onClick={() => setPage(p => p + 1)} disabled={orders.length < itemsPerPage}
+            className="px-3 py-1 text-xs font-bold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 shadow-sm transition-colors">
+            التالي →
+          </button>
+        </div>
       )}
 
       <AddOrderModal 

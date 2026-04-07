@@ -13,8 +13,9 @@ import {
 import clsx from 'clsx';
 
 export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLogout }) {
-  const isSuperAdmin = ['admin', 'owner', 'social_manager', 'media_buyer'].includes(userRole?.role);
-  const canAccessFinance = ['admin', 'owner'].includes(userRole?.role);
+  const isSuperAdmin = ['admin', 'brand_owner', 'pages_manager', 'owner'].includes(userRole?.role);
+  const canAccessFinance = ['admin', 'brand_owner', 'owner'].includes(userRole?.role);
+  const canAccessReports = ['admin', 'brand_owner', 'owner'].includes(userRole?.role);
 
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة', icon: Home },
@@ -22,7 +23,7 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
     ...(isSuperAdmin ? [{ id: 'users', label: 'الموظفين', icon: Users }] : []),
     ...(isSuperAdmin ? [{ id: 'daily_products', label: 'منتجات اليوم', icon: ClipboardList }] : []),
     ...(canAccessFinance ? [{ id: 'finance', label: 'المالية', icon: Wallet }] : []),
-    ...(isSuperAdmin ? [{ id: 'reports', label: 'التقارير', icon: LineChart }] : []),
+    ...(canAccessReports ? [{ id: 'reports', label: 'التقارير', icon: LineChart }] : []),
     { id: 'settings', label: 'الإعدادات', icon: Settings }
   ];
 

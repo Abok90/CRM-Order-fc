@@ -192,7 +192,7 @@ function App() {
         {currentTab === 'users' && <UsersList userRole={userRole} />}
         {currentTab === 'daily_products' && <DailyProductsView />}
         {currentTab === 'finance' && <FinanceView />}
-        {currentTab === 'reports' && <Reports />}
+        {currentTab === 'reports' && <Reports userRole={userRole} />}
         {currentTab === 'settings' && <Settings userRole={userRole} />}
       </main>
     </div>

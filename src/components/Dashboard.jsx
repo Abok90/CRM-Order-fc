@@ -24,7 +24,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
     const fetchData = async () => {
       try {
         const [ordersRes, usersRes] = await Promise.all([
-          supabase.from('orders').select('id, status, page, productPrice, shippingPrice, created_at, user_id, date'),
+          supabase.from('orders').select('id, status, page, productPrice, shippingPrice, created_at, user_id, date').limit(5000),
           supabase.from('user_roles').select('id, name, role, is_approved')
         ]);
         if (ordersRes.error) throw ordersRes.error;
@@ -39,7 +39,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
     fetchData();
   }, []);
 
-  const isAdmin = userRole?.role === 'admin' || userRole?.role === 'super_admin' || userRole?.role === 'owner';
+  const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
 
   // ===== Status counts =====
   const statusCounts = useMemo(() => orders.reduce((acc, curr) => {

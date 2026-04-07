@@ -3,7 +3,8 @@ import { supabase } from '../utils/supabaseClient';
 import { PieChart, BarChart3, Activity, Calendar, Tag, Store } from 'lucide-react';
 import clsx from 'clsx';
 
-export default function Reports() {
+export default function Reports({ userRole }) {
+  const isAdmin = ['admin', 'brand_owner'].includes(userRole?.role);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
   const [statsDateFrom, setStatsDateFrom] = useState('');
@@ -202,20 +203,22 @@ export default function Reports() {
                         <h3 className="font-black text-lg md:text-2xl text-sky-900">{page}</h3>
                         <p className="text-slate-500 text-[10px] md:text-sm font-bold mt-1">إجمالي أوردرات الصفحة: <span className="text-slate-800">{pageOrders.length}</span></p>
                       </div>
-                      <div className="flex flex-col gap-0.5">
-                        <button
-                          onClick={() => movePage(page, -1)}
-                          disabled={idx === 0}
-                          className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none font-bold"
-                          title="تحريك لأعلى"
-                        >↑</button>
-                        <button
-                          onClick={() => movePage(page, 1)}
-                          disabled={idx === pages.length - 1}
-                          className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none font-bold"
-                          title="تحريك لأسفل"
-                        >↓</button>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            onClick={() => movePage(page, -1)}
+                            disabled={idx === 0}
+                            className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none font-bold"
+                            title="تحريك لأعلى"
+                          >↑</button>
+                          <button
+                            onClick={() => movePage(page, 1)}
+                            disabled={idx === pages.length - 1}
+                            className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none font-bold"
+                            title="تحريك لأسفل"
+                          >↓</button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mb-4 md:mb-6">

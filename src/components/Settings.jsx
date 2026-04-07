@@ -11,7 +11,7 @@ export default function Settings({ userRole }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState({ text: '', type: '' });
 
-  const isAdmin = userRole?.role === 'admin' || userRole?.role === 'super_admin' || userRole?.role === 'owner';
+  const isAdmin = ['admin', 'brand_owner', 'owner'].includes(userRole?.role);
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
