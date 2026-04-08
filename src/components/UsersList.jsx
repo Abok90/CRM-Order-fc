@@ -40,7 +40,15 @@ export default function UsersList({ userRole }) {
   const updateUser = async (userId, fields) => {
     try {
       const { error } = await supabase.from('user_roles').update(fields).eq('id', userId);
-      if (error) throw error;
+      if (error) {
+        // Guide user if a column is missing in the DB schema
+        if (error.message?.includes('column') && error.message?.includes('schema cache')) {
+          const col = Object.keys(fields)[0];
+          alert(`حدث خطأ: عمود "${col}" غير موجود في قاعدة البيانات.\n\nشغّل هذا الأمر في Supabase SQL Editor:\nALTER TABLE user_roles ADD COLUMN IF NOT EXISTS ${col} text;`);
+          return;
+        }
+        throw error;
+      }
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...fields } : u));
     } catch (err) {
       alert('حدث خطأ: ' + err.message);
