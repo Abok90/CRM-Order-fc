@@ -8,7 +8,8 @@ import {
   Wallet,
   Building2,
   ClipboardList,
-  LineChart
+  LineChart,
+  Plus
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -19,6 +20,7 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
 
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة', icon: Home },
+    { id: 'add_order_modal_trigger', label: 'إضافة أوردر', icon: Plus, isAction: true },
     { id: 'orders', label: 'الطلبات', icon: Package },
     ...(isSuperAdmin ? [{ id: 'users', label: 'الموظفين', icon: Users }] : []),
     ...(isSuperAdmin ? [{ id: 'daily_products', label: 'منتجات اليوم', icon: ClipboardList }] : []),
@@ -49,6 +51,21 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
           const Icon = item.icon;
           const isActive = currentTab === item.id;
           
+          if (item.isAction) {
+            return (
+              <button
+                key={item.id}
+                onClick={() => window.dispatchEvent(new Event('open-add-order'))}
+                className="flex md:hidden flex-col items-center justify-center gap-1 p-2 rounded-xl font-semibold transition-all duration-300 text-sky-600 hover:bg-sky-50 min-w-[70px]"
+              >
+                <div className="bg-sky-500 text-white rounded-full p-2.5 shadow-lg shadow-sky-500/40 -mt-6 ring-4 ring-white">
+                   <Icon className="w-5 h-5 transition-transform duration-300 hover:scale-110" />
+                </div>
+                <span className="text-[9px] whitespace-nowrap mt-1 font-bold">أوردر</span>
+              </button>
+            );
+          }
+
           return (
             <button
               key={item.id}

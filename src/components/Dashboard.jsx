@@ -43,19 +43,19 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
         supabase.rpc('get_user_order_stats'),
         supabase.rpc('get_monthly_revenue'),
         supabase.from('user_roles').select('id, name, role, is_approved'),
-        supabase.from('app_settings').select('value').eq('key', 'dashboard_brand_order').maybeSingle(),
-        supabase.from('app_settings').select('value').eq('key', 'dashboard_section_order').maybeSingle()
+        supabase.from('app_settings').select('settings_value').eq('settings_key', 'dashboard_brand_order').maybeSingle(),
+        supabase.from('app_settings').select('settings_value').eq('settings_key', 'dashboard_section_order').maybeSingle()
       ]);
 
       if (countsRes.data)  setCountsData(countsRes.data);
       if (userStatsRes.data) setUserStatsData(userStatsRes.data);
       if (revenueRes.data) setRevenueData([...revenueRes.data].reverse()); // oldest→newest for chart
       if (usersRes.data)   setUsers(usersRes.data);
-      if (brandOrderRes.data?.value) {
-        try { setBrandOrder(JSON.parse(brandOrderRes.data.value)); } catch {}
+      if (brandOrderRes.data?.settings_value) {
+        try { setBrandOrder(JSON.parse(brandOrderRes.data.settings_value)); } catch {}
       }
-      if (sectionOrderRes.data?.value) {
-        try { setSectionOrder(JSON.parse(sectionOrderRes.data.value)); } catch {}
+      if (sectionOrderRes.data?.settings_value) {
+        try { setSectionOrder(JSON.parse(sectionOrderRes.data.settings_value)); } catch {}
       }
     } catch (e) {
       console.error(e);
@@ -112,10 +112,10 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
     setBrandOrder(newOrder);
     if (!isAdmin) return;
     await supabase.from('app_settings').upsert({
-      key: 'dashboard_brand_order',
-      value: JSON.stringify(newOrder),
+      settings_key: 'dashboard_brand_order',
+      settings_value: JSON.stringify(newOrder),
       updated_at: new Date().toISOString()
-    }, { onConflict: 'key' });
+    }, { onConflict: 'settings_key' });
   }, [isAdmin]);
 
   const moveBrand = useCallback((pgName, dir) => {
@@ -220,10 +220,10 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
     setSectionOrder(newOrder);
     if (!isAdmin) return;
     await supabase.from('app_settings').upsert({
-      key: 'dashboard_section_order',
-      value: JSON.stringify(newOrder),
+      settings_key: 'dashboard_section_order',
+      settings_value: JSON.stringify(newOrder),
       updated_at: new Date().toISOString()
-    }, { onConflict: 'key' });
+    }, { onConflict: 'settings_key' });
   }, [isAdmin]);
 
   const moveSection = (idx, dir) => {
@@ -520,7 +520,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
               </div>
             ) : <div className="flex-1" />}
             
-            <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex items-center justify-center gap-1.5 px-6 py-3 text-sm font-bold shadow-lg shadow-primary-500/30 whitespace-nowrap">
+            <button onClick={() => setIsAddModalOpen(true)} className="hidden md:flex btn-primary flex items-center justify-center gap-1.5 px-6 py-3 text-sm font-bold shadow-lg shadow-primary-500/30 whitespace-nowrap">
               <Plus className="w-5 h-5" /><span>إضافة أوردر جديد</span>
             </button>
           </div>

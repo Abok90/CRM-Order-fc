@@ -9,7 +9,8 @@ import FinanceView from './components/FinanceView';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 import SystemLogsModal from './components/SystemLogsModal';
-import { Lock, Mail, LogIn, UserPlus, Settings as SettingsIcon, ZoomIn, ZoomOut, Moon, Sun, LogOut, User, BellRing } from 'lucide-react';
+import AddOrderModal from './components/AddOrderModal';
+import { Lock, Mail, LogIn, UserPlus, Settings as SettingsIcon, ZoomIn, ZoomOut, Moon, Sun, LogOut, User, BellRing, Edit2 } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -34,6 +35,13 @@ function App() {
   const [theme, setTheme] = useState(localStorage.getItem('appTheme') || 'light');
   const [showConfig, setShowConfig] = useState(false);
   const [isLogsOpen, setIsLogsOpen] = useState(false);
+  const [isGlobalAddModalOpen, setIsGlobalAddModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenModal = () => setIsGlobalAddModalOpen(true);
+    window.addEventListener('open-add-order', handleOpenModal);
+    return () => window.removeEventListener('open-add-order', handleOpenModal);
+  }, []);
 
   const isAdmin = ['admin', 'super_admin', 'brand_owner', 'owner'].includes(userRole?.role);
 
@@ -117,6 +125,20 @@ function App() {
   if (appLoading) {
     return <div className="flex items-center justify-center h-screen bg-slate-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div></div>;
   }
+
+  const handleEditName = async () => {
+    const newName = prompt('أدخل اسمك الجديد:', userRole?.name || '');
+    if (!newName || newName.trim() === '' || newName === userRole?.name) return;
+    
+    try {
+      const { error } = await supabase.from('user_roles').update({ name: newName.trim() }).eq('id', userRole.id);
+      if (error) throw error;
+      setUserRole({ ...userRole, name: newName.trim() });
+      alert('تم تحديث الاسم بنجاح!');
+    } catch (err) {
+      alert('حدث خطأ أثناء تحديث الاسم: ' + err.message);
+    }
+  };
 
   if (!session) {
     return (
@@ -231,13 +253,18 @@ function App() {
           {showConfig && (
             <div className="absolute bottom-full right-0 md:right-auto md:left-0 mb-4 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 w-64 animate-fade-in flex flex-col gap-4">
                {/* Mobile Profile Display */}
-               <div className="flex md:hidden items-center gap-3 border-b border-slate-100 dark:border-slate-700 pb-3">
-                 <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-600 dark:text-primary-300">
-                    <User className="w-5 h-5" />
-                 </div>
-                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{userRole?.name || 'مستخدم'}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{userRole?.role || ''}</p>
+               <div className="flex flex-col gap-3 border-b border-slate-100 dark:border-slate-700 pb-3">
+                 <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-600 dark:text-primary-300 shrink-0">
+                      <User className="w-5 h-5" />
+                   </div>
+                   <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{userRole?.name || 'مستخدم'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{userRole?.role || ''}</p>
+                   </div>
+                   <button onClick={handleEditName} className="p-1.5 text-slate-400 hover:text-primary-600 bg-slate-50 hover:bg-slate-100 rounded-lg shrink-0">
+                      <Edit2 className="w-4 h-4" />
+                   </button>
                  </div>
                </div>
 
@@ -290,6 +317,15 @@ function App() {
       </main>
 
       {isAdmin && <SystemLogsModal isOpen={isLogsOpen} onClose={() => setIsLogsOpen(false)} />}
+      
+      {isGlobalAddModalOpen && (
+        <AddOrderModal 
+          isOpen={isGlobalAddModalOpen} 
+          onClose={() => setIsGlobalAddModalOpen(false)} 
+          userRole={userRole} 
+          onSuccess={() => window.location.reload()} // simplest reliable refresh for now
+        />
+      )}
     </div>
   );
 }

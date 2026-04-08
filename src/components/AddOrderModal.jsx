@@ -60,6 +60,12 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     }
   };
 
+  const handleNumericInput = (field, e) => {
+    let rawVal = e.target.value.toString();
+    const englishVal = rawVal.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[^\d.]/g, '');
+    setOrder(prev => ({ ...prev, [field]: englishVal }));
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -89,11 +95,11 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
             
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">المنتج <span className="text-rose-500">*</span></label>
-              <input required value={order.item} onChange={e => setOrder({...order, item: e.target.value})} type="text" className="custom-input" placeholder="اسم المنتج وتفاصيله" />
+              <textarea required rows="2" value={order.item} onChange={e => setOrder({...order, item: e.target.value})} className="custom-input" placeholder="اسم المنتج وتفاصيله (اضغط Enter للمنتج التالي)"></textarea>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">الكمية</label>
-              <input value={order.quantity} onChange={e => setOrder({...order, quantity: e.target.value})} type="number" min="1" className="custom-input" />
+              <input value={order.quantity} onChange={(e) => handleNumericInput('quantity', e)} type="text" inputMode="numeric" min="1" className="custom-input" />
             </div>
             
             <div className="space-y-1">
@@ -105,12 +111,12 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
             
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">سعر المنتج (ج.م) <span className="text-rose-500">*</span></label>
-              <input required value={order.productPrice} onChange={e => setOrder({...order, productPrice: e.target.value})} type="number" className="custom-input" placeholder="مثال: 350" />
+              <input required value={order.productPrice} onChange={(e) => handleNumericInput('productPrice', e)} type="text" inputMode="numeric" className="custom-input" placeholder="مثال: 350" />
             </div>
 
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">سعر الشحن (ج.م) <span className="text-rose-500">*</span></label>
-              <input required value={order.shippingPrice} onChange={e => setOrder({...order, shippingPrice: e.target.value})} type="number" className="custom-input" placeholder="مثال: 50" />
+              <input required value={order.shippingPrice} onChange={(e) => handleNumericInput('shippingPrice', e)} type="text" inputMode="numeric" className="custom-input" placeholder="مثال: 50" />
             </div>
 
             <div className="space-y-1 md:col-span-2 text-left bg-slate-50 p-4 rounded-lg flex items-center justify-between border border-slate-100">
