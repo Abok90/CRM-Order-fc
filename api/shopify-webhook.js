@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -23,13 +23,13 @@ function verifyHmac(rawBody, receivedHmac, secret) {
 function getStore(shopDomain) {
   const d = (shopDomain || '').toLowerCase();
   if (d.includes('aidaset') || d.includes('hfgnj')) {
-    return { secret: process.env.SHOPIFY_AIDA_WEBHOOK_SECRET, storeKey: 'aida_web', pageName: 'عايدة ويب' };
+    return { secret: process.env.SHOPIFY_AIDA_WEBHOOK_SECRET, storeKey: 'aida_web', pageName: 'عايدة ويب', url: shopDomain };
   }
   if (d.includes('oversizewear') || d.includes('febwqx-4i')) {
-    return { secret: process.env.SHOPIFY_OFFER_WEBHOOK_SECRET, storeKey: 'offer_web', pageName: 'اوفر ويب' };
+    return { secret: process.env.SHOPIFY_OFFER_WEBHOOK_SECRET, storeKey: 'offer_web', pageName: 'اوفر ويب', url: shopDomain };
   }
   if (d.includes('dvy00c-va') || d.includes('vee-9523') || d.includes('veeegypt')) {
-    return { secret: process.env.SHOPIFY_VEE_WEBHOOK_SECRET, storeKey: 'vee_web', pageName: 'VEE' };
+    return { secret: process.env.SHOPIFY_VEE_WEBHOOK_SECRET, storeKey: 'vee_web', pageName: 'VEE', url: shopDomain };
   }
   return null;
 }
@@ -120,6 +120,7 @@ async function handler(req, res) {
         source: 'shopify',
         date: new Date().toISOString().split('T')[0],
         product_urls: productUrls.length > 0 ? JSON.stringify(productUrls) : null,
+        user_id: null,
       });
       console.log(`[webhook] Inserted order ${order.name}`);
 
@@ -157,12 +158,12 @@ async function handler(req, res) {
       console.log(`[webhook] Ignored topic: ${topic}`);
     }
   } catch (err) {
-    console.error(`[webhook] Error: ${err.message}`);
+    console.error(`[webhook] Error processing ${topic} for ${shopDomain}: ${err.message}`);
     return res.status(200).json({ ok: false, error: err.message });
   }
 
   return res.status(200).json({ ok: true });
 }
 
-module.exports = handler;
-module.exports.config = { api: { bodyParser: false } };
+export default handler;
+export const config = { api: { bodyParser: false } };
