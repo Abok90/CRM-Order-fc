@@ -47,24 +47,40 @@
 }
 
 @layer base {
-  html.dark body { @apply bg-slate-900 text-slate-100; }
+  html.dark body { background-color: #0f172a; color: #f1f5f9; }
   
-  html.dark .bg-white { @apply bg-slate-800 border-slate-700 !text-slate-100; }
-  html.dark .bg-slate-50 { @apply bg-slate-900 border-slate-700 !text-slate-200; }
-  html.dark .text-slate-800, html.dark .text-slate-700, html.dark .text-slate-600 { @apply !text-slate-200; }
-  html.dark .text-slate-500, html.dark .text-slate-400 { @apply !text-slate-400; }
-  html.dark .border, html.dark .border-slate-100, html.dark .border-slate-200, html.dark .border-white { @apply !border-slate-700; }
+  html.dark .bg-white { background-color: #1e293b !important; color: #f1f5f9 !important; border-color: #334155 !important; }
+  html.dark .bg-slate-50 { background-color: #0f172a !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+  html.dark .text-slate-800, html.dark .text-slate-700, html.dark .text-slate-600 { color: #e2e8f0 !important; }
+  html.dark .text-slate-500, html.dark .text-slate-400 { color: #94a3b8 !important; }
+  html.dark .border, html.dark .border-slate-100, html.dark .border-slate-200, html.dark .border-white { border-color: #334155 !important; }
   
   html.dark .glass-panel {
-    @apply bg-slate-800/80 border-slate-700 backdrop-blur-md shadow-[0_8px_32px_0_rgba(0,0,0,0.3)];
+    background-color: rgba(30, 41, 59, 0.8) !important;
+    border-color: #334155 !important;
+    box-shadow: 0 8px 32px 0 rgba(0,0,0,0.3) !important;
   }
   
   html.dark .custom-input {
-    @apply bg-slate-900 border-slate-700 text-slate-100 focus:bg-slate-800 focus:border-primary-500 focus:ring-primary-900;
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+  }
+  
+  html.dark .custom-input:focus {
+    background-color: #1e293b !important;
+    border-color: #6366f1 !important;
   }
   
   html.dark .btn-secondary {
-    @apply bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:border-slate-600;
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+    border-color: #334155 !important;
+  }
+  
+  html.dark .btn-secondary:hover {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
   }
 }
 
