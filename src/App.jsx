@@ -219,7 +219,7 @@ function App() {
         {currentTab === 'settings' && <Settings userRole={userRole} />}
         
         {/* Floating Accessibility Settings Gear */}
-        <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-40">
+        <div className="fixed bottom-24 right-4 md:bottom-8 md:left-8 md:right-auto z-40 flex flex-col items-center">
           <button 
             onClick={() => setShowConfig(!showConfig)} 
             className="w-12 h-12 bg-white text-primary-600 rounded-full shadow-2xl flex items-center justify-center border border-primary-100 hover:scale-110 transition-transform"
@@ -229,7 +229,7 @@ function App() {
           </button>
           
           {showConfig && (
-            <div className="absolute bottom-full right-0 mb-4 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 w-64 animate-fade-in flex flex-col gap-4">
+            <div className="absolute bottom-full right-0 md:right-auto md:left-0 mb-4 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 w-64 animate-fade-in flex flex-col gap-4">
                {/* Mobile Profile Display */}
                <div className="flex md:hidden items-center gap-3 border-b border-slate-100 dark:border-slate-700 pb-3">
                  <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-600 dark:text-primary-300">

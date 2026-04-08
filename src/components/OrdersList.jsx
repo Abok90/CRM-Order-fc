@@ -35,7 +35,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   // Quick status dropdown
   const [activeStatusDropdown, setActiveStatusDropdown] = useState(null);
 
-  const AVAILABLE_PAGES = ['Aida', 'Aida.W', 'Oversiza', 'Oversiza.W', 'Elite EG', 'VEE', 'VEE.W'];
+  const AVAILABLE_PAGES = ['Aida', 'Aida.W', 'Oversize', 'Oversize.W', 'Elite EG', 'VEE', 'VEE.W'];
 
   const ALL_STATUSES = ['جاري التحضير', 'مراجعة', 'الشحن', 'تم', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل'];
 
@@ -461,7 +461,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   };
 
   return (
-    <div className="space-y-6 animate-fade-in relative h-full flex flex-col">
+    <div className="space-y-6 animate-fade-in relative pb-10">
       {/* Table Header Controls */}
       <div className="glass-panel p-3 flex flex-col gap-3 sticky top-0 z-20">
         <div className="flex flex-col md:flex-row gap-2 items-stretch md:items-center">
@@ -566,7 +566,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       </div>
 
       {/* Desktop Table View */}
-      <div className="hidden md:block glass-panel flex-1 overflow-auto custom-scrollbar">
+      <div className="hidden md:block glass-panel overflow-auto custom-scrollbar">
         <table className="w-full text-right text-sm whitespace-nowrap">
           <thead className="bg-slate-50/80 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-200 text-slate-600 font-bold">
             <tr>
@@ -693,7 +693,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       </div>
 
       {/* Mobile Card View */}
-      <div className="md:hidden flex-1 overflow-auto custom-scrollbar pb-20 space-y-4">
+      <div className="md:hidden overflow-auto custom-scrollbar pb-20 space-y-4">
         {/* Select All Checkbox for Mobile */}
         {orders.length > 0 && !loading && (
           <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">

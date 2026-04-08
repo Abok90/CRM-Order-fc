@@ -32,7 +32,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
   // Lock the form if order is post-ship and user lacks the permission
   const isLocked = POST_SHIP_STATUSES.includes(initialOrder?.status) && !isAdmin && !userRole?.can_edit_after_ship;
 
-  const fallbackPages = ['Aida', 'Aida.W', 'Oversiza', 'Oversiza.W', 'Elite EG', 'VEE', 'VEE.W'];
+  const fallbackPages = ['Aida', 'Aida.W', 'Oversize', 'Oversize.W', 'Elite EG', 'VEE', 'VEE.W'];
 
   const availablePages = userRole?.assigned_page 
     ? userRole.assigned_page.split(',') 

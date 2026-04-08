@@ -19,7 +19,7 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     setOrder({ ...order, trackingNumber: val, status: nextStatus });
   };
 
-  const fallbackPages = ['Aida', 'Aida.W', 'Oversiza', 'Oversiza.W', 'Elite EG', 'VEE', 'VEE.W'];
+  const fallbackPages = ['Aida', 'Aida.W', 'Oversize', 'Oversize.W', 'Elite EG', 'VEE', 'VEE.W'];
 
   const availablePages = userRole?.assigned_page 
     ? userRole.assigned_page.split(',') 
