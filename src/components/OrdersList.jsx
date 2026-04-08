@@ -35,7 +35,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   // Quick status dropdown
   const [activeStatusDropdown, setActiveStatusDropdown] = useState(null);
 
-  const AVAILABLE_PAGES = ['Aida', 'Aida.W', 'Oversize', 'Oversize.W', 'Elite EG', 'VEE', 'VEE.W'];
+  const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
 
   const ALL_STATUSES = ['جاري التحضير', 'مراجعة', 'الشحن', 'تم', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل'];
 
@@ -117,16 +117,6 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     try {
       const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
       if (error) throw error;
-      
-      if (userRole?.id) {
-         supabase.from('system_logs').insert([{
-           user_id: userRole.id,
-           action: 'تعديل',
-           order_id: String(orderId),
-           details: `تم تغيير الحالة بشكل سريع إلى "${newStatus}".`
-         }]).then();
-      }
-
       // Update locally for instant feedback
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     } catch (err) {
@@ -152,17 +142,6 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       const ids = [...selectedOrders];
       const { error } = await supabase.from('orders').update({ status: newStatus }).in('id', ids);
       if (error) throw error;
-      
-      if (userRole?.id) {
-         const logsToInsert = ids.map(id => ({
-           user_id: userRole.id,
-           action: 'تعديل',
-           order_id: String(id),
-           details: `تم تغيير الحالة بشكل مجمع إلى "${newStatus}".`
-         }));
-         supabase.from('system_logs').insert(logsToInsert).then();
-      }
-
       setOrders(prev => prev.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus } : o));
       setSelectedOrders(new Set());
     } catch (err) {

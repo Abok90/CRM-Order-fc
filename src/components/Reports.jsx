@@ -31,10 +31,10 @@ export default function Reports({ userRole }) {
     try {
       const { data } = await supabase
         .from('app_settings')
-        .select('value')
-        .eq('key', 'reports_brand_order')
+        .select('settings_value')
+        .eq('settings_key', 'pages_order')
         .maybeSingle();
-      if (data?.value) setBrandOrder(JSON.parse(data.value));
+      if (data?.settings_value) setBrandOrder(JSON.parse(data.settings_value));
     } catch {}
   };
 
@@ -83,10 +83,10 @@ export default function Reports({ userRole }) {
     setBrandOrder(base);
     if (isAdmin) {
       await supabase.from('app_settings').upsert({
-        key: 'reports_brand_order',
-        value: JSON.stringify(base),
+        settings_key: 'pages_order',
+        settings_value: JSON.stringify(base),
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'key' });
+      }, { onConflict: 'settings_key' });
     }
   };
 

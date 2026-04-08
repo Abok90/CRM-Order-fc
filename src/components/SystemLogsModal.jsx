@@ -98,7 +98,7 @@ export default function SystemLogsModal({ isOpen, onClose }) {
                  
                  <div className="flex items-center justify-between pt-2 border-t border-slate-50 dark:border-slate-700/50 text-[10px]">
                     <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-bold bg-slate-50 dark:bg-slate-800/80 px-2 py-1 rounded">
-                      <User className="w-3 h-3" /> {log.user_roles?.name || 'مستخدم غير معروف'}
+                      <User className="w-3 h-3" /> {log.user_roles?.name || 'النظام الآلي / Shopify'}
                     </div>
                     {log.order_id && (
                       <div className="font-mono bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded border border-indigo-100 dark:border-indigo-800 flex items-center gap-1 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 transition-colors">

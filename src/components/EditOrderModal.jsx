@@ -32,7 +32,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
   // Lock the form if order is post-ship and user lacks the permission
   const isLocked = POST_SHIP_STATUSES.includes(initialOrder?.status) && !isAdmin && !userRole?.can_edit_after_ship;
 
-  const fallbackPages = ['Aida', 'Aida.W', 'Oversize', 'Oversize.W', 'Elite EG', 'VEE', 'VEE.W'];
+  const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
 
   const availablePages = userRole?.assigned_page 
     ? userRole.assigned_page.split(',') 
@@ -66,19 +66,6 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
       }).eq('id', order.id);
       
       if (error) throw error;
-      
-      if (userRole?.id) {
-         let detailStr = `تم تعديل بيانات الطلب.`;
-         if (order.status !== initialOrder.status) {
-           detailStr = `تم تغيير الحالة من "${initialOrder.status}" إلى "${order.status}".`;
-         }
-         supabase.from('system_logs').insert([{
-           user_id: userRole.id,
-           action: 'تعديل',
-           order_id: String(order.id),
-           details: detailStr
-         }]).then();
-      }
       
       onSuccess();
       onClose();
