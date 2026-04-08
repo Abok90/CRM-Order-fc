@@ -262,7 +262,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       }
       
       if (pageFilter !== 'الكل') {
-        query = query.ilike('page', `%${pageFilter}%`);
+        query = query.eq('page', pageFilter);
       }
 
       if (dateFrom) query = query.gte('date', dateFrom);

@@ -12,6 +12,13 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير', trackingNumber: ''
   });
 
+  // Minimum starting order number per brand
+  const PAGE_MIN_ORDER_NUMBER = {
+    'عايدة': 23551,
+    'اوفر': 6842,
+    'VEE': 112,
+  };
+
   const fetchNextId = async (page) => {
     setIdLoading(true);
     try {
@@ -20,7 +27,9 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
         const n = parseInt(r.id, 10);
         return !isNaN(n) && n > max ? n : max;
       }, 0);
-      setOrder(prev => ({ ...prev, id: maxId > 0 ? (maxId + 1).toString() : '1' }));
+      const minStart = PAGE_MIN_ORDER_NUMBER[page] || 1;
+      const nextId = Math.max(maxId + 1, minStart);
+      setOrder(prev => ({ ...prev, id: nextId.toString() }));
     } catch {
       setOrder(prev => ({ ...prev, id: '' }));
     } finally {
