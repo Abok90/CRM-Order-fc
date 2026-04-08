@@ -8,7 +8,7 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
   const [order, setOrder] = useState({
     id: '',
     customer: '', phone: '', address: '', item: '', quantity: '1',
-    page: userRole?.default_page || 'الصفحة الرئيسية',
+    page: '',
     productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير', trackingNumber: ''
   });
 
@@ -39,7 +39,14 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
 
   useEffect(() => {
     if (isOpen) {
-      const defaultPage = userRole?.default_page || 'الصفحة الرئيسية';
+      const preferredPage = userRole?.default_page;
+      const pages = userRole?.assigned_page
+        ? userRole.assigned_page.split(',').filter(Boolean)
+        : ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+      // Use preferred page only if it's actually in the available list, else first available
+      const defaultPage = (preferredPage && pages.includes(preferredPage))
+        ? preferredPage
+        : pages[0];
       setOrder({
         id: '',
         customer: '', phone: '', address: '', item: '', quantity: '1',
@@ -66,8 +73,8 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
 
   const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
 
-  const availablePages = userRole?.assigned_page 
-    ? userRole.assigned_page.split(',') 
+  const availablePages = userRole?.assigned_page
+    ? userRole.assigned_page.split(',').filter(Boolean)
     : fallbackPages;
 
   const handleSubmit = async (e) => {
