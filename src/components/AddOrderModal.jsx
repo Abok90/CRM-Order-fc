@@ -2,13 +2,27 @@ import React, { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { X, Save } from 'lucide-react';
 
+const generateId = () => Date.now().toString().slice(-6);
+
 export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState({
-    customer: '', phone: '', address: '', item: '', quantity: '1', 
-    page: userRole?.default_page || 'الصفحة الرئيسية', 
+    id: generateId(),
+    customer: '', phone: '', address: '', item: '', quantity: '1',
+    page: userRole?.default_page || 'الصفحة الرئيسية',
     productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير', trackingNumber: ''
   });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setOrder({
+        id: generateId(),
+        customer: '', phone: '', address: '', item: '', quantity: '1',
+        page: userRole?.default_page || 'الصفحة الرئيسية',
+        productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير', trackingNumber: ''
+      });
+    }
+  }, [isOpen]);
 
   const handleTrackingChange = (e) => {
     const val = e.target.value;
@@ -37,13 +51,9 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     }
     
     try {
-      // Create a unique ID logic (For now using timestamp, but ideally query max ID)
-      const newId = Date.now().toString().slice(-6); 
-      
       const payload = {
         ...order,
-        id: newId,
-        user_id: userRole?.id || null, // Ensure userRole has an ID if tracking employees
+        user_id: userRole?.id || null,
         date: new Date().toISOString().split('T')[0]
       };
 
@@ -80,6 +90,10 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
         
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700">رقم الأوردر</label>
+              <input value={order.id} onChange={e => setOrder({...order, id: e.target.value})} type="text" className="custom-input font-mono" placeholder="تلقائي" />
+            </div>
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">اسم العميل <span className="text-rose-500">*</span></label>
               <input required value={order.customer} onChange={e => setOrder({...order, customer: e.target.value})} type="text" className="custom-input" placeholder="مثال: أحمد محمد" />
