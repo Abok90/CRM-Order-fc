@@ -31,6 +31,8 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
   const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
   // Lock the form if order is post-ship and user lacks the permission
   const isLocked = POST_SHIP_STATUSES.includes(initialOrder?.status) && !isAdmin && !userRole?.can_edit_after_ship;
+  // Lock order ID if order has moved out of جاري التحضير (non-admins only)
+  const isOrderIdLocked = isLocked || (!isAdmin && initialOrder?.status !== 'جاري التحضير');
 
   const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
 
@@ -105,7 +107,10 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">رقم الأوردر</label>
-              <input disabled={isLocked} value={order.id || ''} onChange={e => setOrder({...order, id: e.target.value})} type="text" className="custom-input font-mono disabled:opacity-60 disabled:cursor-not-allowed" />
+              <input disabled={isOrderIdLocked} value={order.id || ''} onChange={e => setOrder({...order, id: e.target.value})} type="text" className="custom-input font-mono disabled:opacity-60 disabled:cursor-not-allowed" />
+              {isOrderIdLocked && !isLocked && (
+                <p className="text-[11px] text-slate-400 font-medium">رقم الأوردر لا يمكن تعديله بعد مرحلة جاري التحضير</p>
+              )}
             </div>
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">اسم العميل <span className="text-rose-500">*</span></label>
