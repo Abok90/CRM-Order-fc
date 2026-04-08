@@ -34,14 +34,14 @@ function getStore(shopDomain) {
   return null;
 }
 
-async function supabaseRequest(method, path, body) {
+async function supabaseRequest(method, path, body, prefer = 'return=minimal') {
   const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
       apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
       Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      Prefer: 'return=minimal',
+      Prefer: prefer,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -121,8 +121,8 @@ async function handler(req, res) {
         date: new Date().toISOString().split('T')[0],
         product_urls: productUrls.length > 0 ? JSON.stringify(productUrls) : null,
         user_id: null,
-      });
-      console.log(`[webhook] Inserted order ${order.name}`);
+      }, 'return=minimal,resolution=ignore-duplicates');
+      console.log(`[webhook] Inserted order ${order.name} (${store.storeKey})`);
 
     } else if (topic === 'orders/cancelled') {
       await supabaseRequest('PATCH', `orders?shopify_order_id=eq.${order.id}&shopify_store=eq.${store.storeKey}`, { status: 'الغاء' });
