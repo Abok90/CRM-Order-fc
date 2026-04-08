@@ -68,10 +68,13 @@ export default function Reports({ userRole }) {
   const movePage = async (pageStr, direction) => {
     const idx = pages.indexOf(pageStr);
     if ((direction === -1 && idx === 0) || (direction === 1 && idx === pages.length - 1)) return;
-    
+
     const targetStr = pages[idx + direction];
-    const base = brandOrder.length > 0 ? [...brandOrder] : [...pages];
-    
+    // Filter stale names, then add any new pages not yet in saved order
+    const pageSet = new Set(pages);
+    const validSaved = brandOrder.filter(p => pageSet.has(p));
+    const base = [...validSaved, ...pages.filter(p => !validSaved.includes(p))];
+
     if (!base.includes(pageStr)) base.push(pageStr);
     if (!base.includes(targetStr)) base.push(targetStr);
 

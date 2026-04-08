@@ -1,28 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { X, Save } from 'lucide-react';
 
-const generateId = () => Date.now().toString().slice(-6);
-
 export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) {
   const [loading, setLoading] = useState(false);
+  const [idLoading, setIdLoading] = useState(false);
   const [order, setOrder] = useState({
-    id: generateId(),
+    id: '',
     customer: '', phone: '', address: '', item: '', quantity: '1',
     page: userRole?.default_page || 'الصفحة الرئيسية',
     productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير', trackingNumber: ''
   });
 
-  React.useEffect(() => {
+  const fetchNextId = async (page) => {
+    setIdLoading(true);
+    try {
+      const { data } = await supabase.from('orders').select('id').eq('page', page);
+      const maxId = (data || []).reduce((max, r) => {
+        const n = parseInt(r.id, 10);
+        return !isNaN(n) && n > max ? n : max;
+      }, 0);
+      setOrder(prev => ({ ...prev, id: maxId > 0 ? (maxId + 1).toString() : '1' }));
+    } catch {
+      setOrder(prev => ({ ...prev, id: '' }));
+    } finally {
+      setIdLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (isOpen) {
+      const defaultPage = userRole?.default_page || 'الصفحة الرئيسية';
       setOrder({
-        id: generateId(),
+        id: '',
         customer: '', phone: '', address: '', item: '', quantity: '1',
-        page: userRole?.default_page || 'الصفحة الرئيسية',
+        page: defaultPage,
         productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير', trackingNumber: ''
       });
+      fetchNextId(defaultPage);
     }
   }, [isOpen]);
+
+  const handlePageChange = (newPage) => {
+    setOrder(prev => ({ ...prev, page: newPage }));
+    fetchNextId(newPage);
+  };
 
   const handleTrackingChange = (e) => {
     const val = e.target.value;
@@ -92,7 +114,7 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">رقم الأوردر</label>
-              <input value={order.id} onChange={e => setOrder({...order, id: e.target.value})} type="text" className="custom-input font-mono" placeholder="تلقائي" />
+              <input value={order.id} onChange={e => setOrder({...order, id: e.target.value})} type="text" className="custom-input font-mono" placeholder={idLoading ? 'جاري التحميل...' : 'رقم الأوردر'} disabled={idLoading} />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">اسم العميل <span className="text-rose-500">*</span></label>
@@ -118,7 +140,7 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
             
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">الصفحة التابع لها <span className="text-rose-500">*</span></label>
-              <select value={order.page} onChange={e => setOrder({...order, page: e.target.value})} className="custom-input cursor-pointer">
+              <select value={order.page} onChange={e => handlePageChange(e.target.value)} className="custom-input cursor-pointer">
                 {availablePages.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
