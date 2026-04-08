@@ -213,6 +213,29 @@ export default function UsersList({ userRole }) {
                     </div>
                   )}
 
+                  {/* Default Page — shown when user has assigned pages */}
+                  {showPages && user.assigned_page && (
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 block mb-1">الصفحة الافتراضية عند الإضافة</label>
+                      {canEditRole(user) ? (
+                        <select
+                          value={user.default_page || ''}
+                          onChange={e => updateUser(user.id, { default_page: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg text-xs px-2.5 py-2 font-bold text-slate-700 outline-none focus:border-primary-400"
+                        >
+                          <option value="">— اختر الصفحة الافتراضية —</option>
+                          {user.assigned_page.split(',').filter(Boolean).map(pg => (
+                            <option key={pg} value={pg}>{pg}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="px-3 py-2 rounded-lg text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200">
+                          {user.default_page || <span className="text-slate-300">غير محددة</span>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Extra Permissions */}
                   {canEditRole(user) && (
                     <div>

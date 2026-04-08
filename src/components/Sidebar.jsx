@@ -40,7 +40,7 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
           </div>
           <h1 className="flex flex-col items-start">
             <span className="text-2xl font-black bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">CRM Pro</span>
-            <span className="text-[10px] font-mono text-primary-500 font-bold bg-primary-50 px-2 py-0.5 rounded-full mt-1">v7.7.10</span>
+            <span className="text-[10px] font-mono text-primary-500 font-bold bg-primary-50 px-2 py-0.5 rounded-full mt-1">v7.7.11</span>
           </h1>
         </div>
       </div>
@@ -92,7 +92,7 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
         <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100 text-center">
           <p className="text-sm font-semibold text-slate-700 truncate">{userRole?.name || 'مستخدم'}</p>
           <p className="text-xs text-slate-500 mt-1">{userRole?.role || 'موظف'}</p>
-          <p className="text-[9px] text-slate-400 mt-1 font-bold">v7.7.10</p>
+          <p className="text-[9px] text-slate-400 mt-1 font-bold">v7.7.11</p>
         </div>
         
         <button 
