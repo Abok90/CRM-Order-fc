@@ -119,13 +119,20 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   }, [isAdmin]);
 
   const moveBrand = useCallback((pgName, dir) => {
-    const base = brandOrder.length > 0 ? [...brandOrder] : sortedPages.map(([pg]) => pg);
+    // Filter out stale page names that no longer exist in orders
+    const existingPages = new Set(Object.keys(pageCounts));
+    const validSaved = brandOrder.filter(pg => existingPages.has(pg));
+    // Build base: valid saved order + any new pages not yet in it
+    const base = [
+      ...validSaved,
+      ...sortedPages.map(([pg]) => pg).filter(pg => !validSaved.includes(pg))
+    ];
     if (!base.includes(pgName)) base.push(pgName);
     const idx = base.indexOf(pgName);
     if ((dir === -1 && idx === 0) || (dir === 1 && idx === base.length - 1)) return;
     [base[idx], base[idx + dir]] = [base[idx + dir], base[idx]];
     saveBrandOrder(base);
-  }, [brandOrder, sortedPages, saveBrandOrder]);
+  }, [brandOrder, sortedPages, pageCounts, saveBrandOrder]);
 
   // ===== Monthly Revenue =====
   const monthlyRevenue = useMemo(() =>
