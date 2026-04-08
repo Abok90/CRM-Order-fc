@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -165,5 +165,5 @@ async function handler(req, res) {
   return res.status(200).json({ ok: true });
 }
 
-module.exports = handler;
-module.exports.config = { api: { bodyParser: false } };
+export default handler;
+export const config = { api: { bodyParser: false } };
