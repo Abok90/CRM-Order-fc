@@ -38,7 +38,7 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
           </div>
           <h1 className="flex flex-col items-start">
             <span className="text-2xl font-black bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">CRM Pro</span>
-            <span className="text-[10px] font-mono text-primary-500 font-bold bg-primary-50 px-2 py-0.5 rounded-full mt-1">v2.6.1</span>
+            <span className="text-[10px] font-mono text-primary-500 font-bold bg-primary-50 px-2 py-0.5 rounded-full mt-1">v2.7.0</span>
           </h1>
         </div>
       </div>
@@ -68,16 +68,6 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
             </button>
           );
         })}
-        
-        {/* Mobile Logout Button */}
-        <button
-          onClick={handleLogout}
-          className="flex md:hidden flex-col items-center justify-center gap-1 p-2 rounded-xl font-semibold text-rose-500 hover:bg-rose-50 transition-all duration-300 group min-w-[70px]"
-          title="تسجيل الخروج"
-        >
-          <LogOut className="w-6 h-6 transition-transform duration-300 group-hover:scale-110" />
-          <span className="text-[10px] whitespace-nowrap">خروج</span>
-        </button>
       </div>
 
       {/* Desktop user profile and logout */}
@@ -85,7 +75,7 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
         <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100 text-center">
           <p className="text-sm font-semibold text-slate-700 truncate">{userRole?.name || 'مستخدم'}</p>
           <p className="text-xs text-slate-500 mt-1">{userRole?.role || 'موظف'}</p>
-          <p className="text-[9px] text-slate-400 mt-1 font-bold">v2.6.1</p>
+          <p className="text-[9px] text-slate-400 mt-1 font-bold">v2.7.0</p>
         </div>
         
         <button 

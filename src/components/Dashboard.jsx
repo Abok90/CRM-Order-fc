@@ -12,11 +12,21 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   const [users, setUsers]                 = useState([]);
   const [loading, setLoading]             = useState(true);
 
-  // ===== UI State =====
   const [expandedUser, setExpandedUser]   = useState(null);
   const [sectionOrder, setSectionOrder]   = useState(['stats', 'leaderboard', 'quickStatus', 'revenue', 'statusGrid', 'brands']);
   const [brandOrder, setBrandOrder]       = useState([]); // admin-controlled, saved to Supabase
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+  const [showLeaderboard, setShowLeaderboard] = useState(() => {
+    return localStorage.getItem('hideLeaderboard') !== 'true';
+  });
+  
+  const toggleLeaderboard = () => {
+    setShowLeaderboard(prev => {
+      localStorage.setItem('hideLeaderboard', (!prev).toString());
+      return !prev;
+    });
+  };
 
   const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
 
@@ -265,12 +275,18 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
     if (leaderboard.length === 0) return null;
     return (
       <div key="leaderboard">
-        <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-amber-500" />
-          لوحة المنافسة
-          <span className="text-[9px] md:text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">تحديث شهري</span>
+        <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-amber-500" />
+            لوحة المنافسة
+            <span className="text-[9px] md:text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">تحديث شهري</span>
+          </div>
+          <button onClick={toggleLeaderboard} className="text-[10px] md:text-xs font-bold text-slate-500 hover:text-primary-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors">
+            {showLeaderboard ? 'إخفاء' : 'إظهار'}
+          </button>
         </h2>
-        <div className="space-y-2 md:space-y-3">
+        {showLeaderboard && (
+          <div className="space-y-2 md:space-y-3">
           {leaderboard.map((user, idx) => {
             const pct      = Math.round((user.total / maxTotal) * 100);
             const isExpanded = expandedUser === user.id;
@@ -325,7 +341,8 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
       </div>
     );
   };

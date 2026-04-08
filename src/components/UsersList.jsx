@@ -10,7 +10,7 @@ const ROLES = {
   'customer_service':{ label: 'خدمة عملاء',       color: 'bg-green-100 text-green-700',   icon: '🎧', desc: 'بيدجات محددة فقط' },
 };
 
-const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+const AVAILABLE_PAGES = ['Aida', 'Aida.W', 'Oversiza', 'Oversiza.W', 'Elite EG', 'VEE', 'VEE.W'];
 
 export default function UsersList({ userRole }) {
   const [users, setUsers]     = useState([]);

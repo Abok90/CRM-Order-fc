@@ -19,7 +19,7 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     setOrder({ ...order, trackingNumber: val, status: nextStatus });
   };
 
-  const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+  const fallbackPages = ['Aida', 'Aida.W', 'Oversiza', 'Oversiza.W', 'Elite EG', 'VEE', 'VEE.W'];
 
   const availablePages = userRole?.assigned_page 
     ? userRole.assigned_page.split(',') 
@@ -47,9 +47,18 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
         date: new Date().toISOString().split('T')[0]
       };
 
-      const { error } = await supabase.from('orders').insert([payload]);
+      const { data, error } = await supabase.from('orders').insert([payload]).select();
       
       if (error) throw error;
+      
+      if (data && data.length > 0 && userRole?.id) {
+         supabase.from('system_logs').insert([{
+           user_id: userRole.id,
+           action: 'إضافة',
+           order_id: String(data[0].id),
+           details: `تم إضافة أوردر جديد بقيمة ${(Number(data[0].productPrice) || 0) + (Number(data[0].shippingPrice) || 0)} ج.م للعميل "${data[0].customer}" (بوليصة: ${data[0].trackingNumber || '-'})`
+         }]).then();
+      }
       
       onSuccess();
       onClose();

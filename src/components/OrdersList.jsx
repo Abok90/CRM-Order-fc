@@ -35,7 +35,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   // Quick status dropdown
   const [activeStatusDropdown, setActiveStatusDropdown] = useState(null);
 
-  const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+  const AVAILABLE_PAGES = ['Aida', 'Aida.W', 'Oversiza', 'Oversiza.W', 'Elite EG', 'VEE', 'VEE.W'];
 
   const ALL_STATUSES = ['جاري التحضير', 'مراجعة', 'الشحن', 'تم', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل'];
 
@@ -112,12 +112,21 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     setSelectedOrders(newSet);
   };
 
-  // Quick status change
   const handleQuickStatusChange = async (orderId, newStatus) => {
     setActiveStatusDropdown(null);
     try {
       const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
       if (error) throw error;
+      
+      if (userRole?.id) {
+         supabase.from('system_logs').insert([{
+           user_id: userRole.id,
+           action: 'تعديل',
+           order_id: String(orderId),
+           details: `تم تغيير الحالة بشكل سريع إلى "${newStatus}".`
+         }]).then();
+      }
+
       // Update locally for instant feedback
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     } catch (err) {
@@ -143,6 +152,17 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       const ids = [...selectedOrders];
       const { error } = await supabase.from('orders').update({ status: newStatus }).in('id', ids);
       if (error) throw error;
+      
+      if (userRole?.id) {
+         const logsToInsert = ids.map(id => ({
+           user_id: userRole.id,
+           action: 'تعديل',
+           order_id: String(id),
+           details: `تم تغيير الحالة بشكل مجمع إلى "${newStatus}".`
+         }));
+         supabase.from('system_logs').insert(logsToInsert).then();
+      }
+
       setOrders(prev => prev.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus } : o));
       setSelectedOrders(new Set());
     } catch (err) {
@@ -197,10 +217,14 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
           <title>طباعة الطلبات</title>
           <style>
             body { font-family: Tahoma, Arial, sans-serif; padding: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
             th, td { border: 1px solid #ccc; padding: 8px; text-align: right; }
             th { background-color: #f4f4f4; }
             .header { text-align: center; margin-bottom: 30px; }
+            @media print {
+              @page { size: A4; margin: 15mm; }
+              body { padding: 0; }
+            }
           </style>
         </head>
         <body>
@@ -218,6 +242,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                 <th>المنتج</th>
                 <th>الكمية</th>
                 <th>المبلغ (ج)</th>
+                <th>البراند</th>
                 <th>ملاحظات</th>
               </tr>
             </thead>
@@ -231,8 +256,9 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                   <td>${o.item}</td>
                   <td>${o.quantity || '1'}</td>
                   <td><strong>${(Number(o.productPrice) || 0) + (Number(o.shippingPrice) || 0)}</strong></td>
+                  <td>${o.page || ''}</td>
                   <td>${o.notes || ''}</td>
-                </tr>
+                 </tr>
               `).join('')}
             </tbody>
           </table>
@@ -456,6 +482,13 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
           >
             <Filter className="w-4 h-4" /> <span>{showFilters ? 'إخفاء الفلاتر' : 'تصفية'}</span>
           </button>
+          
+          {hasActiveFilters && (
+            <button onClick={clearAllFilters}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors shadow-sm">
+              <span className="hidden sm:inline">إلغاء الفلتر</span> ✖
+            </button>
+          )}
           
           <div className="flex gap-2 flex-shrink-0 justify-end mt-2 md:mt-0">
             <button onClick={fetchOrders} className="btn-secondary p-2" title="تحديث">
@@ -693,7 +726,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
       {/* Pagination Footer */}
       {!loading && orders.length > 0 && (
-        <div className="flex items-center justify-center gap-2 py-1 sticky bottom-0 z-20">
+        <div className="flex items-center justify-center gap-2 py-4 z-20">
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
             className="px-3 py-1 text-xs font-bold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 shadow-sm transition-colors">
             ← السابق

@@ -8,7 +8,8 @@ import DailyProductsView from './components/DailyProductsView';
 import FinanceView from './components/FinanceView';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
-import { Lock, Mail, LogIn, UserPlus, Settings as SettingsIcon, ZoomIn, ZoomOut } from 'lucide-react';
+import SystemLogsModal from './components/SystemLogsModal';
+import { Lock, Mail, LogIn, UserPlus, Settings as SettingsIcon, ZoomIn, ZoomOut, Moon, Sun, LogOut, User, BellRing } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -28,14 +29,27 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [isLoginMode, setIsLoginMode] = useState(true);
 
-  // UI Accessibility Zoom Settings
+  // UI Accessibility Zoom Settings & Dark Mode
   const [zoomLevel, setZoomLevel] = useState(Number(localStorage.getItem('appZoom')) || 1);
+  const [theme, setTheme] = useState(localStorage.getItem('appTheme') || 'light');
   const [showConfig, setShowConfig] = useState(false);
+  const [isLogsOpen, setIsLogsOpen] = useState(false);
+
+  const isAdmin = ['admin', 'super_admin', 'brand_owner', 'owner'].includes(userRole?.role);
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${zoomLevel * 16}px`;
     localStorage.setItem('appZoom', zoomLevel.toString());
   }, [zoomLevel]);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('appTheme', theme);
+  }, [theme]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -205,7 +219,7 @@ function App() {
         {currentTab === 'settings' && <Settings userRole={userRole} />}
         
         {/* Floating Accessibility Settings Gear */}
-        <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50">
+        <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-40">
           <button 
             onClick={() => setShowConfig(!showConfig)} 
             className="w-12 h-12 bg-white text-primary-600 rounded-full shadow-2xl flex items-center justify-center border border-primary-100 hover:scale-110 transition-transform"
@@ -215,21 +229,67 @@ function App() {
           </button>
           
           {showConfig && (
-            <div className="absolute bottom-full right-0 mb-4 bg-white p-4 rounded-2xl shadow-2xl border border-slate-100 w-64 animate-fade-in flex flex-col gap-4">
-               <h4 className="font-bold text-slate-800 text-sm border-b pb-2 flex justify-between items-center">
-                 إعدادات العرض (Zoom)
-                 <button onClick={() => setShowConfig(false)} className="text-slate-400 hover:text-slate-700 text-xs text-rose-500 font-bold px-2 py-0.5 rounded-md hover:bg-rose-50">إغلاق</button>
-               </h4>
-               <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl">
-                   <button onClick={() => setZoomLevel(z => Math.max(0.6, parseFloat((z - 0.1).toFixed(1))))} className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 shadow-sm"><ZoomOut className="w-5 h-5"/></button>
-                   <span className="font-black text-primary-600 font-mono text-lg" dir="ltr">{Math.round(zoomLevel * 100)}%</span>
-                   <button onClick={() => setZoomLevel(z => Math.min(1.5, parseFloat((z + 0.1).toFixed(1))))} className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 shadow-sm"><ZoomIn className="w-5 h-5"/></button>
+            <div className="absolute bottom-full right-0 mb-4 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 w-64 animate-fade-in flex flex-col gap-4">
+               {/* Mobile Profile Display */}
+               <div className="flex md:hidden items-center gap-3 border-b border-slate-100 dark:border-slate-700 pb-3">
+                 <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-primary-600 dark:text-primary-300">
+                    <User className="w-5 h-5" />
+                 </div>
+                 <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{userRole?.name || 'مستخدم'}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{userRole?.role || ''}</p>
+                 </div>
                </div>
-               <button onClick={() => setZoomLevel(1)} className="text-xs text-slate-500 hover:text-slate-800 font-bold w-full text-center hover:bg-slate-50 py-1.5 rounded-lg transition-colors">إعادة الحجم الافتراضي (100%)</button>
+
+               <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm border-b dark:border-slate-700 pb-2 flex justify-between items-center">
+                 إعدادات النظام
+                 <button onClick={() => setShowConfig(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 text-xs text-rose-500 font-bold px-2 py-0.5 rounded-md hover:bg-rose-50 dark:hover:bg-slate-700">إغلاق</button>
+               </h4>
+               
+               <div className="flex flex-col gap-1.5">
+                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">حجم الخط والعرض:</span>
+                 <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-2 rounded-xl">
+                     <button onClick={() => setZoomLevel(z => Math.max(0.6, parseFloat((z - 0.1).toFixed(1))))} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 shadow-sm"><ZoomOut className="w-5 h-5"/></button>
+                     <span className="font-black text-primary-600 dark:text-primary-400 font-mono text-lg" dir="ltr">{Math.round(zoomLevel * 100)}%</span>
+                     <button onClick={() => setZoomLevel(z => Math.min(1.5, parseFloat((z + 0.1).toFixed(1))))} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 shadow-sm"><ZoomIn className="w-5 h-5"/></button>
+                 </div>
+               </div>
+
+               <div className="flex items-center justify-between pt-2">
+                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">الوضع الليلي:</span>
+                 <button 
+                   onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+                   className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                 >
+                   {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+                 </button>
+               </div>
+
+               <button onClick={() => setZoomLevel(1)} className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-bold w-full text-center hover:bg-slate-50 dark:hover:bg-slate-700 py-1.5 rounded-lg transition-colors">إعادة الحجم الافتراضي (100%)</button>
+               
+               <button 
+                 onClick={handleLogout} 
+                 className="mt-2 flex md:hidden items-center justify-center gap-2 w-full p-2 bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 rounded-xl font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors"
+               >
+                 <LogOut className="w-5 h-5" /> تسجيل الخروج
+               </button>
             </div>
+          )}
+          
+          {isAdmin && (
+            <button 
+              onClick={() => setIsLogsOpen(!isLogsOpen)} 
+              className="w-12 h-12 mt-3 bg-white dark:bg-slate-800 text-indigo-500 rounded-full shadow-2xl flex items-center justify-center border border-indigo-100 dark:border-slate-700 hover:scale-110 transition-transform relative group"
+              title="سجل الحركات وإشعارات النظام"
+            >
+               <BellRing className="w-5 h-5 group-hover:animate-bounce" />
+               <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-slate-800 hidden"></span>
+            </button>
           )}
         </div>
       </main>
+
+      {isAdmin && <SystemLogsModal isOpen={isLogsOpen} onClose={() => setIsLogsOpen(false)} />}
     </div>
   );
 }
