@@ -46,7 +46,7 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto w-full md:py-6 px-2 md:px-4 gap-1 md:space-y-2 custom-scrollbar">
+      <div className="flex-1 flex flex-row md:flex-col justify-around items-center md:items-stretch overflow-x-visible md:overflow-y-auto w-full md:py-6 px-2 md:px-4 md:gap-1 md:space-y-2 pb-1 md:pb-0">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
@@ -56,12 +56,12 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
               <button
                 key={item.id}
                 onClick={() => window.dispatchEvent(new Event('open-add-order'))}
-                className="flex md:hidden flex-col items-center justify-center gap-1 p-2 rounded-xl font-semibold transition-all duration-300 text-sky-600 hover:bg-sky-50 min-w-[70px]"
+                className="flex md:hidden flex-col items-center justify-center -mt-8 relative z-10 w-16"
               >
-                <div className="bg-sky-500 text-white rounded-full p-2.5 shadow-lg shadow-sky-500/40 -mt-6 ring-4 ring-white">
-                   <Icon className="w-5 h-5 transition-transform duration-300 hover:scale-110" />
+                <div className="bg-gradient-to-tr from-sky-600 to-sky-400 text-white rounded-full p-4 shadow-xl shadow-sky-500/40 ring-[6px] ring-white/95">
+                   <Icon className="w-6 h-6 transition-transform duration-300 group-hover:scale-110" />
                 </div>
-                <span className="text-[9px] whitespace-nowrap mt-1 font-bold">أوردر</span>
+                <span className="text-[10px] whitespace-nowrap mt-1 font-bold text-slate-500">أوردر</span>
               </button>
             );
           }
@@ -71,10 +71,10 @@ export default function Sidebar({ currentTab, setCurrentTab, userRole, handleLog
               key={item.id}
               onClick={() => setCurrentTab(item.id)}
               className={clsx(
-                "flex md:w-full flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 p-2 md:px-4 md:py-3 rounded-xl font-semibold transition-all duration-300 group min-w-[70px] md:min-w-0",
+                "flex md:w-full flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 p-1.5 md:px-4 md:py-3 rounded-xl font-semibold transition-all duration-300 group w-[70px] md:w-auto",
                 isActive 
                   ? "text-primary-600 md:bg-primary-500 md:text-white md:shadow-md md:shadow-primary-500/25 md:-translate-x-1" 
-                  : "text-slate-500 hover:bg-slate-50 hover:text-primary-600 md:hover:-translate-x-1"
+                  : "text-slate-400 hover:bg-slate-50 hover:text-primary-500 md:hover:-translate-x-1"
               )}
             >
               <Icon className={clsx(
