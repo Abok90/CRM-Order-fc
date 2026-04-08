@@ -52,6 +52,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
     
     try {
       const { error } = await supabase.from('orders').update({
+        id: order.id,
         customer: order.customer,
         phone: order.phone,
         address: order.address,
@@ -63,7 +64,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
         notes: order.notes,
         status: order.status,
         trackingNumber: order.trackingNumber
-      }).eq('id', order.id);
+      }).eq('id', initialOrder.id);
       
       if (error) throw error;
       
@@ -102,6 +103,10 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700">رقم الأوردر</label>
+              <input disabled={isLocked} value={order.id || ''} onChange={e => setOrder({...order, id: e.target.value})} type="text" className="custom-input font-mono disabled:opacity-60 disabled:cursor-not-allowed" />
+            </div>
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">اسم العميل <span className="text-rose-500">*</span></label>
               <input required disabled={isLocked} value={order.customer} onChange={e => setOrder({...order, customer: e.target.value})} type="text" className="custom-input disabled:opacity-60 disabled:cursor-not-allowed" placeholder="مثال: أحمد محمد" />
