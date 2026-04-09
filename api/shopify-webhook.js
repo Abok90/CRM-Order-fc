@@ -26,15 +26,31 @@ function getStore(shopDomain) {
   const offerEnv = (process.env.SHOPIFY_OFFER_STORE || '').toLowerCase();
   const veeEnv   = (process.env.SHOPIFY_VEE_STORE   || '').toLowerCase();
 
-  if (d === aidaEnv || d.includes('aidaset') || d.includes('hfgnj')) {
+  console.log(`[getStore] domain="${d}" | aida_env="${aidaEnv}" | offer_env="${offerEnv}" | vee_env="${veeEnv}"`);
+
+  if (aidaEnv && d === aidaEnv) {
     return { secret: process.env.SHOPIFY_AIDA_WEBHOOK_SECRET, storeKey: 'aida_web', pageName: 'عايدة ويب', url: shopDomain };
   }
-  if (d === offerEnv || d.includes('oversizewear') || d.includes('febwqx-4i')) {
+  if (d.includes('aidaset') || d.includes('hfgnj')) {
+    return { secret: process.env.SHOPIFY_AIDA_WEBHOOK_SECRET, storeKey: 'aida_web', pageName: 'عايدة ويب', url: shopDomain };
+  }
+
+  if (offerEnv && d === offerEnv) {
     return { secret: process.env.SHOPIFY_OFFER_WEBHOOK_SECRET, storeKey: 'offer_web', pageName: 'اوفر ويب', url: shopDomain };
   }
-  if (d === veeEnv || d.includes('dvy00c-va') || d.includes('vee-9523') || d.includes('veeegypt')) {
+  // All known variants of the offer store domain
+  if (d.includes('oversizewear') || d.includes('oversiza') || d.includes('oversize') || d.includes('febwqx-4i')) {
+    return { secret: process.env.SHOPIFY_OFFER_WEBHOOK_SECRET, storeKey: 'offer_web', pageName: 'اوفر ويب', url: shopDomain };
+  }
+
+  if (veeEnv && d === veeEnv) {
     return { secret: process.env.SHOPIFY_VEE_WEBHOOK_SECRET, storeKey: 'vee_web', pageName: 'VEE', url: shopDomain };
   }
+  if (d.includes('dvy00c-va') || d.includes('vee-9523') || d.includes('veeegypt')) {
+    return { secret: process.env.SHOPIFY_VEE_WEBHOOK_SECRET, storeKey: 'vee_web', pageName: 'VEE', url: shopDomain };
+  }
+
+  console.warn(`[getStore] NO MATCH for domain: "${d}"`);
   return null;
 }
 

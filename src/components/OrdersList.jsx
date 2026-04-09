@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { Search, Filter, RefreshCw, Plus, FileSpreadsheet, Printer, ChevronDown, Zap } from 'lucide-react';
+import { Search, Filter, RefreshCw, Plus, FileSpreadsheet, Printer, ChevronDown, Zap, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import * as XLSX from 'xlsx';
 import AddOrderModal from './AddOrderModal';
@@ -135,6 +135,9 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
   const hasActiveFilters = searchQuery || statusFilter !== 'الكل' || pageFilter !== 'الكل' || dateFrom || dateTo;
 
+  const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
+  const canDelete = isAdmin || !!userRole?.can_delete_order;
+
   const handleBulkStatusChange = async (newStatus) => {
     if (selectedOrders.size === 0) return;
     setBulkStatusDropdown(false);
@@ -146,6 +149,31 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       setSelectedOrders(new Set());
     } catch (err) {
       alert('خطأ في تغيير الحالة: ' + err.message);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedOrders.size === 0) return;
+    if (!confirm(`هل أنت متأكد من حذف ${selectedOrders.size} أوردر؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    try {
+      const ids = [...selectedOrders];
+      const { error } = await supabase.from('orders').delete().in('id', ids);
+      if (error) throw error;
+      setOrders(prev => prev.filter(o => !selectedOrders.has(o.id)));
+      setSelectedOrders(new Set());
+    } catch (err) {
+      alert('خطأ في الحذف: ' + err.message);
+    }
+  };
+
+  const handleDeleteSingle = async (orderId) => {
+    if (!confirm('هل أنت متأكد من حذف هذا الأوردر؟')) return;
+    try {
+      const { error } = await supabase.from('orders').delete().eq('id', orderId);
+      if (error) throw error;
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+    } catch (err) {
+      alert('خطأ في الحذف: ' + err.message);
     }
   };
 
@@ -398,9 +426,16 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
         <div className="space-y-3 mt-4">
           <div className="flex items-start justify-between">
              <div className="font-bold text-slate-800 text-base">{order.customer || 'عميل محتمل'}</div>
-             <button onClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }} className="text-primary-600 font-bold text-sm hover:underline bg-primary-50 px-3 py-1 rounded-lg">
-                ✏️ تعديل
-             </button>
+             <div className="flex items-center gap-1.5">
+               <button onClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }} className="text-primary-600 font-bold text-sm hover:underline bg-primary-50 px-3 py-1 rounded-lg">
+                  ✏️ تعديل
+               </button>
+               {canDelete && (
+                 <button onClick={() => handleDeleteSingle(order.id)} className="text-rose-500 bg-rose-50 p-1.5 rounded-lg hover:bg-rose-100 transition-colors">
+                   <Trash2 className="w-4 h-4" />
+                 </button>
+               )}
+             </div>
           </div>
           
           <div className="flex items-center gap-2 justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
@@ -515,7 +550,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
           </div>
         )}
 
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           {/* Bulk status change */}
           {selectedOrders.size > 0 && (
             <div className="relative">
@@ -540,6 +575,16 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                 </div>
               )}
             </div>
+          )}
+          {/* Bulk delete */}
+          {selectedOrders.size > 0 && canDelete && (
+            <button
+              onClick={handleDeleteSelected}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-300 rounded-lg hover:bg-rose-100 transition-colors shadow-sm"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              حذف {selectedOrders.size}
+            </button>
           )}
         </div>
       </div>
@@ -614,12 +659,21 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                           <Zap className="w-2.5 h-2.5" />
                         </span>
                       )}
-                      <button 
-                        onClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }} 
+                      <button
+                        onClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }}
                         className="text-primary-600 font-bold hover:underline opacity-0 group-hover:opacity-100 transition-opacity text-xs bg-primary-50 px-2 py-0.5 rounded"
                       >
                         ✏️
                       </button>
+                      {canDelete && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteSingle(order.id); }}
+                          className="text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-50 p-1 rounded"
+                          title="حذف الأوردر"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-center">
