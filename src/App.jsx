@@ -46,6 +46,8 @@ function App() {
     return () => window.removeEventListener('open-add-order', handleOpenModal);
   }, []);
 
+  const isAdmin = ['admin', 'super_admin', 'brand_owner', 'owner'].includes(userRole?.role);
+
   // ===== Supabase Realtime — إشعارات الأوردرات الجديدة =====
   useEffect(() => {
     if (!session) return;
@@ -110,8 +112,6 @@ function App() {
 
     return () => { supabase.removeChannel(channel); };
   }, [session, isAdmin]);
-
-  const isAdmin = ['admin', 'super_admin', 'brand_owner', 'owner'].includes(userRole?.role);
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${zoomLevel * 16}px`;
