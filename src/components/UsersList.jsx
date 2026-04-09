@@ -12,6 +12,23 @@ const ROLES = {
 
 const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
 
+const DASHBOARD_PERMS = [
+  { key: 'stats',       label: 'الإحصائيات الكلية' },
+  { key: 'quickStatus', label: 'الحالات السريعة' },
+  { key: 'statusGrid',  label: 'بطاقات الحالات' },
+  { key: 'brands',      label: 'البراندات / الصفحات' },
+  { key: 'leaderboard', label: 'لوحة المنافسة' },
+  { key: 'revenue',     label: 'الإيرادات' },
+  { key: 'allPages',    label: 'يرى كل الصفحات' },
+];
+
+const DASH_DEFAULTS = { stats: true, quickStatus: true, statusGrid: true, brands: true, leaderboard: true, revenue: false, allPages: false };
+
+function getDashPerms(user) {
+  try { return { ...DASH_DEFAULTS, ...JSON.parse(user.dashboard_perms || '{}') }; }
+  catch { return { ...DASH_DEFAULTS }; }
+}
+
 export default function UsersList({ userRole }) {
   const [users, setUsers]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +70,12 @@ export default function UsersList({ userRole }) {
     } catch (err) {
       alert('حدث خطأ: ' + err.message);
     }
+  };
+
+  const toggleDashPerm = async (user, permKey) => {
+    const curr = getDashPerms(user);
+    curr[permKey] = !curr[permKey];
+    await updateUser(user.id, { dashboard_perms: JSON.stringify(curr) });
   };
 
   const togglePageAccess = async (user, pageName) => {
@@ -267,6 +290,29 @@ export default function UsersList({ userRole }) {
                           />
                           <span className="text-xs font-bold text-slate-700">تعديل أوردر بعد الشحن 🔓</span>
                         </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dashboard Visibility */}
+                  {canEditRole(user) && (
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 block mb-1.5">ما يظهر في لوحة القيادة</label>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                        {DASHBOARD_PERMS.map(({ key, label }) => {
+                          const perms = getDashPerms(user);
+                          return (
+                            <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={!!perms[key]}
+                                onChange={() => toggleDashPerm(user, key)}
+                                className="w-3.5 h-3.5 accent-indigo-500 cursor-pointer"
+                              />
+                              <span className="text-[10px] font-bold text-slate-700">{label}</span>
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

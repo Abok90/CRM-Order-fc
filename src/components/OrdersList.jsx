@@ -41,6 +41,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   const [fetchOrderName, setFetchOrderName] = useState('');
   const [fetchLoading, setFetchLoading]     = useState(false);
   const [fetchResult, setFetchResult]       = useState(null); // { ok, message }
+  const [printMenuOpen, setPrintMenuOpen]   = useState(false);
 
   const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
 
@@ -239,7 +240,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     XLSX.writeFile(workbook, `شيت_الطلبات_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const handlePrint = () => {
+  const handlePrint = (orientation = 'portrait') => {
     const ordersToPrint = selectedOrders.size > 0 
       ? orders.filter(o => selectedOrders.has(o.id))
       : orders;
@@ -261,7 +262,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
             th { background-color: #f4f4f4; }
             .header { text-align: center; margin-bottom: 30px; }
             @media print {
-              @page { size: A4; margin: 15mm; }
+              @page { size: A4 ${orientation}; margin: ${orientation === 'landscape' ? '10mm 12mm' : '15mm'}; }
               body { padding: 0; }
             }
           </style>
@@ -540,9 +541,23 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
             <button onClick={fetchOrders} className="btn-secondary p-2" title="تحديث">
               <RefreshCw className={clsx("w-4 h-4", loading && "animate-spin text-primary-600")} />
             </button>
-            <button onClick={handlePrint} className="btn-secondary p-2 text-indigo-600" title="طباعة">
-              <Printer className="w-4 h-4" />
-            </button>
+            <div className="relative">
+              <button onClick={() => setPrintMenuOpen(v => !v)} className="btn-secondary p-2 text-indigo-600" title="طباعة">
+                <Printer className="w-4 h-4" />
+              </button>
+              {printMenuOpen && (
+                <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-30 w-36 py-1">
+                  <button onClick={() => { handlePrint('portrait'); setPrintMenuOpen(false); }}
+                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                    <span>📄</span> طولي (Portrait)
+                  </button>
+                  <button onClick={() => { handlePrint('landscape'); setPrintMenuOpen(false); }}
+                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                    <span>📋</span> عرضي (Landscape)
+                  </button>
+                </div>
+              )}
+            </div>
             <button onClick={exportToExcel} className="btn-secondary p-2 text-emerald-600" title="تصدير إكسيل">
               <FileSpreadsheet className="w-4 h-4" />
             </button>

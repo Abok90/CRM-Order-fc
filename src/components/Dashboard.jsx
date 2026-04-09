@@ -30,6 +30,13 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
 
   const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
 
+  const dashPerms = React.useMemo(() => {
+    if (isAdmin) return { stats: true, quickStatus: true, statusGrid: true, brands: true, leaderboard: true, revenue: true, allPages: true };
+    const defaults = { stats: true, quickStatus: true, statusGrid: true, brands: true, leaderboard: true, revenue: false, allPages: false };
+    try { return { ...defaults, ...JSON.parse(userRole?.dashboard_perms || '{}') }; }
+    catch { return defaults; }
+  }, [isAdmin, userRole?.dashboard_perms]);
+
   // Fetch all data via RPCs
   useEffect(() => {
     fetchData();
@@ -106,6 +113,14 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
     const rest     = allEntries.filter(([pg]) => !brandOrder.includes(pg));
     return [...ordered, ...rest];
   }, [pageCounts, brandOrder]);
+
+  // ===== Visible pages: filtered by assigned_page if allPages=false =====
+  const visiblePages = useMemo(() => {
+    if (dashPerms.allPages) return sortedPages;
+    const assigned = (userRole?.assigned_page || '').split(',').filter(Boolean);
+    if (assigned.length === 0) return sortedPages;
+    return sortedPages.filter(([pg]) => assigned.includes(pg));
+  }, [dashPerms.allPages, sortedPages, userRole?.assigned_page]);
 
   // ===== Save brand order globally to Supabase (admin only) =====
   const saveBrandOrder = useCallback(async (newOrder) => {
@@ -243,12 +258,12 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
 
   const renderSection = (sectionId) => {
     switch (sectionId) {
-      case 'stats':       return renderStats();
-      case 'leaderboard': return renderLeaderboard();
-      case 'quickStatus': return renderQuickStatus();
-      case 'revenue':     return isAdmin ? renderRevenue() : null;
-      case 'statusGrid':  return renderStatusGrid();
-      case 'brands':      return renderBrands();
+      case 'stats':       return dashPerms.stats       ? renderStats()       : null;
+      case 'leaderboard': return dashPerms.leaderboard ? renderLeaderboard() : null;
+      case 'quickStatus': return dashPerms.quickStatus ? renderQuickStatus() : null;
+      case 'revenue':     return (dashPerms.revenue && isAdmin) ? renderRevenue() : null;
+      case 'statusGrid':  return dashPerms.statusGrid  ? renderStatusGrid()  : null;
+      case 'brands':      return dashPerms.brands      ? renderBrands()      : null;
       default:            return null;
     }
   };
@@ -356,7 +371,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
 
   // ===== Render: Quick Status (with admin brand reordering) =====
   const renderQuickStatus = () => {
-    if (sortedPages.length === 0) return null;
+    if (visiblePages.length === 0) return null;
     return (
       <div key="quickStatus">
         <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 flex items-center gap-2">
@@ -365,7 +380,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
           {isAdmin && <span className="text-[8px] md:text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">↑↓ لترتيب البراندات</span>}
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6">
-          {sortedPages.map(([pg, totalCount], idx) => {
+          {visiblePages.map(([pg, totalCount], idx) => {
             const pgStatuses = pageStatusMap[pg] || {};
             if (totalCount === 0) return null;
             return (
@@ -377,7 +392,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
                     {isAdmin && (
                       <div className="flex flex-col">
                         <button onClick={() => moveBrand(pg, -1)} disabled={idx === 0} className="p-0.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 disabled:opacity-20 text-[10px] leading-none">↑</button>
-                        <button onClick={() => moveBrand(pg, 1)} disabled={idx === sortedPages.length - 1} className="p-0.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 disabled:opacity-20 text-[10px] leading-none">↓</button>
+                        <button onClick={() => moveBrand(pg, 1)} disabled={idx === visiblePages.length - 1} className="p-0.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 disabled:opacity-20 text-[10px] leading-none">↓</button>
                       </div>
                     )}
                   </div>
@@ -479,12 +494,12 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
         {isAdmin && <span className="text-[8px] md:text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">↑↓ للترتيب</span>}
       </h3>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
-        {sortedPages.map(([pg, count], idx) => (
+        {visiblePages.map(([pg, count], idx) => (
           <div key={pg} className="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl border border-indigo-100 hover:border-indigo-400 cursor-pointer transition-all hover:bg-indigo-50/30 group hover:-translate-y-1 hover:shadow-md relative">
             {isAdmin && (
               <div className="absolute top-1.5 left-1.5 flex flex-col gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={(e) => { e.stopPropagation(); moveBrand(pg, -1); }} disabled={idx === 0} className="p-0.5 hover:bg-indigo-100 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-20 text-[10px] leading-none">↑</button>
-                <button onClick={(e) => { e.stopPropagation(); moveBrand(pg, 1); }} disabled={idx === sortedPages.length - 1} className="p-0.5 hover:bg-indigo-100 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-20 text-[10px] leading-none">↓</button>
+                <button onClick={(e) => { e.stopPropagation(); moveBrand(pg, 1); }} disabled={idx === visiblePages.length - 1} className="p-0.5 hover:bg-indigo-100 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-20 text-[10px] leading-none">↓</button>
               </div>
             )}
             <div onClick={() => onNavigateWithFilter('page', pg)}>

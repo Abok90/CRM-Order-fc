@@ -37,6 +37,7 @@ function App() {
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const [isGlobalAddModalOpen, setIsGlobalAddModalOpen] = useState(false);
   const [newOrderCount, setNewOrderCount] = useState(0);
+  const [orderToast, setOrderToast]       = useState(null); // { customer, page, total }
 
   useEffect(() => {
     const handleOpenModal = () => setIsGlobalAddModalOpen(true);
@@ -60,11 +61,15 @@ function App() {
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
           const order = payload.new;
+          const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
           setNewOrderCount(prev => prev + 1);
+
+          // إشعار داخلي (toast)
+          setOrderToast({ customer: order.customer || 'عميل', page: order.page || '', total });
+          setTimeout(() => setOrderToast(null), 5000);
 
           // إشعار المتصفح
           if ('Notification' in window && Notification.permission === 'granted') {
-            const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
             new Notification(`🛍️ أوردر جديد — ${order.page || ''}`, {
               body: `${order.customer || 'عميل'} · ${total} ج.م`,
               icon: '/favicon.ico',
@@ -328,6 +333,15 @@ function App() {
                </div>
 
                <button onClick={() => setZoomLevel(1)} className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-bold w-full text-center hover:bg-slate-50 dark:hover:bg-slate-700 py-1.5 rounded-lg transition-colors">إعادة الحجم الافتراضي (100%)</button>
+
+               {'Notification' in window && Notification.permission !== 'granted' && (
+                 <button
+                   onClick={() => Notification.requestPermission()}
+                   className="text-xs font-bold w-full text-center py-1.5 rounded-lg transition-colors bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                 >
+                   🔔 تفعيل إشعارات المتصفح
+                 </button>
+               )}
                
                <button 
                  onClick={handleLogout} 
@@ -354,6 +368,20 @@ function App() {
           )}
         </div>
       </main>
+
+      {/* In-app order toast notification */}
+      {orderToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] animate-fade-in pointer-events-none" style={{ minWidth: 260 }}>
+          <div className="bg-emerald-600 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 pointer-events-auto">
+            <span className="text-xl shrink-0">🛍️</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-sm">أوردر جديد — {orderToast.page}</p>
+              <p className="text-xs text-white/80 truncate">{orderToast.customer} · {orderToast.total.toLocaleString()} ج.م</p>
+            </div>
+            <button onClick={() => setOrderToast(null)} className="text-white/60 hover:text-white text-lg leading-none shrink-0">✕</button>
+          </div>
+        </div>
+      )}
 
       {isAdmin && <SystemLogsModal isOpen={isLogsOpen} onClose={() => setIsLogsOpen(false)} />}
       
