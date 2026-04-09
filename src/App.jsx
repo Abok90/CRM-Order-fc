@@ -38,6 +38,7 @@ function App() {
   const [isGlobalAddModalOpen, setIsGlobalAddModalOpen] = useState(false);
   const [newOrderCount, setNewOrderCount] = useState(0);
   const [orderToast, setOrderToast]       = useState(null); // { customer, page, total }
+  const [userRegToast, setUserRegToast]   = useState(null); // { name, email }
 
   useEffect(() => {
     const handleOpenModal = () => setIsGlobalAddModalOpen(true);
@@ -83,6 +84,33 @@ function App() {
     return () => { supabase.removeChannel(channel); };
   }, [session]);
 
+  // ===== Supabase Realtime — إشعارات التسجيل الجديد (للأدمن فقط) =====
+  useEffect(() => {
+    if (!session || !isAdmin) return;
+
+    const channel = supabase
+      .channel('realtime-new-registrations')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'user_roles' },
+        (payload) => {
+          const user = payload.new;
+          if (user.id === userRole?.id) return; // لا تخطر الشخص عن نفسه
+          setUserRegToast({ name: user.name || 'مستخدم جديد', email: user.email || '' });
+          setTimeout(() => setUserRegToast(null), 8000);
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('👤 طلب تسجيل جديد', {
+              body: `${user.name || 'مستخدم'} (${user.email || ''}) — بانتظار الموافقة`,
+              icon: '/favicon.ico',
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [session, isAdmin]);
+
   const isAdmin = ['admin', 'super_admin', 'brand_owner', 'owner'].includes(userRole?.role);
 
   useEffect(() => {
@@ -122,17 +150,24 @@ function App() {
 
   const fetchUserRole = async (userId, userEmail) => {
     try {
-      const { data, error } = await supabase.from('user_roles').select('*').eq('id', userId).maybeSingle();
+      const { data } = await supabase.from('user_roles').select('*').eq('id', userId).maybeSingle();
       if (data) {
         setUserRole(data);
       } else {
-        const dummyRole = { id: userId, name: userEmail?.split('@')[0] || 'مستخدم', role: 'agent', is_approved: false };
-        setUserRole(dummyRole);
+        // مستخدم جديد — نضيفه في DB عشان الأدمن يشوفه ويوافق عليه
+        const newRecord = {
+          id: userId,
+          email: userEmail || '',
+          name: userEmail?.split('@')[0] || 'مستخدم جديد',
+          role: 'customer_service',
+          is_approved: false,
+        };
+        const { data: inserted } = await supabase.from('user_roles').insert(newRecord).select().maybeSingle();
+        setUserRole(inserted || newRecord);
       }
     } catch (e) {
       console.error(e);
-      const dummyRole = { id: userId, name: userEmail?.split('@')[0] || 'مستخدم', role: 'agent', is_approved: false };
-      setUserRole(dummyRole);
+      setUserRole({ id: userId, name: userEmail?.split('@')[0] || 'مستخدم', role: 'agent', is_approved: false });
     } finally {
       setAppLoading(false);
     }
@@ -368,6 +403,21 @@ function App() {
           )}
         </div>
       </main>
+
+      {/* New user registration toast (admin only) */}
+      {userRegToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] animate-fade-in pointer-events-none" style={{ minWidth: 260 }}>
+          <div className="bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 pointer-events-auto">
+            <span className="text-xl shrink-0">👤</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-sm">طلب تسجيل جديد</p>
+              <p className="text-xs text-white/80 truncate">{userRegToast.name} · {userRegToast.email}</p>
+              <p className="text-[10px] text-white/60 mt-0.5">بانتظار موافقتك في صفحة الموظفين</p>
+            </div>
+            <button onClick={() => setUserRegToast(null)} className="text-white/60 hover:text-white text-lg leading-none shrink-0">✕</button>
+          </div>
+        </div>
+      )}
 
       {/* In-app order toast notification */}
       {orderToast && (
