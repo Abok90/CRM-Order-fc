@@ -36,12 +36,47 @@ function App() {
   const [showConfig, setShowConfig] = useState(false);
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const [isGlobalAddModalOpen, setIsGlobalAddModalOpen] = useState(false);
+  const [newOrderCount, setNewOrderCount] = useState(0);
 
   useEffect(() => {
     const handleOpenModal = () => setIsGlobalAddModalOpen(true);
     window.addEventListener('open-add-order', handleOpenModal);
     return () => window.removeEventListener('open-add-order', handleOpenModal);
   }, []);
+
+  // ===== Supabase Realtime — إشعارات الأوردرات الجديدة =====
+  useEffect(() => {
+    if (!session) return;
+
+    // اطلب إذن الإشعارات من المتصفح
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    const channel = supabase
+      .channel('realtime-new-orders')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders' },
+        (payload) => {
+          const order = payload.new;
+          setNewOrderCount(prev => prev + 1);
+
+          // إشعار المتصفح
+          if ('Notification' in window && Notification.permission === 'granted') {
+            const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
+            new Notification(`🛍️ أوردر جديد — ${order.page || ''}`, {
+              body: `${order.customer || 'عميل'} · ${total} ج.م`,
+              icon: '/favicon.ico',
+              tag: `order-${order.id}`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [session]);
 
   const isAdmin = ['admin', 'super_admin', 'brand_owner', 'owner'].includes(userRole?.role);
 
@@ -304,13 +339,17 @@ function App() {
           )}
           
           {isAdmin && (
-            <button 
-              onClick={() => setIsLogsOpen(!isLogsOpen)} 
+            <button
+              onClick={() => { setIsLogsOpen(v => { if (!v) setNewOrderCount(0); return !v; }); }}
               className="w-12 h-12 mt-3 bg-white dark:bg-slate-800 text-indigo-500 rounded-full shadow-2xl flex items-center justify-center border border-indigo-100 dark:border-slate-700 hover:scale-110 transition-transform relative group"
               title="سجل الحركات وإشعارات النظام"
             >
-               <BellRing className="w-5 h-5 group-hover:animate-bounce" />
-               <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-slate-800 hidden"></span>
+              <BellRing className={`w-5 h-5 ${newOrderCount > 0 ? 'animate-bounce' : 'group-hover:animate-bounce'}`} />
+              {newOrderCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-[9px] font-black rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center px-1">
+                  {newOrderCount > 99 ? '99+' : newOrderCount}
+                </span>
+              )}
             </button>
           )}
         </div>
