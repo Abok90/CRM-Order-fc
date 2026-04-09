@@ -3,7 +3,7 @@ import { supabase } from '../utils/supabaseClient';
 import { Settings as SettingsIcon, User, Lock, Save, LayoutTemplate, Shield, Info } from 'lucide-react';
 import clsx from 'clsx';
 
-const APP_VERSION = 'v7.7.14';
+const APP_VERSION = 'v7.7.15';
 
 export default function Settings({ userRole }) {
   const [loading, setLoading] = useState(false);

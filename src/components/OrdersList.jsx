@@ -35,6 +35,13 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   // Quick status dropdown
   const [activeStatusDropdown, setActiveStatusDropdown] = useState(null);
 
+  // Shopify fetch modal
+  const [showFetchModal, setShowFetchModal] = useState(false);
+  const [fetchStore, setFetchStore]         = useState('offer_web');
+  const [fetchOrderName, setFetchOrderName] = useState('');
+  const [fetchLoading, setFetchLoading]     = useState(false);
+  const [fetchResult, setFetchResult]       = useState(null); // { ok, message }
+
   const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
 
   const ALL_STATUSES = ['جاري التحضير', 'مراجعة', 'الشحن', 'تم', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل'];
@@ -174,6 +181,31 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       setOrders(prev => prev.filter(o => o.id !== orderId));
     } catch (err) {
       alert('خطأ في الحذف: ' + err.message);
+    }
+  };
+
+  const handleFetchFromShopify = async () => {
+    if (!fetchOrderName.trim()) return;
+    setFetchLoading(true);
+    setFetchResult(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/shopify-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-crm-auth': session?.access_token || '' },
+        body: JSON.stringify({ action: 'fetch_order', shopifyStore: fetchStore, orderName: fetchOrderName.trim() }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setFetchResult({ ok: true, message: `✅ تم إضافة ${json.order?.id} — ${json.order?.customer} (${json.order?.page})` });
+        fetchOrders();
+      } else {
+        setFetchResult({ ok: false, message: `❌ ${json.error || 'حدث خطأ'}` });
+      }
+    } catch (err) {
+      setFetchResult({ ok: false, message: `❌ ${err.message}` });
+    } finally {
+      setFetchLoading(false);
     }
   };
 
@@ -514,6 +546,13 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
             <button onClick={exportToExcel} className="btn-secondary p-2 text-emerald-600" title="تصدير إكسيل">
               <FileSpreadsheet className="w-4 h-4" />
             </button>
+            {isAdmin && (
+              <button onClick={() => { setShowFetchModal(true); setFetchResult(null); setFetchOrderName(''); }}
+                className="btn-secondary flex items-center gap-1.5 px-3 py-2 text-sm text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                title="جلب أوردر من شوبيفاي">
+                🔄 <span className="hidden sm:inline">جلب شوبيفاي</span>
+              </button>
+            )}
             <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex items-center gap-1.5 px-3 py-2 text-sm">
               <Plus className="w-4 h-4" /><span className="hidden sm:inline">إضافة أوردر</span>
             </button>
@@ -790,6 +829,62 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
           setEditingOrder(null);
         }}
       />
+
+      {/* Shopify Fetch Modal */}
+      {showFetchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-black text-slate-800">🔄 جلب أوردر من شوبيفاي</h3>
+              <button onClick={() => setShowFetchModal(false)} className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400">✕</button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">المتجر</label>
+                <select value={fetchStore} onChange={e => setFetchStore(e.target.value)} className="custom-input text-sm">
+                  <option value="offer_web">اوفر ويب</option>
+                  <option value="aida_web">عايدة ويب</option>
+                  <option value="vee_web">VEE</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">رقم الأوردر</label>
+                <input
+                  value={fetchOrderName}
+                  onChange={e => setFetchOrderName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleFetchFromShopify()}
+                  type="text"
+                  className="custom-input font-mono text-sm"
+                  placeholder="#4892 أو 4892"
+                  dir="ltr"
+                  autoFocus
+                />
+              </div>
+
+              {fetchResult && (
+                <div className={clsx(
+                  'text-xs font-bold p-3 rounded-xl border',
+                  fetchResult.ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                )}>
+                  {fetchResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setShowFetchModal(false)} className="btn-secondary flex-1 text-sm py-2">إلغاء</button>
+              <button
+                onClick={handleFetchFromShopify}
+                disabled={fetchLoading || !fetchOrderName.trim()}
+                className="btn-primary flex-1 text-sm py-2 disabled:opacity-50"
+              >
+                {fetchLoading ? 'جاري الجلب...' : 'جلب الأوردر'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
