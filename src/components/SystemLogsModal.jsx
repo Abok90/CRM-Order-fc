@@ -1,114 +1,149 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { X, Search, BellRing, User, Clock, Package } from 'lucide-react';
+import { X, BellRing, User, Clock, Package, CheckCircle2, ShoppingBag } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function SystemLogsModal({ isOpen, onClose }) {
-  const [logs, setLogs] = useState([]);
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('users');
 
   useEffect(() => {
-    if (isOpen) {
-      fetchLogs();
-    }
+    if (isOpen) fetchAll();
   }, [isOpen]);
 
-  const fetchLogs = async (query = '') => {
+  const fetchAll = async () => {
     setLoading(true);
     try {
-      let q = supabase
-        .from('system_logs')
-        .select(`*, user_roles:user_id(name, role)`)
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (query) {
-         q = q.ilike('order_id', `%${query}%`);
-      }
-
-      const { data, error } = await q;
-      if (error) throw error;
-      setLogs(data || []);
+      const [usersRes, ordersRes] = await Promise.all([
+        supabase.from('user_roles').select('*').eq('is_approved', false).order('created_at', { ascending: false }),
+        supabase.from('orders').select('id, customer, page, status, date, productPrice, shippingPrice, source').order('date', { ascending: false }).limit(50),
+      ]);
+      setPendingUsers(usersRes.data || []);
+      setRecentOrders(ordersRes.data || []);
     } catch (e) {
-      console.error('Error fetching logs:', e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    fetchLogs(searchQuery);
+  const approveUser = async (userId) => {
+    await supabase.from('user_roles').update({ is_approved: true }).eq('id', userId);
+    setPendingUsers(prev => prev.filter(u => u.id !== userId));
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex justify-end">
-      <div className="w-full md:w-[400px] bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-slide-in-right border-l dark:border-slate-800">
+      <div className="w-full md:w-[420px] bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-slide-in-right border-l dark:border-slate-800">
+        {/* Header */}
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
-           <h2 className="font-black text-lg text-slate-800 dark:text-slate-100 flex items-center gap-2">
-             <BellRing className="w-5 h-5 text-indigo-500" /> سجل حركات النظام
-           </h2>
-           <button onClick={onClose} className="p-2 bg-white dark:bg-slate-800 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-400 hover:text-rose-500 shadow-sm transition-colors border border-slate-100 dark:border-slate-700">
-              <X className="w-4 h-4" />
-           </button>
+          <h2 className="font-black text-lg text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <BellRing className="w-5 h-5 text-indigo-500" /> مركز الإشعارات
+          </h2>
+          <button onClick={onClose} className="p-2 bg-white dark:bg-slate-800 rounded-full hover:bg-rose-50 text-slate-400 hover:text-rose-500 shadow-sm transition-colors border border-slate-100 dark:border-slate-700">
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-           <form onSubmit={handleSearch} className="relative">
-             <input type="text" placeholder="ابحث برقم الأوردر أو البوليصة..." 
-                    value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} 
-                    className="custom-input pl-10 w-full text-sm" />
-             <button type="submit" className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 bg-slate-100 dark:bg-slate-700/50 rounded-md">
-                <Search className="w-4 h-4" />
-             </button>
-           </form>
-           <p className="text-[10px] text-slate-400 mt-2 font-bold text-center">يعرض أحدث 100 حركة، للبحث الأقدم اكتب الرقم واضغط انتر.</p>
+        {/* Tabs */}
+        <div className="flex border-b border-slate-100 dark:border-slate-800">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={clsx('flex-1 py-2.5 text-xs font-black flex items-center justify-center gap-1.5 transition-colors',
+              activeTab === 'users' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50/50' : 'text-slate-500 hover:text-slate-700'
+            )}
+          >
+            <User className="w-3.5 h-3.5" />
+            طلبات الانضمام
+            {pendingUsers.length > 0 && (
+              <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{pendingUsers.length}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={clsx('flex-1 py-2.5 text-xs font-black flex items-center justify-center gap-1.5 transition-colors',
+              activeTab === 'orders' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50/50' : 'text-slate-500 hover:text-slate-700'
+            )}
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            آخر الأوردرات
+          </button>
         </div>
 
+        {/* Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
           {loading ? (
-             <div className="flex items-center justify-center h-32"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div></div>
-          ) : logs.length === 0 ? (
-             <div className="text-center text-slate-500 text-sm py-10 font-bold bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">لا توجد حركات مسجلة أو لم يتم العثور على الطلب.</div>
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+            </div>
+          ) : activeTab === 'users' ? (
+            pendingUsers.length === 0 ? (
+              <div className="text-center text-slate-500 text-sm py-10 font-bold bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                لا توجد طلبات انضمام معلّقة ✅
+              </div>
+            ) : (
+              pendingUsers.map(user => (
+                <div key={user.id} className="bg-white border border-indigo-100 rounded-xl p-3.5 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 font-bold text-sm">
+                      {(user.name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-slate-800 text-sm truncate">{user.name || 'بدون اسم'}</p>
+                      <p className="text-[10px] text-slate-500 truncate" dir="ltr">{user.email}</p>
+                      <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3" />
+                        {user.created_at ? new Date(user.created_at).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => approveUser(user.id)}
+                      className="shrink-0 flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg transition-colors"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> موافقة
+                    </button>
+                  </div>
+                </div>
+              ))
+            )
           ) : (
-             logs.map(log => (
-               <div key={log.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-3 shadow-sm hover:border-indigo-200 dark:hover:border-indigo-500/30 transition-colors group">
-                 <div className="flex items-start justify-between mb-2">
-                    <div className="flex flex-col gap-0.5">
-                       <span className={clsx("text-xs font-black px-2 py-0.5 rounded flex items-center w-max border", 
-                         log.action === 'إضافة' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/30 dark:border-emerald-800' :
-                         log.action === 'تعديل' ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/30 dark:border-amber-800' : 
-                         'bg-sky-50 text-sky-600 border-sky-100 dark:bg-sky-900/30 dark:border-sky-800'
-                       )}>
-                         {log.action}
-                       </span>
-                    </div>
-                    <span className="text-[9px] text-slate-400 font-bold flex items-center gap-1" dir="ltr">
-                      {new Date(log.created_at).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })}
-                      <Clock className="w-3 h-3" />
+            recentOrders.length === 0 ? (
+              <div className="text-center text-slate-500 text-sm py-10 font-bold bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                لا توجد أوردرات
+              </div>
+            ) : (
+              recentOrders.map(order => (
+                <div key={order.id} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:border-indigo-200 transition-colors">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono text-xs font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Package className="w-3 h-3" /> {order.id}
                     </span>
-                 </div>
-                 
-                 <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed mb-2">
-                   {log.details}
-                 </p>
-                 
-                 <div className="flex items-center justify-between pt-2 border-t border-slate-50 dark:border-slate-700/50 text-[10px]">
-                    <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-bold bg-slate-50 dark:bg-slate-800/80 px-2 py-1 rounded">
-                      <User className="w-3 h-3" /> {log.user_roles?.name || 'النظام الآلي / Shopify'}
-                    </div>
-                    {log.order_id && (
-                      <div className="font-mono bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded border border-indigo-100 dark:border-indigo-800 flex items-center gap-1 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 transition-colors">
-                        <Package className="w-3 h-3" /> {log.order_id}
-                      </div>
-                    )}
-                 </div>
-               </div>
-             ))
+                    <span className="text-[9px] text-slate-400 font-bold">{order.date}</span>
+                  </div>
+                  <p className="font-bold text-sm text-slate-800 truncate">{order.customer}</p>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[10px] text-slate-500 font-bold">{order.page}</span>
+                    <span className={clsx('text-[10px] font-black px-2 py-0.5 rounded-full border',
+                      order.source === 'shopify' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-600 border-slate-200'
+                    )}>
+                      {order.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )
           )}
+        </div>
+
+        {/* Refresh */}
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800">
+          <button onClick={fetchAll} className="w-full text-xs text-slate-500 hover:text-indigo-600 font-bold py-2 rounded-lg hover:bg-indigo-50 transition-colors">
+            🔄 تحديث
+          </button>
         </div>
       </div>
     </div>

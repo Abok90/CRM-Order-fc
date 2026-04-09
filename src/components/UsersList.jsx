@@ -40,6 +40,19 @@ export default function UsersList({ userRole }) {
 
   useEffect(() => { fetchUsers(); }, []);
 
+  // Realtime: أضف المستخدم الجديد تلقائياً بدون ريفريش
+  useEffect(() => {
+    const channel = supabase.channel('users-list-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_roles' }, (payload) => {
+        setUsers(prev => [payload.new, ...prev]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'user_roles' }, (payload) => {
+        setUsers(prev => prev.map(u => u.id === payload.new.id ? payload.new : u));
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
