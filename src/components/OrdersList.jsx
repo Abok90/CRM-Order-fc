@@ -37,7 +37,6 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
   // Shopify fetch modal
   const [showFetchModal, setShowFetchModal] = useState(false);
-  const [fetchStore, setFetchStore]         = useState('offer_web');
   const [fetchOrderName, setFetchOrderName] = useState('');
   const [fetchLoading, setFetchLoading]     = useState(false);
   const [fetchResult, setFetchResult]       = useState(null); // { ok, message }
@@ -188,19 +187,24 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     if (!fetchOrderName.trim()) return;
     setFetchLoading(true);
     setFetchResult(null);
+    const stores = ['offer_web', 'aida_web', 'vee_web'];
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/shopify-action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-crm-auth': session?.access_token || '' },
-        body: JSON.stringify({ action: 'fetch_order', shopifyStore: fetchStore, orderName: fetchOrderName.trim() }),
-      });
-      const json = await res.json();
-      if (json.ok) {
-        setFetchResult({ ok: true, message: `✅ تم إضافة ${json.order?.id} — ${json.order?.customer} (${json.order?.page})` });
+      let found = null;
+      for (const shopifyStore of stores) {
+        const res = await fetch('/api/shopify-action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-crm-auth': session?.access_token || '' },
+          body: JSON.stringify({ action: 'fetch_order', shopifyStore, orderName: fetchOrderName.trim() }),
+        });
+        const json = await res.json();
+        if (json.ok) { found = json; break; }
+      }
+      if (found) {
+        setFetchResult({ ok: true, message: `✅ تم إضافة ${found.order?.id} — ${found.order?.customer} (${found.order?.page})` });
         fetchOrders();
       } else {
-        setFetchResult({ ok: false, message: `❌ ${json.error || 'حدث خطأ'}` });
+        setFetchResult({ ok: false, message: `❌ الأوردر مش موجود في أي متجر` });
       }
     } catch (err) {
       setFetchResult({ ok: false, message: `❌ ${err.message}` });
@@ -840,14 +844,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
             </div>
 
             <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1">المتجر</label>
-                <select value={fetchStore} onChange={e => setFetchStore(e.target.value)} className="custom-input text-sm">
-                  <option value="offer_web">اوفر ويب</option>
-                  <option value="aida_web">عايدة ويب</option>
-                  <option value="vee_web">VEE</option>
-                </select>
-              </div>
+              <p className="text-xs text-slate-500">سيتم البحث تلقائياً في كل المتاجر (اوفر ويب، عايدة ويب، VEE)</p>
               <div>
                 <label className="text-xs font-bold text-slate-600 block mb-1">رقم الأوردر</label>
                 <input
