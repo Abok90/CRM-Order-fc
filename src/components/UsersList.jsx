@@ -87,8 +87,11 @@ export default function UsersList({ userRole }) {
 
   const toggleDashPerm = async (user, permKey) => {
     const curr = getDashPerms(user);
-    curr[permKey] = !curr[permKey];
-    await updateUser(user.id, { dashboard_perms: JSON.stringify(curr) });
+    const next = { ...curr, [permKey]: !curr[permKey] };
+    const nextStr = JSON.stringify(next);
+    // Optimistic update first so rapid clicks read the already-updated state
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, dashboard_perms: nextStr } : u));
+    await updateUser(user.id, { dashboard_perms: nextStr });
   };
 
   const togglePageAccess = async (user, pageName) => {

@@ -16,12 +16,12 @@ export default function SystemLogsModal({ isOpen, onClose }) {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [usersRes, ordersRes] = await Promise.all([
+      const [usersRes, ordersRes] = await Promise.allSettled([
         supabase.from('user_roles').select('*').eq('is_approved', false).order('created_at', { ascending: false }),
         supabase.from('orders').select('id, customer, page, status, date, productPrice, shippingPrice, source').order('date', { ascending: false }).limit(50),
       ]);
-      setPendingUsers(usersRes.data || []);
-      setRecentOrders(ordersRes.data || []);
+      if (usersRes.status === 'fulfilled')  setPendingUsers(usersRes.value.data || []);
+      if (ordersRes.status === 'fulfilled') setRecentOrders(ordersRes.value.data || []);
     } catch (e) {
       console.error(e);
     } finally {
