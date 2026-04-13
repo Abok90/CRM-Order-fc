@@ -92,6 +92,10 @@ async function handler(req, res) {
   if (!action || !shopifyStore) {
     return res.status(400).json({ error: 'Missing: action, shopifyStore' });
   }
+  // Validate shopifyOrderId is a safe numeric string to prevent path traversal
+  if (shopifyOrderId !== undefined && !/^\d+$/.test(String(shopifyOrderId))) {
+    return res.status(400).json({ error: 'Invalid shopifyOrderId' });
+  }
 
   const store = getStore(shopifyStore);
   if (!store || !store.url || !store.clientId || !store.clientSecret) {

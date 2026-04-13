@@ -18,12 +18,12 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
   const [showLeaderboard, setShowLeaderboard] = useState(() => {
-    return localStorage.getItem('hideLeaderboard') !== 'true';
+    try { return localStorage.getItem('hideLeaderboard') !== 'true'; } catch { return true; }
   });
-  
+
   const toggleLeaderboard = () => {
     setShowLeaderboard(prev => {
-      localStorage.setItem('hideLeaderboard', (!prev).toString());
+      try { localStorage.setItem('hideLeaderboard', (!prev).toString()); } catch {}
       return !prev;
     });
   };

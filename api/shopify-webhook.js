@@ -83,7 +83,7 @@ async function handler(req, res) {
   const store = getStore(shopDomain);
   if (!store) {
     console.warn(`[webhook] Unknown domain: ${shopDomain}`);
-    return res.status(200).json({ ok: true });
+    return res.status(401).json({ error: 'Unknown shop domain' });
   }
 
   if (!store.secret) {
@@ -99,6 +99,9 @@ async function handler(req, res) {
   let order;
   try { order = JSON.parse(rawBody.toString('utf8')); }
   catch { return res.status(400).json({ error: 'Invalid JSON' }); }
+
+  // Validate order.id is a safe numeric value before using in DB filters
+  const safeOrderId = order && /^\d+$/.test(String(order.id)) ? String(order.id) : null;
 
   try {
     if (topic === 'orders/create') {
@@ -145,16 +148,18 @@ async function handler(req, res) {
       console.log(`[webhook] Inserted order ${order.name} (${store.storeKey})`);
 
     } else if (topic === 'orders/cancelled') {
-      await supabaseRequest('PATCH', `orders?shopify_order_id=eq.${order.id}&shopify_store=eq.${store.storeKey}`, { status: 'الغاء' });
-      console.log(`[webhook] Cancelled order ${order.id}`);
+      if (!safeOrderId) { console.warn('[webhook] Skipping cancelled — invalid order.id'); return res.status(400).json({ error: 'Invalid order ID' }); }
+      await supabaseRequest('PATCH', `orders?shopify_order_id=eq.${safeOrderId}&shopify_store=eq.${store.storeKey}`, { status: 'الغاء' });
+      console.log(`[webhook] Cancelled order ${safeOrderId}`);
 
     } else if (topic === 'orders/fulfilled') {
       // الأوردر اتشحن في شوبيفاي → غيّر الحالة لـ "الشحن"
+      if (!safeOrderId) { console.warn('[webhook] Skipping fulfilled — invalid order.id'); return res.status(400).json({ error: 'Invalid order ID' }); }
       const trackingNum = order.fulfillments?.[0]?.tracking_number || '';
       const update = { status: 'الشحن' };
       if (trackingNum) update.trackingNumber = trackingNum;
-      await supabaseRequest('PATCH', `orders?shopify_order_id=eq.${order.id}&shopify_store=eq.${store.storeKey}`, update);
-      console.log(`[webhook] Fulfilled order ${order.id} tracking=${trackingNum}`);
+      await supabaseRequest('PATCH', `orders?shopify_order_id=eq.${safeOrderId}&shopify_store=eq.${store.storeKey}`, update);
+      console.log(`[webhook] Fulfilled order ${safeOrderId} tracking=${trackingNum}`);
 
     } else if (topic === 'orders/updated') {
       // تعديل في شوبيفاي → حدّث البيانات الأساسية في السيستم
@@ -168,10 +173,12 @@ async function handler(req, res) {
       if (order.cancelled_at) update.status = 'الغاء';
       // تحقق إن في حاجة تتحدث
       if (Object.keys(update).length === 0) {
-        console.log(`[webhook] Updated order ${order.id} — no relevant changes`);
+        console.log(`[webhook] Updated order ${safeOrderId} — no relevant changes`);
+      } else if (!safeOrderId) {
+        console.warn('[webhook] Skipping updated — invalid order.id');
       } else {
-        await supabaseRequest('PATCH', `orders?shopify_order_id=eq.${order.id}&shopify_store=eq.${store.storeKey}`, update);
-        console.log(`[webhook] Updated order ${order.id} fields=${Object.keys(update).join(',')}`);
+        await supabaseRequest('PATCH', `orders?shopify_order_id=eq.${safeOrderId}&shopify_store=eq.${store.storeKey}`, update);
+        console.log(`[webhook] Updated order ${safeOrderId} fields=${Object.keys(update).join(',')}`);
       }
 
     } else {

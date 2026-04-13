@@ -31,8 +31,8 @@ function App() {
   const [isLoginMode, setIsLoginMode] = useState(true);
 
   // UI Accessibility Zoom Settings & Dark Mode
-  const [zoomLevel, setZoomLevel] = useState(Number(localStorage.getItem('appZoom')) || 1);
-  const [theme, setTheme] = useState(localStorage.getItem('appTheme') || 'light');
+  const [zoomLevel, setZoomLevel] = useState(() => { try { return Number(localStorage.getItem('appZoom')) || 1; } catch { return 1; } });
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem('appTheme') || 'light'; } catch { return 'light'; } });
   const [showConfig, setShowConfig] = useState(false);
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const [isGlobalAddModalOpen, setIsGlobalAddModalOpen] = useState(false);
@@ -115,7 +115,7 @@ function App() {
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${zoomLevel * 16}px`;
-    localStorage.setItem('appZoom', zoomLevel.toString());
+    try { localStorage.setItem('appZoom', zoomLevel.toString()); } catch {}
   }, [zoomLevel]);
 
   useEffect(() => {
@@ -124,7 +124,7 @@ function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('appTheme', theme);
+    try { localStorage.setItem('appTheme', theme); } catch {}
   }, [theme]);
 
   useEffect(() => {
