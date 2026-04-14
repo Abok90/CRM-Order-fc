@@ -54,13 +54,23 @@ function getStore(shopDomain) {
   return null;
 }
 
+// Decode the role from a JWT without verifying signature
+function jwtRole(token) {
+  try {
+    return JSON.parse(Buffer.from((token || '').split('.')[1], 'base64url').toString()).role || 'unknown';
+  } catch { return 'invalid'; }
+}
+
 async function supabaseRequest(method, path, body, prefer = 'return=minimal') {
-  const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${path}`, {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.SUPABASE_URL;
+  console.log(`[supabase] url=${url ? 'SET' : 'MISSING'} key_role=${jwtRole(key)}`);
+  const res = await fetch(`${url}/rest/v1/${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: key,
+      Authorization: `Bearer ${key}`,
       Prefer: prefer,
     },
     body: body ? JSON.stringify(body) : undefined,
