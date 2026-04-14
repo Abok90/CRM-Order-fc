@@ -82,19 +82,21 @@ async function handler(req, res) {
 
   const store = getStore(shopDomain);
   if (!store) {
-    console.warn(`[webhook] Unknown domain: ${shopDomain}`);
-    return res.status(401).json({ error: 'Unknown shop domain' });
+    console.warn(`[webhook] Unknown domain — ignoring: ${shopDomain}`);
+    return res.status(200).json({ ok: true, ignored: true });
   }
 
   if (!store.secret) {
-    console.error(`[webhook] Missing secret for ${store.storeKey}`);
-    return res.status(500).json({ error: 'Server misconfigured' });
+    console.error(`[webhook] Missing WEBHOOK_SECRET for ${store.storeKey} — set env var in Vercel`);
+    return res.status(200).json({ ok: false, error: 'Server misconfigured — missing secret' });
   }
 
   if (!verifyHmac(rawBody, receivedHmac, store.secret)) {
-    console.warn(`[webhook] HMAC failed for ${shopDomain}`);
+    console.warn(`[webhook] HMAC failed for ${shopDomain} (storeKey=${store.storeKey})`);
     return res.status(401).json({ error: 'Invalid HMAC' });
   }
+
+  console.log(`[webhook] HMAC OK for ${store.storeKey} — processing topic=${topic}`);
 
   let order;
   try { order = JSON.parse(rawBody.toString('utf8')); }
