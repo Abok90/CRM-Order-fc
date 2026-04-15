@@ -48,39 +48,86 @@
 
 @layer base {
   html.dark body { background-color: #0f172a; color: #f1f5f9; }
-  
-  html.dark .bg-white { background-color: #1e293b !important; color: #f1f5f9 !important; border-color: #334155 !important; }
-  html.dark .bg-slate-50 { background-color: #0f172a !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+
+  /* Backgrounds */
+  html.dark .bg-white { background-color: #1e293b !important; border-color: #334155 !important; }
+  html.dark .bg-slate-50 { background-color: #0f172a !important; border-color: #334155 !important; }
+  html.dark .bg-slate-100 { background-color: #1e293b !important; }
+
+  /* Text */
   html.dark .text-slate-800, html.dark .text-slate-700, html.dark .text-slate-600 { color: #e2e8f0 !important; }
   html.dark .text-slate-500, html.dark .text-slate-400 { color: #94a3b8 !important; }
+
+  /* Borders */
   html.dark .border, html.dark .border-slate-100, html.dark .border-slate-200, html.dark .border-white { border-color: #334155 !important; }
-  
+
+  /* Glass panel */
   html.dark .glass-panel {
     background-color: rgba(30, 41, 59, 0.8) !important;
     border-color: #334155 !important;
     box-shadow: 0 8px 32px 0 rgba(0,0,0,0.3) !important;
   }
-  
+
+  /* Inputs */
   html.dark .custom-input {
     background-color: #0f172a !important;
     border-color: #334155 !important;
     color: #f1f5f9 !important;
   }
-  
   html.dark .custom-input:focus {
     background-color: #1e293b !important;
     border-color: #6366f1 !important;
   }
-  
+
+  /* Buttons */
   html.dark .btn-secondary {
     background-color: #1e293b !important;
     color: #e2e8f0 !important;
     border-color: #334155 !important;
   }
-  
   html.dark .btn-secondary:hover {
     background-color: #334155 !important;
     border-color: #475569 !important;
   }
+
+  /* ===== Status badge colors in dark mode ===== */
+  html.dark .bg-blue-100   { background-color: rgba(37, 99, 235, 0.2)  !important; }
+  html.dark .text-blue-800 { color: #93c5fd !important; }
+  html.dark .border-blue-200 { border-color: rgba(37, 99, 235, 0.35) !important; }
+
+  html.dark .bg-purple-100   { background-color: rgba(126, 34, 206, 0.2) !important; }
+  html.dark .text-purple-800 { color: #d8b4fe !important; }
+  html.dark .border-purple-200 { border-color: rgba(126, 34, 206, 0.35) !important; }
+
+  html.dark .bg-emerald-100   { background-color: rgba(6, 95, 70, 0.25)  !important; }
+  html.dark .text-emerald-800 { color: #6ee7b7 !important; }
+  html.dark .border-emerald-200 { border-color: rgba(6, 95, 70, 0.35) !important; }
+
+  html.dark .bg-amber-100   { background-color: rgba(146, 64, 14, 0.25) !important; }
+  html.dark .text-amber-800 { color: #fde68a !important; }
+  html.dark .border-amber-200 { border-color: rgba(146, 64, 14, 0.35) !important; }
+
+  html.dark .bg-rose-100   { background-color: rgba(159, 18, 57, 0.25)  !important; }
+  html.dark .text-rose-800 { color: #fda4af !important; }
+  html.dark .border-rose-200 { border-color: rgba(159, 18, 57, 0.35) !important; }
+
+  html.dark .bg-red-100   { background-color: rgba(153, 27, 27, 0.25)  !important; }
+  html.dark .text-red-800 { color: #fca5a5 !important; }
+  html.dark .border-red-200 { border-color: rgba(153, 27, 27, 0.35) !important; }
+
+  html.dark .bg-orange-100   { background-color: rgba(154, 52, 18, 0.25) !important; }
+  html.dark .text-orange-800 { color: #fed7aa !important; }
+  html.dark .border-orange-200 { border-color: rgba(154, 52, 18, 0.35) !important; }
+
+  html.dark .bg-indigo-100   { background-color: rgba(67, 56, 202, 0.2)  !important; }
+  html.dark .text-indigo-800 { color: #a5b4fc !important; }
+
+  html.dark .bg-green-50  { background-color: rgba(21, 128, 61, 0.15)  !important; }
+  html.dark .text-green-700 { color: #86efac !important; }
+  html.dark .border-green-200 { border-color: rgba(21, 128, 61, 0.35) !important; }
+
+  html.dark .bg-yellow-50  { background-color: rgba(113, 63, 18, 0.2) !important; }
+  html.dark .text-yellow-800 { color: #fef08a !important; }
+  html.dark .border-yellow-100 { border-color: rgba(113, 63, 18, 0.3) !important; }
 }
 

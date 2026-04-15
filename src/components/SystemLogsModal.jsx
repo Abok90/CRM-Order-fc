@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { X, BellRing, User, Clock, Package, CheckCircle2, ShoppingBag } from 'lucide-react';
+import { X, BellRing, User, Clock, Package, CheckCircle2, ShoppingBag, Search } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function SystemLogsModal({ isOpen, onClose }) {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
+  const [userMap, setUserMap] = useState({});
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState('orders');
+  const [orderSearch, setOrderSearch] = useState('');
 
   useEffect(() => {
     if (isOpen) fetchAll();
@@ -18,10 +20,26 @@ export default function SystemLogsModal({ isOpen, onClose }) {
     try {
       const [usersRes, ordersRes] = await Promise.allSettled([
         supabase.from('user_roles').select('*').eq('is_approved', false).order('created_at', { ascending: false }),
-        supabase.from('orders').select('id, customer, page, status, date, productPrice, shippingPrice, source').order('date', { ascending: false }).limit(50),
+        supabase
+          .from('orders')
+          .select('id, customer, page, status, date, created_at, productPrice, shippingPrice, source, updated_by')
+          .order('created_at', { ascending: false })
+          .limit(50),
       ]);
-      if (usersRes.status === 'fulfilled')  setPendingUsers(usersRes.value.data || []);
-      if (ordersRes.status === 'fulfilled') setRecentOrders(ordersRes.value.data || []);
+
+      if (usersRes.status === 'fulfilled') setPendingUsers(usersRes.value.data || []);
+
+      const orders = ordersRes.status === 'fulfilled' ? (ordersRes.value.data || []) : [];
+      setRecentOrders(orders);
+
+      // Batch-fetch editor names for updated_by UUIDs
+      const updatedByIds = [...new Set(orders.map(o => o.updated_by).filter(Boolean))];
+      if (updatedByIds.length > 0) {
+        const { data: users } = await supabase.from('user_roles').select('id, name').in('id', updatedByIds);
+        const map = {};
+        (users || []).forEach(u => { map[u.id] = u.name; });
+        setUserMap(map);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -34,11 +52,21 @@ export default function SystemLogsModal({ isOpen, onClose }) {
     setPendingUsers(prev => prev.filter(u => u.id !== userId));
   };
 
+  const formatTime = (dt) => {
+    if (!dt) return '';
+    return new Date(dt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  const filteredOrders = orderSearch.trim()
+    ? recentOrders.filter(o => String(o.id || '').includes(orderSearch.trim()))
+    : recentOrders;
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex justify-end">
       <div className="w-full md:w-[420px] bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-slide-in-right border-l dark:border-slate-800">
+
         {/* Header */}
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
           <h2 className="font-black text-lg text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -49,8 +77,17 @@ export default function SystemLogsModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — orders first */}
         <div className="flex border-b border-slate-100 dark:border-slate-800">
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={clsx('flex-1 py-2.5 text-xs font-black flex items-center justify-center gap-1.5 transition-colors',
+              activeTab === 'orders' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50/50' : 'text-slate-500 hover:text-slate-700'
+            )}
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            آخر الأوردرات
+          </button>
           <button
             onClick={() => setActiveTab('users')}
             className={clsx('flex-1 py-2.5 text-xs font-black flex items-center justify-center gap-1.5 transition-colors',
@@ -63,16 +100,23 @@ export default function SystemLogsModal({ isOpen, onClose }) {
               <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{pendingUsers.length}</span>
             )}
           </button>
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={clsx('flex-1 py-2.5 text-xs font-black flex items-center justify-center gap-1.5 transition-colors',
-              activeTab === 'orders' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50/50' : 'text-slate-500 hover:text-slate-700'
-            )}
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            آخر الأوردرات
-          </button>
         </div>
+
+        {/* Search bar — orders tab only */}
+        {activeTab === 'orders' && (
+          <div className="p-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="ابحث برقم الأوردر..."
+                value={orderSearch}
+                onChange={e => setOrderSearch(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pr-9 pl-3 py-2 text-xs font-bold outline-none focus:border-indigo-400 transition-colors text-slate-800 dark:text-slate-100"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
@@ -111,21 +155,28 @@ export default function SystemLogsModal({ isOpen, onClose }) {
               ))
             )
           ) : (
-            recentOrders.length === 0 ? (
+            filteredOrders.length === 0 ? (
               <div className="text-center text-slate-500 text-sm py-10 font-bold bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                لا توجد أوردرات
+                {orderSearch ? 'لا توجد نتائج لهذا الرقم' : 'لا توجد أوردرات'}
               </div>
             ) : (
-              recentOrders.map(order => (
+              filteredOrders.map(order => (
                 <div key={order.id} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:border-indigo-200 transition-colors">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <span className="font-mono text-xs font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded flex items-center gap-1">
                       <Package className="w-3 h-3" /> {order.id}
                     </span>
-                    <span className="text-[9px] text-slate-400 font-bold">{order.date}</span>
+                    <div className="text-left">
+                      <div className="text-[9px] text-slate-400 font-bold leading-tight">
+                        {order.date || order.created_at?.split('T')[0]}
+                      </div>
+                      <div className="text-[9px] text-slate-400 leading-tight" dir="ltr">
+                        {formatTime(order.created_at)}
+                      </div>
+                    </div>
                   </div>
                   <p className="font-bold text-sm text-slate-800 truncate">{order.customer}</p>
-                  <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center justify-between mt-1.5">
                     <span className="text-[10px] text-slate-500 font-bold">{order.page}</span>
                     <span className={clsx('text-[10px] font-black px-2 py-0.5 rounded-full border',
                       order.source === 'shopify' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-600 border-slate-200'
@@ -133,6 +184,12 @@ export default function SystemLogsModal({ isOpen, onClose }) {
                       {order.status}
                     </span>
                   </div>
+                  {order.updated_by && userMap[order.updated_by] && (
+                    <div className="mt-1.5 flex items-center gap-1 text-[9px] text-slate-400 border-t border-slate-50 pt-1.5">
+                      <User className="w-2.5 h-2.5 shrink-0" />
+                      <span>عُدّل بواسطة: <span className="font-black text-indigo-500">{userMap[order.updated_by]}</span></span>
+                    </div>
+                  )}
                 </div>
               ))
             )

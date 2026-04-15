@@ -65,7 +65,8 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
         shippingPrice: order.shippingPrice,
         notes: order.notes,
         status: order.status,
-        trackingNumber: order.trackingNumber
+        trackingNumber: order.trackingNumber,
+        updated_by: userRole?.id || null,
       }).eq('id', initialOrder.id);
       
       if (error) throw error;

@@ -35,6 +35,9 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   // Quick status dropdown
   const [activeStatusDropdown, setActiveStatusDropdown] = useState(null);
 
+  // Realtime refresh key
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // Shopify fetch modal
   const [showFetchModal, setShowFetchModal] = useState(false);
   const [fetchStore, setFetchStore]         = useState('offer_web');
@@ -48,14 +51,19 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   const ALL_STATUSES = ['جاري التحضير', 'مراجعة', 'الشحن', 'تم', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل'];
 
   const STATUS_STYLES = {
-    'جاري التحضير': { badge: 'bg-blue-100 text-blue-800 border-blue-200', row: 'hover:bg-blue-100/50 bg-blue-50/30' },
-    'الشحن': { badge: 'bg-purple-100 text-purple-800 border-purple-200', row: 'hover:bg-purple-100/50 bg-purple-50/30' },
-    'تم': { badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', row: 'hover:bg-emerald-100/50 bg-emerald-50/30' },
-    'استبدال': { badge: 'bg-orange-100 text-orange-800 border-orange-200', row: 'hover:bg-orange-100/50 bg-orange-50/30' },
-    'مراجعة': { badge: 'bg-amber-100 text-amber-800 border-amber-200', row: 'hover:bg-amber-100/50 bg-amber-50/30' },
-    'مرتجع': { badge: 'bg-rose-100 text-rose-800 border-rose-200', row: 'hover:bg-rose-100/50 bg-rose-50/30' },
-    'الغاء': { badge: 'bg-red-100 text-red-800 border-red-200', row: 'hover:bg-red-100/50 bg-red-50/30' },
-    'تاجيل': { badge: 'bg-slate-200 text-slate-800 border-slate-300', row: 'hover:bg-slate-200/50 bg-slate-50/50' },
+    'جاري التحضير': { badge: 'bg-blue-100 text-blue-800 border-blue-200', row: 'hover:bg-blue-100/50 bg-blue-50/30 dark:bg-blue-900/20 dark:hover:bg-blue-800/30' },
+    'الشحن': { badge: 'bg-purple-100 text-purple-800 border-purple-200', row: 'hover:bg-purple-100/50 bg-purple-50/30 dark:bg-purple-900/20 dark:hover:bg-purple-800/30' },
+    'تم': { badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', row: 'hover:bg-emerald-100/50 bg-emerald-50/30 dark:bg-emerald-900/20 dark:hover:bg-emerald-800/30' },
+    'استبدال': { badge: 'bg-orange-100 text-orange-800 border-orange-200', row: 'hover:bg-orange-100/50 bg-orange-50/30 dark:bg-orange-900/20 dark:hover:bg-orange-800/30' },
+    'مراجعة': { badge: 'bg-amber-100 text-amber-800 border-amber-200', row: 'hover:bg-amber-100/50 bg-amber-50/30 dark:bg-amber-900/20 dark:hover:bg-amber-800/30' },
+    'مرتجع': { badge: 'bg-rose-100 text-rose-800 border-rose-200', row: 'hover:bg-rose-100/50 bg-rose-50/30 dark:bg-rose-900/20 dark:hover:bg-rose-800/30' },
+    'الغاء': { badge: 'bg-red-100 text-red-800 border-red-200', row: 'hover:bg-red-100/50 bg-red-50/30 dark:bg-red-900/20 dark:hover:bg-red-800/30' },
+    'تاجيل': { badge: 'bg-slate-200 text-slate-800 border-slate-300', row: 'hover:bg-slate-200/50 bg-slate-50/50 dark:bg-slate-700/30 dark:hover:bg-slate-600/30' },
+  };
+
+  const formatTime = (dt) => {
+    if (!dt) return '';
+    return new Date(dt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
   const getPageColor = (pageName) => {
@@ -367,7 +375,18 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       fetchOrders();
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, statusFilter, pageFilter, dateFrom, dateTo, page]);
+  }, [searchQuery, statusFilter, pageFilter, dateFrom, dateTo, page, refreshKey]);
+
+  // Realtime: auto-refresh on new INSERT
+  useEffect(() => {
+    const channel = supabase
+      .channel('orders-list-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
+        setRefreshKey(k => k + 1);
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
 
   // Close status dropdown on outside click
   useEffect(() => {
@@ -497,7 +516,12 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
           )}
           
           <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-             <div className="text-xs text-slate-500 font-bold">{order.date || order.created_at?.split('T')[0]}</div>
+             <div>
+               <div className="text-xs text-slate-500 font-bold">{order.date || order.created_at?.split('T')[0]}</div>
+               {order.created_at && (
+                 <div className="text-[10px] text-slate-400" dir="ltr">{formatTime(order.created_at)}</div>
+               )}
+             </div>
              <div className="font-black text-lg text-primary-700">
                {(Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0)} <span className="text-xs">ج.م</span>
              </div>
@@ -769,7 +793,10 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                     {(Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0)}
                   </td>
                   <td className="px-4 py-3 text-slate-500 font-medium text-xs border-r border-slate-100/50">
-                    {order.date || order.created_at?.split('T')[0] || '—'}
+                    <div>{order.date || order.created_at?.split('T')[0] || '—'}</div>
+                    {order.created_at && (
+                      <div className="text-slate-400 text-[10px]" dir="ltr">{formatTime(order.created_at)}</div>
+                    )}
                   </td>
                 </tr>
                 );
