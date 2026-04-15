@@ -22,13 +22,15 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
   const fetchNextId = async (page) => {
     setIdLoading(true);
     try {
-      const { data } = await supabase.from('orders').select('id').eq('page', page);
-      const maxId = (data || []).reduce((max, r) => {
-        const n = parseInt(r.id, 10);
-        return !isNaN(n) && n > max ? n : max;
-      }, 0);
+      const { data } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('page', page)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const lastId = parseInt(data?.[0]?.id, 10);
       const minStart = PAGE_MIN_ORDER_NUMBER[page] || 1;
-      const nextId = Math.max(maxId + 1, minStart);
+      const nextId = !isNaN(lastId) ? Math.max(lastId + 1, minStart) : minStart;
       setOrder(prev => ({ ...prev, id: nextId.toString() }));
     } catch {
       setOrder(prev => ({ ...prev, id: '' }));
