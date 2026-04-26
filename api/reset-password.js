@@ -48,17 +48,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Verify caller identity with anon client
-    const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Use service_role client for all server-side operations (bypasses RLS)
+    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    // 1. Verify caller identity using their JWT token
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user: caller }, error: authError } = await anonClient.auth.getUser(token);
+    const { data: { user: caller }, error: authError } = await serviceClient.auth.getUser(token);
 
     if (authError || !caller) {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
 
-    // 2. Check caller is admin in user_roles table
-    const { data: callerRole } = await anonClient
+    // 2. Check caller is admin in user_roles table (service client bypasses RLS)
+    const { data: callerRole } = await serviceClient
       .from('user_roles')
       .select('role')
       .eq('id', caller.id)
@@ -74,11 +78,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Use Settings page to change your own password' });
     }
 
-    // 4. Use service_role client to update the target user's password
-    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
+    // 4. Update the target user's password
     const { error: updateError } = await serviceClient.auth.admin.updateUserById(targetUserId, {
       password: newPassword,
     });
