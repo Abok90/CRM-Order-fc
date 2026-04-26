@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import clsx from 'clsx';
-import { UserCog, Trash2, CheckCircle2, ShieldCheck, User, Pencil, Save, X } from 'lucide-react';
+import { UserCog, Trash2, CheckCircle2, ShieldCheck, User, Pencil, Save, X, KeyRound, Eye, EyeOff } from 'lucide-react';
 
 const ROLES = {
   'admin':           { label: 'مدير النظام',     color: 'bg-amber-100 text-amber-700',   icon: '👑', desc: 'كل الصلاحيات' },
@@ -34,6 +34,14 @@ export default function UsersList({ userRole }) {
   const [loading, setLoading] = useState(true);
   const [editingNameId, setEditingNameId] = useState(null);
   const [nameInput, setNameInput]         = useState('');
+
+  // Password reset state
+  const [resetPassId, setResetPassId]     = useState(null);
+  const [newPassInput, setNewPassInput]   = useState('');
+  const [confirmPassInput, setConfirmPassInput] = useState('');
+  const [showPass, setShowPass]           = useState(false);
+  const [resetLoading, setResetLoading]   = useState(false);
+  const [resetMsg, setResetMsg]           = useState({ text: '', type: '' });
 
   const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
   const currentUserId = userRole?.id;
@@ -113,6 +121,50 @@ export default function UsersList({ userRole }) {
       setUsers(prev => prev.filter(u => u.id !== userId));
     } catch (err) {
       alert('خطأ في الحذف: ' + err.message);
+    }
+  };
+
+  // ===== Reset Password =====
+  const handleResetPassword = async (userId) => {
+    if (!newPassInput || newPassInput.length < 6) {
+      setResetMsg({ text: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل', type: 'error' });
+      return;
+    }
+    if (newPassInput !== confirmPassInput) {
+      setResetMsg({ text: 'كلمات المرور غير متطابقة', type: 'error' });
+      return;
+    }
+
+    setResetLoading(true);
+    setResetMsg({ text: '', type: '' });
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('أنت غير مسجل الدخول');
+
+      const resp = await fetch('/api/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ targetUserId: userId, newPassword: newPassInput }),
+      });
+
+      const result = await resp.json();
+
+      if (!resp.ok) {
+        throw new Error(result.error || 'حدث خطأ أثناء تحديث كلمة المرور');
+      }
+
+      setResetMsg({ text: '✅ تم تحديث كلمة المرور بنجاح!', type: 'success' });
+      setNewPassInput('');
+      setConfirmPassInput('');
+      setTimeout(() => { setResetPassId(null); setResetMsg({ text: '', type: '' }); }, 2500);
+    } catch (err) {
+      setResetMsg({ text: err.message || 'حدث خطأ', type: 'error' });
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -333,7 +385,68 @@ export default function UsersList({ userRole }) {
                     </div>
                   )}
 
-                  {/* Activate + Delete */}
+                  {/* Password Reset — admin only, not for self */}
+                  {isAdmin && !isCurrentUser && resetPassId === user.id && (
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 animate-fade-in">
+                      <div className="flex items-center gap-2 mb-1">
+                        <KeyRound className="w-4 h-4 text-amber-600" />
+                        <span className="text-xs font-black text-slate-700">إعادة تعيين كلمة المرور</span>
+                      </div>
+                      {resetMsg.text && (
+                        <div className={clsx(
+                          "px-3 py-2 rounded-lg text-[11px] font-bold",
+                          resetMsg.type === 'error' ? "bg-rose-50 text-rose-600 border border-rose-200" : "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                        )}>
+                          {resetMsg.text}
+                        </div>
+                      )}
+                      <div className="relative">
+                        <input
+                          type={showPass ? 'text' : 'password'}
+                          value={newPassInput}
+                          onChange={e => setNewPassInput(e.target.value)}
+                          placeholder="كلمة المرور الجديدة"
+                          className="w-full bg-white border border-slate-200 rounded-lg text-xs px-3 py-2 font-bold outline-none focus:border-primary-400 text-left"
+                          dir="ltr"
+                        />
+                        <button type="button" onClick={() => setShowPass(v => !v)} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                          {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showPass ? 'text' : 'password'}
+                          value={confirmPassInput}
+                          onChange={e => setConfirmPassInput(e.target.value)}
+                          placeholder="تأكيد كلمة المرور"
+                          className="w-full bg-white border border-slate-200 rounded-lg text-xs px-3 py-2 font-bold outline-none focus:border-primary-400 text-left"
+                          dir="ltr"
+                          onKeyDown={e => e.key === 'Enter' && handleResetPassword(user.id)}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleResetPassword(user.id)}
+                          disabled={resetLoading || !newPassInput || !confirmPassInput}
+                          className="flex-1 bg-amber-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          {resetLoading ? (
+                            <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></div>
+                          ) : (
+                            <><KeyRound className="w-3.5 h-3.5" /> تحديث الباسورد</>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => { setResetPassId(null); setNewPassInput(''); setConfirmPassInput(''); setResetMsg({ text: '', type: '' }); }}
+                          className="px-3 py-2 bg-white text-slate-500 text-xs font-bold rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                        >
+                          إلغاء
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Activate + Reset Pass + Delete */}
                   <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                     <button
                       onClick={() => updateUser(user.id, { is_approved: !user.is_approved })}
@@ -345,6 +458,18 @@ export default function UsersList({ userRole }) {
                       <CheckCircle2 className="w-4 h-4" />
                       {user.is_approved ? '✅ حساب نشط' : '⏳ تفعيل الحساب'}
                     </button>
+                    {isAdmin && !isCurrentUser && (
+                      <button
+                        onClick={() => { setResetPassId(resetPassId === user.id ? null : user.id); setNewPassInput(''); setConfirmPassInput(''); setResetMsg({ text: '', type: '' }); setShowPass(false); }}
+                        className={clsx(
+                          "p-2 rounded-lg transition-colors",
+                          resetPassId === user.id ? "text-amber-600 bg-amber-50" : "text-slate-300 hover:text-amber-600 hover:bg-amber-50"
+                        )}
+                        title="إعادة تعيين كلمة المرور"
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </button>
+                    )}
                     {isAdmin && !isCurrentUser && (
                       <button onClick={() => deleteUser(user.id)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
                         <Trash2 className="w-4 h-4" />
