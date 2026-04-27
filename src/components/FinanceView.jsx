@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { Wallet, TrendingUp, TrendingDown, HandCoins, Plus, Pencil, Trash2, X, Save, Filter } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, HandCoins, Plus, Pencil, Trash2, X, Save, Filter, ClipboardPaste } from 'lucide-react';
 import clsx from 'clsx';
 
 const EXPENSE_CATEGORIES = ['إيجار', 'كهرباء ومياه', 'مرتبات', 'شحن وتوصيل', 'مواد خام', 'تسويق وإعلانات', 'صيانة', 'مصروفات متنوعة', 'مصنع', 'أخرى'];
@@ -20,6 +20,13 @@ export default function FinanceView() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [formData, setFormData] = useState({ date: '', category: '', details: '', amount: '', department: '' });
+
+  // Bulk paste modal
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkRows, setBulkRows] = useState([]);
+  const [bulkCategory, setBulkCategory] = useState('مصروفات متنوعة');
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   // Order-derived stats
   const [orderStats, setOrderStats] = useState({ totalIncome: 0, totalShipping: 0, deliveredCount: 0 });
@@ -121,9 +128,67 @@ export default function FinanceView() {
     setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
   };
 
+  // ————— Bulk paste logic —————
+  const parseBulkText = () => {
+    const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
+    const parsed = [];
+    for (const line of lines) {
+      // Convert Arabic numerals
+      const normalized = line.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+      // Try: number first, then description
+      let match = normalized.match(/^([\d,.]+)\s+(.+)/);
+      if (match) {
+        parsed.push({ amount: parseFloat(match[1].replace(/,/g, '')), details: match[2].trim(), include: true });
+        continue;
+      }
+      // Try: description first, then number
+      match = normalized.match(/^(.+?)\s+([\d,.]+)$/);
+      if (match) {
+        parsed.push({ amount: parseFloat(match[2].replace(/,/g, '')), details: match[1].trim(), include: true });
+        continue;
+      }
+      // Try: just a number
+      match = normalized.match(/^([\d,.]+)$/);
+      if (match) {
+        parsed.push({ amount: parseFloat(match[1].replace(/,/g, '')), details: '', include: true });
+        continue;
+      }
+      // Can't parse — skip
+    }
+    setBulkRows(parsed);
+  };
+
+  const handleBulkSave = async () => {
+    const toSave = bulkRows.filter(r => r.include && r.amount > 0);
+    if (toSave.length === 0) { alert('مفيش مصاريف للحفظ'); return; }
+    setBulkSaving(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const payload = toSave.map(r => ({
+        type: subTab,
+        date: today,
+        category: bulkCategory,
+        details: r.details,
+        amount: r.amount,
+        department: '',
+      }));
+      const { error } = await supabase.from('finance_records').insert(payload);
+      if (error) throw error;
+      setIsBulkOpen(false);
+      setBulkText('');
+      setBulkRows([]);
+      fetchRecords();
+    } catch (err) {
+      alert('خطأ: ' + err.message);
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
   const categories = subTab === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
   return (
+    <>
     <div className="space-y-4 md:space-y-6 animate-fade-in pb-20">
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
@@ -168,6 +233,9 @@ export default function FinanceView() {
               <button onClick={() => openModal(subTab)} className={`hidden md:flex px-4 py-1.5 rounded-lg font-bold text-white text-xs md:text-sm shadow-md items-center gap-1 transition-transform hover:-translate-y-0.5 ${subTab === 'expense' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
                 <Plus className="w-4 h-4" /> إضافة {subTab === 'expense' ? 'مصروف' : 'إيراد'}
               </button>
+              <button onClick={() => { setIsBulkOpen(true); setBulkText(''); setBulkRows([]); }} className="hidden md:flex px-4 py-1.5 rounded-lg font-bold text-white text-xs md:text-sm shadow-md items-center gap-1 transition-transform hover:-translate-y-0.5 bg-indigo-600 hover:bg-indigo-700">
+                <ClipboardPaste className="w-4 h-4" /> لصق جماعي
+              </button>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
@@ -202,6 +270,9 @@ export default function FinanceView() {
           <div className="flex justify-between mt-3">
             <button onClick={() => openModal(subTab)} className={`md:hidden px-4 py-1.5 rounded-lg font-bold text-white text-[11px] shadow-md flex items-center gap-1 ${subTab === 'expense' ? 'bg-red-600' : 'bg-green-600'}`}>
               <Plus className="w-3.5 h-3.5" /> إضافة جديد
+            </button>
+            <button onClick={() => { setIsBulkOpen(true); setBulkText(''); setBulkRows([]); }} className="md:hidden px-4 py-1.5 rounded-lg font-bold text-white text-[11px] shadow-md flex items-center gap-1 bg-indigo-600">
+              <ClipboardPaste className="w-3.5 h-3.5" /> لصق جماعي
             </button>
             {(dateFrom || dateTo || selectedCategories.length > 0) && (
               <button onClick={() => { setDateFrom(''); setDateTo(''); setSelectedCategories([]); }} className="text-xs text-red-500 font-bold hover:underline bg-red-50 px-2 py-1 rounded mr-auto border border-red-100">
@@ -308,5 +379,106 @@ export default function FinanceView() {
         </div>
       )}
     </div>
+
+      {/* Bulk Paste Modal */}
+      {isBulkOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white/95 backdrop-blur p-4 border-b border-slate-100 flex items-center justify-between z-10">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <ClipboardPaste className="w-5 h-5 text-indigo-600" />
+                لصق {subTab === 'expense' ? 'مصاريف' : 'إيرادات'} جماعي
+              </h2>
+              <button onClick={() => setIsBulkOpen(false)} className="p-2 hover:bg-slate-100 rounded-full"><X className="w-5 h-5 text-slate-500" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Step 1: Paste */}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700">الصق الرسائل من الواتساب (سطر لكل مصروف):</label>
+                <p className="text-[11px] text-slate-400 font-bold">الصيغة: المبلغ + الوصف — مثال: <span className="text-slate-600">1500 خيط</span> أو <span className="text-slate-600">قطن 19000</span></p>
+                <textarea
+                  className="custom-input min-h-[120px] font-mono text-sm"
+                  placeholder={`1500 خيط\n19000 قطن\n400 سلاله ام اسلام\n650 مرتجع\n3000 محمود`}
+                  value={bulkText}
+                  onChange={e => setBulkText(e.target.value)}
+                />
+                <div className="flex items-center gap-3">
+                  <select value={bulkCategory} onChange={e => setBulkCategory(e.target.value)} className="custom-input text-sm flex-1 cursor-pointer">
+                    {(subTab === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button onClick={parseBulkText} className="btn-primary px-6 py-2.5 flex items-center gap-2 text-sm bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap">
+                    تحليل النص →
+                  </button>
+                </div>
+              </div>
+
+              {/* Step 2: Review */}
+              {bulkRows.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-700">مراجعة ({bulkRows.filter(r => r.include).length} عنصر)</h3>
+                    <span className="font-black text-indigo-700 bg-indigo-50 px-3 py-1 rounded-lg text-sm border border-indigo-200">
+                      الإجمالي: {bulkRows.filter(r => r.include).reduce((s, r) => s + (r.amount || 0), 0).toLocaleString()} ج.م
+                    </span>
+                  </div>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-right text-sm">
+                      <thead className="bg-slate-100 text-xs text-slate-600">
+                        <tr>
+                          <th className="px-3 py-2 w-10">✔</th>
+                          <th className="px-3 py-2">المبلغ</th>
+                          <th className="px-3 py-2">الوصف</th>
+                          <th className="px-3 py-2 w-10"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {bulkRows.map((row, i) => (
+                          <tr key={i} className={clsx("transition-colors", row.include ? "bg-white" : "bg-slate-50 opacity-50")}>
+                            <td className="px-3 py-2 text-center">
+                              <input type="checkbox" checked={row.include} onChange={() => {
+                                const updated = [...bulkRows];
+                                updated[i] = { ...updated[i], include: !updated[i].include };
+                                setBulkRows(updated);
+                              }} className="w-4 h-4 accent-indigo-600 cursor-pointer" />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input type="number" value={row.amount} onChange={e => {
+                                const updated = [...bulkRows];
+                                updated[i] = { ...updated[i], amount: parseFloat(e.target.value) || 0 };
+                                setBulkRows(updated);
+                              }} className="w-24 px-2 py-1 border border-slate-200 rounded text-sm font-bold text-center" />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input type="text" value={row.details} onChange={e => {
+                                const updated = [...bulkRows];
+                                updated[i] = { ...updated[i], details: e.target.value };
+                                setBulkRows(updated);
+                              }} className="w-full px-2 py-1 border border-slate-200 rounded text-sm" />
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <button onClick={() => setBulkRows(bulkRows.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 p-1">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+            {bulkRows.length > 0 && (
+              <div className="p-4 border-t border-slate-100 flex justify-end gap-3">
+                <button onClick={() => setIsBulkOpen(false)} className="btn-secondary px-6">إلغاء</button>
+                <button onClick={handleBulkSave} disabled={bulkSaving} className="flex items-center gap-2 px-8 py-2.5 rounded-xl font-bold text-white shadow-md bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+                  <Save className="w-5 h-5" /> {bulkSaving ? 'جاري الحفظ...' : `حفظ ${bulkRows.filter(r => r.include).length} عنصر`}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

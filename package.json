@@ -1,6 +1,6 @@
 {
   "name": "crm-order-fc",
-  "version": "7.8.2",
+  "version": "7.8.3",
   "description": "CRM Order Management System",
   "private": true,
   "type": "module",
