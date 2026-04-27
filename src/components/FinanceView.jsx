@@ -3,7 +3,7 @@ import { supabase } from '../utils/supabaseClient';
 import { Wallet, TrendingUp, TrendingDown, HandCoins, Plus, Pencil, Trash2, X, Save, Filter, ClipboardPaste } from 'lucide-react';
 import clsx from 'clsx';
 
-const EXPENSE_CATEGORIES = ['إيجار', 'كهرباء ومياه', 'مرتبات', 'شحن وتوصيل', 'مواد خام', 'تسويق وإعلانات', 'صيانة', 'مصروفات متنوعة', 'مصنع', 'أخرى'];
+const EXPENSE_CATEGORIES = ['حساب شخصي', 'إعلانات عايدة', 'إعلانات اوفر', 'مستلزمات اونلاين', 'مستلزمات تصنيع', 'انتقالات', 'اكراميات', 'مرتجعات', 'قماش', 'مرتبات مصنع', 'مرتبات اونلاين', 'ايجار مصنع', 'ايجار اونلاين', 'مرافق اونلاين', 'مرافق مصنع', 'حساب ريهام', 'اشتراكات اونلاين', 'مرتب اسامه', 'سلف مصنع', 'أخرى'];
 const INCOME_CATEGORIES = ['تحصيلات طلبات', 'تحصيلات شحن', 'مبيعات نقدية', 'إيرادات متنوعة', 'أخرى'];
 
 export default function FinanceView() {
