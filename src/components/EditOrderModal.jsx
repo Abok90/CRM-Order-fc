@@ -58,11 +58,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
       setLoading(false);
       return;
     }
-    if (!order.governorate) {
-      alert('يرجى اختيار المحافظة');
-      setLoading(false);
-      return;
-    }
+
     
     try {
       const { error } = await supabase.from('orders').update({
@@ -135,8 +131,8 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
               <input required disabled={isLocked} pattern="^\d{8}$|^\d{11}$" title="يجب أن يكون الرقم 8 أو 11 رقم بالضبط" maxLength="11" value={order.phone} onChange={e => setOrder({...order, phone: e.target.value.replace(/\D/g, '')})} type="tel" className="custom-input text-right select-all disabled:opacity-60 disabled:cursor-not-allowed" dir="ltr" placeholder="01XXXXXXXXX" />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-semibold text-slate-700">المحافظة <span className="text-rose-500">*</span></label>
-              <select required disabled={isLocked} value={order.governorate || ''} onChange={e => setOrder({...order, governorate: e.target.value})} className="custom-input cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+              <label className="text-sm font-semibold text-slate-700">المحافظة</label>
+              <select disabled={isLocked} value={order.governorate || ''} onChange={e => setOrder({...order, governorate: e.target.value})} className="custom-input cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
                 <option value="">— اختر المحافظة —</option>
                 {EGYPT_GOVERNORATES.map(g => <option key={g} value={g}>{g}</option>)}
               </select>

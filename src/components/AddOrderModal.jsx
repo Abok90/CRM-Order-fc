@@ -96,11 +96,7 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
       setLoading(false);
       return;
     }
-    if (!order.governorate) {
-      alert('يرجى اختيار المحافظة');
-      setLoading(false);
-      return;
-    }
+
     
     try {
       const payload = {
@@ -155,8 +151,8 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
               <input required pattern="^\d{8}$|^\d{11}$" title="يجب أن يكون الرقم 8 أو 11 رقم بالضبط" maxLength="11" value={order.phone} onChange={e => setOrder({...order, phone: e.target.value.replace(/\D/g, '')})} type="tel" className="custom-input text-right select-all" dir="ltr" placeholder="01XXXXXXXXX" />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-semibold text-slate-700">المحافظة <span className="text-rose-500">*</span></label>
-              <select required value={order.governorate} onChange={e => setOrder({...order, governorate: e.target.value})} className="custom-input cursor-pointer">
+              <label className="text-sm font-semibold text-slate-700">المحافظة</label>
+              <select value={order.governorate} onChange={e => setOrder({...order, governorate: e.target.value})} className="custom-input cursor-pointer">
                 <option value="">— اختر المحافظة —</option>
                 {EGYPT_GOVERNORATES.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
