@@ -132,28 +132,24 @@ export default function FinanceView() {
   const parseBulkText = () => {
     const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
     const parsed = [];
+    const today = new Date().toISOString().split('T')[0];
     for (const line of lines) {
-      // Convert Arabic numerals
       const normalized = line.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-      // Try: number first, then description
       let match = normalized.match(/^([\d,.]+)\s+(.+)/);
       if (match) {
-        parsed.push({ amount: parseFloat(match[1].replace(/,/g, '')), details: match[2].trim(), include: true });
+        parsed.push({ amount: parseFloat(match[1].replace(/,/g, '')), details: match[2].trim(), category: bulkCategory, department: '', date: today, include: true });
         continue;
       }
-      // Try: description first, then number
       match = normalized.match(/^(.+?)\s+([\d,.]+)$/);
       if (match) {
-        parsed.push({ amount: parseFloat(match[2].replace(/,/g, '')), details: match[1].trim(), include: true });
+        parsed.push({ amount: parseFloat(match[2].replace(/,/g, '')), details: match[1].trim(), category: bulkCategory, department: '', date: today, include: true });
         continue;
       }
-      // Try: just a number
       match = normalized.match(/^([\d,.]+)$/);
       if (match) {
-        parsed.push({ amount: parseFloat(match[1].replace(/,/g, '')), details: '', include: true });
+        parsed.push({ amount: parseFloat(match[1].replace(/,/g, '')), details: '', category: bulkCategory, department: '', date: today, include: true });
         continue;
       }
-      // Can't parse — skip
     }
     setBulkRows(parsed);
   };
@@ -163,14 +159,13 @@ export default function FinanceView() {
     if (toSave.length === 0) { alert('مفيش مصاريف للحفظ'); return; }
     setBulkSaving(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
       const payload = toSave.map(r => ({
         type: subTab,
-        date: today,
-        category: bulkCategory,
+        date: r.date,
+        category: r.category,
         details: r.details,
         amount: r.amount,
-        department: '',
+        department: r.department,
       }));
       const { error } = await supabase.from('finance_records').insert(payload);
       if (error) throw error;
@@ -421,41 +416,55 @@ export default function FinanceView() {
                       الإجمالي: {bulkRows.filter(r => r.include).reduce((s, r) => s + (r.amount || 0), 0).toLocaleString()} ج.م
                     </span>
                   </div>
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-right text-sm">
+                  <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
+                    <table className="w-full text-right text-sm min-w-[700px]">
                       <thead className="bg-slate-100 text-xs text-slate-600">
                         <tr>
-                          <th className="px-3 py-2 w-10">✔</th>
-                          <th className="px-3 py-2">المبلغ</th>
-                          <th className="px-3 py-2">الوصف</th>
-                          <th className="px-3 py-2 w-10"></th>
+                          <th className="px-2 py-2 w-8">✔</th>
+                          <th className="px-2 py-2">التاريخ</th>
+                          <th className="px-2 py-2">المبلغ</th>
+                          <th className="px-2 py-2">الوصف</th>
+                          <th className="px-2 py-2">البند</th>
+                          <th className="px-2 py-2">القسم</th>
+                          <th className="px-2 py-2 w-8"></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {bulkRows.map((row, i) => (
                           <tr key={i} className={clsx("transition-colors", row.include ? "bg-white" : "bg-slate-50 opacity-50")}>
-                            <td className="px-3 py-2 text-center">
+                            <td className="px-2 py-2 text-center">
                               <input type="checkbox" checked={row.include} onChange={() => {
-                                const updated = [...bulkRows];
-                                updated[i] = { ...updated[i], include: !updated[i].include };
-                                setBulkRows(updated);
+                                const u = [...bulkRows]; u[i] = { ...u[i], include: !u[i].include }; setBulkRows(u);
                               }} className="w-4 h-4 accent-indigo-600 cursor-pointer" />
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-2 py-2">
+                              <input type="date" value={row.date} onChange={e => {
+                                const u = [...bulkRows]; u[i] = { ...u[i], date: e.target.value }; setBulkRows(u);
+                              }} className="w-[120px] px-1 py-1 border border-slate-200 rounded text-xs" />
+                            </td>
+                            <td className="px-2 py-2">
                               <input type="number" value={row.amount} onChange={e => {
-                                const updated = [...bulkRows];
-                                updated[i] = { ...updated[i], amount: parseFloat(e.target.value) || 0 };
-                                setBulkRows(updated);
-                              }} className="w-24 px-2 py-1 border border-slate-200 rounded text-sm font-bold text-center" />
+                                const u = [...bulkRows]; u[i] = { ...u[i], amount: parseFloat(e.target.value) || 0 }; setBulkRows(u);
+                              }} className="w-20 px-2 py-1 border border-slate-200 rounded text-sm font-bold text-center" />
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-2 py-2">
                               <input type="text" value={row.details} onChange={e => {
-                                const updated = [...bulkRows];
-                                updated[i] = { ...updated[i], details: e.target.value };
-                                setBulkRows(updated);
-                              }} className="w-full px-2 py-1 border border-slate-200 rounded text-sm" />
+                                const u = [...bulkRows]; u[i] = { ...u[i], details: e.target.value }; setBulkRows(u);
+                              }} className="w-full px-2 py-1 border border-slate-200 rounded text-sm min-w-[100px]" />
                             </td>
-                            <td className="px-3 py-2 text-center">
+                            <td className="px-2 py-2">
+                              <select value={row.category} onChange={e => {
+                                const u = [...bulkRows]; u[i] = { ...u[i], category: e.target.value }; setBulkRows(u);
+                              }} className="w-full px-1 py-1 border border-slate-200 rounded text-xs cursor-pointer min-w-[100px]">
+                                {(subTab === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
+                              </select>
+                            </td>
+                            <td className="px-2 py-2">
+                              <input type="text" value={row.department} onChange={e => {
+                                const u = [...bulkRows]; u[i] = { ...u[i], department: e.target.value }; setBulkRows(u);
+                              }} className="w-full px-2 py-1 border border-slate-200 rounded text-xs min-w-[70px]" placeholder="القسم" />
+                            </td>
+                            <td className="px-2 py-2 text-center">
                               <button onClick={() => setBulkRows(bulkRows.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 p-1">
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
