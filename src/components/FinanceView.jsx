@@ -27,6 +27,7 @@ export default function FinanceView() {
   const [bulkRows, setBulkRows] = useState([]);
   const [bulkCategory, setBulkCategory] = useState('مصروفات متنوعة');
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkDate, setBulkDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Order-derived stats
   const [orderStats, setOrderStats] = useState({ totalIncome: 0, totalShipping: 0, deliveredCount: 0 });
@@ -132,22 +133,21 @@ export default function FinanceView() {
   const parseBulkText = () => {
     const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
     const parsed = [];
-    const today = new Date().toISOString().split('T')[0];
     for (const line of lines) {
       const normalized = line.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
       let match = normalized.match(/^([\d,.]+)\s+(.+)/);
       if (match) {
-        parsed.push({ amount: parseFloat(match[1].replace(/,/g, '')), details: match[2].trim(), category: bulkCategory, department: '', date: today, include: true });
+        parsed.push({ amount: parseFloat(match[1].replace(/,/g, '')), details: match[2].trim(), category: bulkCategory, department: 'أونلاين', include: true });
         continue;
       }
       match = normalized.match(/^(.+?)\s+([\d,.]+)$/);
       if (match) {
-        parsed.push({ amount: parseFloat(match[2].replace(/,/g, '')), details: match[1].trim(), category: bulkCategory, department: '', date: today, include: true });
+        parsed.push({ amount: parseFloat(match[2].replace(/,/g, '')), details: match[1].trim(), category: bulkCategory, department: 'أونلاين', include: true });
         continue;
       }
       match = normalized.match(/^([\d,.]+)$/);
       if (match) {
-        parsed.push({ amount: parseFloat(match[1].replace(/,/g, '')), details: '', category: bulkCategory, department: '', date: today, include: true });
+        parsed.push({ amount: parseFloat(match[1].replace(/,/g, '')), details: '', category: bulkCategory, department: 'أونلاين', include: true });
         continue;
       }
     }
@@ -161,7 +161,7 @@ export default function FinanceView() {
     try {
       const payload = toSave.map(r => ({
         type: subTab,
-        date: r.date,
+        date: bulkDate,
         category: r.category,
         details: r.details,
         amount: r.amount,
@@ -398,10 +398,17 @@ export default function FinanceView() {
                   onChange={e => setBulkText(e.target.value)}
                 />
                 <div className="flex items-center gap-3">
-                  <select value={bulkCategory} onChange={e => setBulkCategory(e.target.value)} className="custom-input text-sm flex-1 cursor-pointer">
-                    {(subTab === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <button onClick={parseBulkText} className="btn-primary px-6 py-2.5 flex items-center gap-2 text-sm bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-slate-400 font-bold">التاريخ</label>
+                    <input type="date" value={bulkDate} onChange={e => setBulkDate(e.target.value)} className="px-2 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-400 outline-none" />
+                  </div>
+                  <div className="flex flex-col gap-1 flex-1">
+                    <label className="text-[10px] text-slate-400 font-bold">البند الافتراضي</label>
+                    <select value={bulkCategory} onChange={e => setBulkCategory(e.target.value)} className="custom-input text-sm cursor-pointer">
+                      {(subTab === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <button onClick={parseBulkText} className="btn-primary px-6 py-2.5 flex items-center gap-2 text-sm bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap self-end">
                     تحليل النص →
                   </button>
                 </div>
@@ -421,7 +428,6 @@ export default function FinanceView() {
                       <thead className="bg-slate-100 text-xs text-slate-600">
                         <tr>
                           <th className="px-2 py-2 w-8">✔</th>
-                          <th className="px-2 py-2">التاريخ</th>
                           <th className="px-2 py-2">المبلغ</th>
                           <th className="px-2 py-2">الوصف</th>
                           <th className="px-2 py-2">البند</th>
@@ -436,11 +442,6 @@ export default function FinanceView() {
                               <input type="checkbox" checked={row.include} onChange={() => {
                                 const u = [...bulkRows]; u[i] = { ...u[i], include: !u[i].include }; setBulkRows(u);
                               }} className="w-4 h-4 accent-indigo-600 cursor-pointer" />
-                            </td>
-                            <td className="px-2 py-2">
-                              <input type="date" value={row.date} onChange={e => {
-                                const u = [...bulkRows]; u[i] = { ...u[i], date: e.target.value }; setBulkRows(u);
-                              }} className="w-[120px] px-1 py-1 border border-slate-200 rounded text-xs" />
                             </td>
                             <td className="px-2 py-2">
                               <input type="number" value={row.amount} onChange={e => {
@@ -460,9 +461,22 @@ export default function FinanceView() {
                               </select>
                             </td>
                             <td className="px-2 py-2">
-                              <input type="text" value={row.department} onChange={e => {
-                                const u = [...bulkRows]; u[i] = { ...u[i], department: e.target.value }; setBulkRows(u);
-                              }} className="w-full px-2 py-1 border border-slate-200 rounded text-xs min-w-[70px]" placeholder="القسم" />
+                              <button
+                                type="button"
+                                onClick={() => { const u = [...bulkRows]; u[i] = { ...u[i], department: u[i].department === 'مصنع' ? 'أونلاين' : 'مصنع' }; setBulkRows(u); }}
+                                className={clsx(
+                                  "relative inline-flex items-center h-6 w-20 rounded-full transition-colors text-[10px] font-bold",
+                                  row.department === 'مصنع' ? 'bg-amber-500' : 'bg-sky-500'
+                                )}
+                              >
+                                <span className={clsx(
+                                  "absolute w-8 h-5 bg-white rounded-full shadow transition-transform text-[9px] flex items-center justify-center font-black",
+                                  row.department === 'مصنع' ? 'translate-x-0.5' : 'translate-x-[2.6rem]'
+                                )}>
+                                  {row.department === 'مصنع' ? '🏭' : '🌐'}
+                                </span>
+                                <span className="text-white w-full text-center text-[9px]">{row.department}</span>
+                              </button>
                             </td>
                             <td className="px-2 py-2 text-center">
                               <button onClick={() => setBulkRows(bulkRows.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 p-1">
