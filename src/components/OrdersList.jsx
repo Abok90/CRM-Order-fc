@@ -128,12 +128,23 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     setSelectedOrders(newSet);
   };
 
+  // Statuses that lock the order for non-privileged users
+  const POST_SHIP_STATUSES = ['الشحن', 'تم', 'مرتجع', 'الغاء', 'استبدال'];
+  const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
+  const canEditAfterShip = isAdmin || !!userRole?.can_edit_after_ship;
+  const canDelete = isAdmin || !!userRole?.can_delete_order;
+
   const handleQuickStatusChange = async (orderId, newStatus) => {
     setActiveStatusDropdown(null);
+    // Permission check: find the order and check if it's locked
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (targetOrder && POST_SHIP_STATUSES.includes(targetOrder.status) && !canEditAfterShip) {
+      alert('مش مسموحلك تغير حالة أوردر في مرحلة "' + targetOrder.status + '" — تواصل مع الأدمن.');
+      return;
+    }
     try {
       const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
       if (error) throw error;
-      // Update locally for instant feedback
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     } catch (err) {
       alert('خطأ في تغيير الحالة: ' + err.message);
@@ -151,12 +162,17 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
   const hasActiveFilters = searchQuery || statusFilter !== 'الكل' || pageFilter !== 'الكل' || dateFrom || dateTo;
 
-  const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
-  const canDelete = isAdmin || !!userRole?.can_delete_order;
-
   const handleBulkStatusChange = async (newStatus) => {
     if (selectedOrders.size === 0) return;
     setBulkStatusDropdown(false);
+    // Permission check: if any selected order is post-ship and user lacks permission
+    if (!canEditAfterShip) {
+      const lockedOrders = orders.filter(o => selectedOrders.has(o.id) && POST_SHIP_STATUSES.includes(o.status));
+      if (lockedOrders.length > 0) {
+        alert(`مش مسموحلك تغير حالة ${lockedOrders.length} أوردر لأنهم في مرحلة شحن أو بعدها. تواصل مع الأدمن.`);
+        return;
+      }
+    }
     try {
       const ids = [...selectedOrders];
       const { error } = await supabase.from('orders').update({ status: newStatus }).in('id', ids);
@@ -401,6 +417,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   const renderStatusBadge = (order) => {
     const statusStyle = STATUS_STYLES[order.status] || { badge: 'bg-slate-100 text-slate-700 border-slate-200' };
     const isOpen = activeStatusDropdown === order.id;
+    const isOrderLocked = POST_SHIP_STATUSES.includes(order.status) && !canEditAfterShip;
     
     return (
       <div className="relative">
@@ -414,20 +431,28 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
         
         {isOpen && (
           <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 min-w-[140px] py-1 animate-fade-in" onClick={e => e.stopPropagation()}>
-            <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 border-b border-slate-100">تغيير سريع</div>
-            {ALL_STATUSES.map(s => (
-              <button
-                key={s}
-                onClick={() => handleQuickStatusChange(order.id, s)}
-                className={clsx(
-                  "w-full text-right px-3 py-2 text-xs font-bold hover:bg-slate-50 transition-colors flex items-center gap-2",
-                  s === order.status ? "text-primary-600 bg-primary-50/50" : "text-slate-700"
-                )}
-              >
-                {s === order.status && <span className="text-primary-500">✓</span>}
-                <span className={clsx("px-1.5 py-0.5 rounded text-[10px]", STATUS_STYLES[s]?.badge || 'bg-slate-100')}>{s}</span>
-              </button>
-            ))}
+            {isOrderLocked ? (
+              <div className="px-3 py-3 text-[11px] font-bold text-amber-700 bg-amber-50 rounded-lg m-1 text-center">
+                🔒 الأوردر مقفل — تواصل مع الأدمن
+              </div>
+            ) : (
+              <>
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 border-b border-slate-100">تغيير سريع</div>
+                {ALL_STATUSES.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => handleQuickStatusChange(order.id, s)}
+                    className={clsx(
+                      "w-full text-right px-3 py-2 text-xs font-bold hover:bg-slate-50 transition-colors flex items-center gap-2",
+                      s === order.status ? "text-primary-600 bg-primary-50/50" : "text-slate-700"
+                    )}
+                  >
+                    {s === order.status && <span className="text-primary-500">✓</span>}
+                    <span className={clsx("px-1.5 py-0.5 rounded text-[10px]", STATUS_STYLES[s]?.badge || 'bg-slate-100')}>{s}</span>
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
