@@ -46,7 +46,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   const [fetchResult, setFetchResult]       = useState(null); // { ok, message }
   const [printMenuOpen, setPrintMenuOpen]   = useState(false);
 
-  const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+  const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'VEE'];
 
   const ALL_STATUSES = ['جاري التحضير', 'مراجعة', 'الشحن', 'تم', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل'];
 
@@ -234,7 +234,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       'اسم المستلم': order.customer,
       'موبايل المستلم': order.phone,
       'ملاحظات': order.notes || '',
-      'المنطقة': order.address ? order.address.split(' ')[0] : '',
+      'المحافظة': order.governorate || '',
       'العنوان': order.address,
       'محتوى الشحنة': order.item,
       'الكمية': order.quantity || '1',

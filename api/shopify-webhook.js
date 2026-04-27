@@ -138,11 +138,15 @@ async function handler(req, res) {
         0
       );
 
+      // استخراج المحافظة من بيانات شوبيفاي
+      const governorate = s.province || s.city || b.province || b.city || '';
+
       await supabaseRequest('POST', 'orders', {
         id: order.name || `#${order.order_number}` || `SH-${Date.now().toString(36).toUpperCase()}`,
         customer: b.name || s.name || `${order.customer?.first_name || ''} ${order.customer?.last_name || ''}`.trim() || 'عميل Shopify',
         phone: order.phone || b.phone || s.phone || '',
         address: s.address1 || b.address1 || '',
+        governorate: governorate,
         item: itemStr || 'منتج Shopify',
         quantity: totalQty,
         productPrice: parseFloat(order.subtotal_price || 0),

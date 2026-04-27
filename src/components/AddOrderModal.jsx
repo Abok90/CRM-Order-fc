@@ -2,12 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { X, Save } from 'lucide-react';
 
+const EGYPT_GOVERNORATES = [
+  'القاهرة', 'الجيزة', 'الإسكندرية', 'الدقهلية', 'الشرقية', 'القليوبية', 'كفر الشيخ',
+  'الغربية', 'المنوفية', 'البحيرة', 'دمياط', 'بورسعيد', 'الإسماعيلية', 'السويس',
+  'شمال سيناء', 'جنوب سيناء', 'الفيوم', 'بني سويف', 'المنيا', 'أسيوط', 'سوهاج',
+  'قنا', 'الأقصر', 'أسوان', 'البحر الأحمر', 'الوادي الجديد', 'مطروح',
+];
+
 export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [idLoading, setIdLoading] = useState(false);
   const [order, setOrder] = useState({
     id: '',
-    customer: '', phone: '', address: '', item: '', quantity: '1',
+    customer: '', phone: '', address: '', governorate: '', item: '', quantity: '1',
     page: '',
     productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير', trackingNumber: ''
   });
@@ -44,14 +51,14 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
       const preferredPage = userRole?.default_page;
       const pages = userRole?.assigned_page
         ? userRole.assigned_page.split(',').filter(Boolean)
-        : ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+        : ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'VEE'];
       // Use preferred page only if it's actually in the available list, else first available
       const defaultPage = (preferredPage && pages.includes(preferredPage))
         ? preferredPage
         : pages[0];
       setOrder({
         id: '',
-        customer: '', phone: '', address: '', item: '', quantity: '1',
+        customer: '', phone: '', address: '', governorate: '', item: '', quantity: '1',
         page: defaultPage,
         productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير', trackingNumber: ''
       });
@@ -73,7 +80,7 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     setOrder({ ...order, trackingNumber: val, status: nextStatus });
   };
 
-  const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+  const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'VEE'];
 
   const availablePages = userRole?.assigned_page
     ? userRole.assigned_page.split(',').filter(Boolean)
@@ -86,6 +93,11 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     const cleanPhone = order.phone.replace(/\D/g, '');
     if (cleanPhone.length !== 11 && cleanPhone.length !== 8) {
       alert("رقم الموبايل يجب أن يكون 11 أو 8 أرقام فقط.");
+      setLoading(false);
+      return;
+    }
+    if (!order.governorate) {
+      alert('يرجى اختيار المحافظة');
       setLoading(false);
       return;
     }
@@ -141,6 +153,13 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">رقم الموبايل <span className="text-rose-500">*</span></label>
               <input required pattern="^\d{8}$|^\d{11}$" title="يجب أن يكون الرقم 8 أو 11 رقم بالضبط" maxLength="11" value={order.phone} onChange={e => setOrder({...order, phone: e.target.value.replace(/\D/g, '')})} type="tel" className="custom-input text-right select-all" dir="ltr" placeholder="01XXXXXXXXX" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700">المحافظة <span className="text-rose-500">*</span></label>
+              <select required value={order.governorate} onChange={e => setOrder({...order, governorate: e.target.value})} className="custom-input cursor-pointer">
+                <option value="">— اختر المحافظة —</option>
+                {EGYPT_GOVERNORATES.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
             </div>
             <div className="space-y-1 md:col-span-2">
               <label className="text-sm font-semibold text-slate-700">العنوان بالتفصيل <span className="text-rose-500">*</span></label>

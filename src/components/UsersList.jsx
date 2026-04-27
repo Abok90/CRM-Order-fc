@@ -10,7 +10,7 @@ const ROLES = {
   'customer_service':{ label: 'خدمة عملاء',       color: 'bg-green-100 text-green-700',   icon: '🎧', desc: 'بيدجات محددة فقط' },
 };
 
-const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+const AVAILABLE_PAGES = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'VEE'];
 
 const DASHBOARD_PERMS = [
   { key: 'stats',       label: 'الإحصائيات الكلية' },

@@ -5,6 +5,13 @@ import { X, Save, Lock } from 'lucide-react';
 // Statuses that require can_edit_after_ship permission to edit
 const POST_SHIP_STATUSES = ['الشحن', 'تم', 'مرتجع', 'الغاء', 'استبدال'];
 
+const EGYPT_GOVERNORATES = [
+  'القاهرة', 'الجيزة', 'الإسكندرية', 'الدقهلية', 'الشرقية', 'القليوبية', 'كفر الشيخ',
+  'الغربية', 'المنوفية', 'البحيرة', 'دمياط', 'بورسعيد', 'الإسماعيلية', 'السويس',
+  'شمال سيناء', 'جنوب سيناء', 'الفيوم', 'بني سويف', 'المنيا', 'أسيوط', 'سوهاج',
+  'قنا', 'الأقصر', 'أسوان', 'البحر الأحمر', 'الوادي الجديد', 'مطروح',
+];
+
 export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, initialOrder }) {
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState({
@@ -34,7 +41,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
   // Lock order ID if order has moved out of جاري التحضير (non-admins only)
   const isOrderIdLocked = isLocked || (!isAdmin && initialOrder?.status !== 'جاري التحضير');
 
-  const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'Elite EG', 'VEE'];
+  const fallbackPages = ['عايدة', 'عايدة ويب', 'اوفر', 'اوفر ويب', 'VEE'];
 
   const availablePages = userRole?.assigned_page 
     ? userRole.assigned_page.split(',') 
@@ -51,6 +58,11 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
       setLoading(false);
       return;
     }
+    if (!order.governorate) {
+      alert('يرجى اختيار المحافظة');
+      setLoading(false);
+      return;
+    }
     
     try {
       const { error } = await supabase.from('orders').update({
@@ -58,6 +70,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
         customer: order.customer,
         phone: order.phone,
         address: order.address,
+        governorate: order.governorate,
         item: order.item,
         quantity: order.quantity,
         page: order.page,
@@ -120,6 +133,13 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">رقم الموبايل <span className="text-rose-500">*</span></label>
               <input required disabled={isLocked} pattern="^\d{8}$|^\d{11}$" title="يجب أن يكون الرقم 8 أو 11 رقم بالضبط" maxLength="11" value={order.phone} onChange={e => setOrder({...order, phone: e.target.value.replace(/\D/g, '')})} type="tel" className="custom-input text-right select-all disabled:opacity-60 disabled:cursor-not-allowed" dir="ltr" placeholder="01XXXXXXXXX" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700">المحافظة <span className="text-rose-500">*</span></label>
+              <select required disabled={isLocked} value={order.governorate || ''} onChange={e => setOrder({...order, governorate: e.target.value})} className="custom-input cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                <option value="">— اختر المحافظة —</option>
+                {EGYPT_GOVERNORATES.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
             </div>
             <div className="space-y-1 md:col-span-2">
               <label className="text-sm font-semibold text-slate-700">العنوان بالتفصيل <span className="text-rose-500">*</span></label>
