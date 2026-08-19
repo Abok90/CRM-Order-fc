@@ -316,13 +316,13 @@ function App() {
         {currentTab === 'settings' && <Settings userRole={userRole} />}
         
         {/* Floating Accessibility Settings Gear */}
-        <div className="fixed bottom-24 right-4 md:bottom-8 md:left-8 md:right-auto z-40 flex flex-col items-center">
+        <div className="fixed bottom-[88px] right-3 md:bottom-8 md:left-8 md:right-auto z-40 flex flex-col items-center gap-2">
           <button 
             onClick={() => setShowConfig(!showConfig)} 
-            className="w-12 h-12 bg-white text-primary-600 rounded-full shadow-2xl flex items-center justify-center border border-primary-100 hover:scale-110 transition-transform"
+            className="w-10 h-10 md:w-12 md:h-12 bg-white text-primary-600 rounded-full shadow-2xl flex items-center justify-center border border-primary-100 hover:scale-110 transition-transform"
             title="إعدادات الرؤية"
           >
-             <SettingsIcon className="w-6 h-6 hover:animate-spin" />
+             <SettingsIcon className="w-5 h-5 md:w-6 md:h-6 hover:animate-spin" />
           </button>
           
           {showConfig && (
@@ -390,7 +390,7 @@ function App() {
           {isAdmin && (
             <button
               onClick={() => { setIsLogsOpen(v => { if (!v) setNewOrderCount(0); return !v; }); }}
-              className="w-12 h-12 mt-3 bg-white dark:bg-slate-800 text-indigo-500 rounded-full shadow-2xl flex items-center justify-center border border-indigo-100 dark:border-slate-700 hover:scale-110 transition-transform relative group"
+              className="w-10 h-10 md:w-12 md:h-12 md:mt-1 bg-white dark:bg-slate-800 text-indigo-500 rounded-full shadow-2xl flex items-center justify-center border border-indigo-100 dark:border-slate-700 hover:scale-110 transition-transform relative group"
               title="سجل الحركات وإشعارات النظام"
             >
               <BellRing className={`w-5 h-5 ${newOrderCount > 0 ? 'animate-bounce' : 'group-hover:animate-bounce'}`} />
