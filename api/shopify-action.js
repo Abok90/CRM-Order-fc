@@ -69,6 +69,11 @@ async function fulfill(url, token, orderId) {
   }
 }
 
+// Roles allowed to drive Shopify from the CRM. Mirrors the `isAdmin` check the
+// UI uses to show the Shopify buttons — the UI check alone is not a control,
+// a valid session could otherwise call this endpoint directly.
+const ADMIN_ROLES = ['admin', 'brand_owner', 'super_admin', 'owner'];
+
 async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -79,6 +84,34 @@ async function handler(req, res) {
     headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${authToken}` },
   });
   if (!authRes.ok) return res.status(401).json({ error: 'Invalid session' });
+
+  // A valid session is not enough — check the caller's role and approval state.
+  let caller;
+  try {
+    caller = await authRes.json();
+  } catch {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  if (!caller?.id) return res.status(401).json({ error: 'Invalid session' });
+
+  let callerRole;
+  try {
+    const rows = await supabaseRequest(
+      'GET',
+      `user_roles?id=eq.${encodeURIComponent(caller.id)}&select=role,is_approved`,
+      null,
+      'return=representation',
+    );
+    callerRole = Array.isArray(rows) ? rows[0] : null;
+  } catch (err) {
+    console.error(`[action] Role lookup failed: ${err.message}`);
+    return res.status(500).json({ error: 'Could not verify permissions' });
+  }
+
+  if (!callerRole || !callerRole.is_approved || !ADMIN_ROLES.includes(callerRole.role)) {
+    console.warn(`[action] Denied for user ${caller.id} (role=${callerRole?.role ?? 'none'}, approved=${callerRole?.is_approved ?? false})`);
+    return res.status(403).json({ error: 'مش مسموحلك تستخدم أوامر شوبيفاي — تواصل مع الأدمن.' });
+  }
 
   let body;
   try {
@@ -138,11 +171,23 @@ async function handler(req, res) {
         0
       );
 
+      // Same enrichment the webhook does, so a manually fetched order is not
+      // missing the governorate (used by the shipping export) or product links.
+      const governorate = s.province || s.city || b.province || b.city || '';
+      const productUrls = items.map(it => {
+        const handle = it.handle || it.product_handle;
+        if (handle) return `https://${store.url}/products/${handle}`;
+        if (it.product_id) return `https://${store.url}/admin/products/${it.product_id}`;
+        return null;
+      }).filter(Boolean);
+
       await supabaseRequest('POST', 'orders', {
         id: order.name,
         customer: b.name || s.name || `${order.customer?.first_name || ''} ${order.customer?.last_name || ''}`.trim() || 'عميل Shopify',
         phone: order.phone || b.phone || s.phone || '',
         address: s.address1 || b.address1 || '',
+        governorate: governorate,
+        product_urls: productUrls.length > 0 ? JSON.stringify(productUrls) : null,
         item: itemStr || 'منتج Shopify',
         quantity: totalQty,
         productPrice: parseFloat(order.subtotal_price || 0),

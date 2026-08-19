@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import { fetchAllRows } from '../utils/fetchAllRows';
 import { Search, ClipboardList, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 export default function DailyProductsView() {
@@ -28,14 +29,13 @@ export default function DailyProductsView() {
   const fetchDailyProducts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('item, quantity, page, status')
-        .in('status', ['جاري التحضير', 'مراجعة']);
-
-      if (error) throw error;
-
-      const orders = data || [];
+      // Paged so the production sheet stays complete past Supabase's row cap.
+      const orders = await fetchAllRows(() =>
+        supabase
+          .from('orders')
+          .select('item, quantity, page, status')
+          .in('status', ['جاري التحضير', 'مراجعة'])
+      );
       setPrepCount(orders.filter(o => o.status === 'جاري التحضير').length);
       setReviewCount(orders.filter(o => o.status === 'مراجعة').length);
 

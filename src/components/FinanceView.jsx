@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import { fetchAllRows } from '../utils/fetchAllRows';
 import { Wallet, TrendingUp, TrendingDown, HandCoins, Plus, Pencil, Trash2, X, Save, Filter, ClipboardPaste } from 'lucide-react';
 import clsx from 'clsx';
 
 const EXPENSE_CATEGORIES = ['حساب شخصي', 'إعلانات فيي', 'إعلانات عايدة', 'إعلانات اوفر', 'مستلزمات اونلاين', 'مستلزمات تصنيع', 'انتقالات', 'اكراميات', 'مرتجعات', 'قماش', 'مرتبات مصنع', 'مرتبات اونلاين', 'ايجار مصنع', 'ايجار اونلاين', 'مرافق اونلاين', 'مرافق مصنع', 'حساب ريهام', 'اشتراكات اونلاين', 'مرتب اسامه', 'سلف مصنع', 'أخرى'];
 const INCOME_CATEGORIES = ['تحصيلات عايدة', 'تحصيلات اوفر', 'تحصيلات فيي', 'مبيعات نقدية', 'إيرادات متنوعة', 'أخرى'];
 
-export default function FinanceView() {
+// Same list the Sidebar uses to decide whether to show the Finance tab, so no
+// one who can reach this screen today loses access.
+const FINANCE_ROLES = ['admin', 'brand_owner', 'owner'];
+
+export default function FinanceView({ userRole }) {
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState([]);
   const [subTab, setSubTab] = useState('expense');
@@ -32,37 +37,37 @@ export default function FinanceView() {
   // Order-derived stats
   const [orderStats, setOrderStats] = useState({ totalIncome: 0, totalShipping: 0, deliveredCount: 0 });
 
+  const canAccessFinance = FINANCE_ROLES.includes(userRole?.role);
+
   useEffect(() => {
+    if (!canAccessFinance) return;
     fetchRecords();
     fetchOrderStats();
-  }, []);
+  }, [canAccessFinance]);
 
   const fetchOrderStats = async () => {
     try {
-      const { data } = await supabase.from('orders').select('productPrice, shippingPrice').eq('status', 'تم');
+      // Paged: a plain select stops at Supabase's row cap, which silently
+      // under-reported revenue once the delivered orders passed that limit.
+      const data = await fetchAllRows(() =>
+        supabase.from('orders').select('productPrice, shippingPrice').eq('status', 'تم')
+      );
       let income = 0, shipping = 0;
-      (data || []).forEach(o => {
+      data.forEach(o => {
         income += Number(o.productPrice) || 0;
         shipping += Number(o.shippingPrice) || 0;
       });
-      setOrderStats({ totalIncome: income + shipping, totalShipping: shipping, deliveredCount: data?.length || 0 });
+      setOrderStats({ totalIncome: income + shipping, totalShipping: shipping, deliveredCount: data.length });
     } catch (e) { console.error(e); }
   };
 
   const fetchRecords = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('finance_records')
-        .select('*')
-        .order('date', { ascending: false });
-      if (error) {
-        // If table doesn't exist yet, just use empty
-        console.warn('Finance table may not exist:', error.message);
-        setRecords([]);
-      } else {
-        setRecords(data || []);
-      }
+      const data = await fetchAllRows(() =>
+        supabase.from('finance_records').select('*').order('date', { ascending: false })
+      );
+      setRecords(data);
     } catch (e) {
       console.error(e);
       setRecords([]);
@@ -181,6 +186,16 @@ export default function FinanceView() {
   };
 
   const categories = subTab === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+
+  if (!canAccessFinance) {
+    return (
+      <div className="flex items-center justify-center h-full p-6">
+        <div className="text-xl font-bold text-rose-500 bg-rose-50 px-6 py-4 rounded-2xl border border-rose-200 text-center">
+          عفواً، لا تملك صلاحية الوصول لهذه الصفحة
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

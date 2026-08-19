@@ -115,9 +115,26 @@ export default function UsersList({ userRole }) {
   };
 
   const deleteUser = async (userId) => {
-    if (!confirm('هل أنت متأكد من الحذف؟')) return;
+    if (!confirm('هل أنت متأكد من حذف الموظف؟ هيتم إلغاء حسابه ومش هيقدر يسجّل دخول تاني.')) return;
     try {
-      await supabase.from('user_roles').delete().eq('id', userId);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('أنت غير مسجل الدخول');
+
+      // Deleting only the user_roles row used to leave the login working — and
+      // the app re-created the row on the next sign-in, so the employee came
+      // back as "pending". The account itself has to go, which needs the
+      // service-role key, hence the server endpoint.
+      const resp = await fetch('/api/delete-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ targetUserId: userId }),
+      });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(result.error || 'فشل حذف الموظف');
+
       setUsers(prev => prev.filter(u => u.id !== userId));
     } catch (err) {
       alert('خطأ في الحذف: ' + err.message);

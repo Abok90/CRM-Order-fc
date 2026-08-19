@@ -8,19 +8,17 @@ import { createClient } from '@supabase/supabase-js';
  * Only admins (admin / brand_owner / super_admin / owner) can call this.
  */
 export default async function handler(req, res) {
-  // — CORS preflight —
+  // The CRM calls this endpoint same-origin (`fetch('/api/reset-password')`), so
+  // no CORS headers are needed. Previously it answered every origin with `*`,
+  // which let any site on the internet reach a password-changing endpoint.
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    return res.status(200).end();
+    res.setHeader('Allow', 'POST, OPTIONS');
+    return res.status(204).end();
   }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
-  res.setHeader('Access-Control-Allow-Origin', '*');
 
   const { targetUserId, newPassword } = req.body || {};
 

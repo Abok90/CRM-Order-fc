@@ -180,21 +180,31 @@ async function handler(req, res) {
     } else if (topic === 'orders/updated') {
       // تعديل في شوبيفاي → حدّث البيانات الأساسية في السيستم
       const s = order.shipping_address || order.billing_address || {};
-      const update = {};
-      if (s.name)     update.customer = s.name;
-      if (s.phone || order.phone) update.phone = order.phone || s.phone;
-      if (s.address1) update.address = s.address1;
-      if (order.note !== undefined) update.notes = order.note || '';
-      // لو اتلغى من شوبيفاي
-      if (order.cancelled_at) update.status = 'الغاء';
-      // تحقق إن في حاجة تتحدث
-      if (Object.keys(update).length === 0) {
-        console.log(`[webhook] Updated order ${safeOrderId} — no relevant changes`);
-      } else if (!safeOrderId) {
+      const contact = {};
+      if (s.name)     contact.customer = s.name;
+      if (s.phone || order.phone) contact.phone = order.phone || s.phone;
+      if (s.address1) contact.address = s.address1;
+      if (order.note !== undefined) contact.notes = order.note || '';
+
+      if (!safeOrderId) {
         console.warn('[webhook] Skipping updated — invalid order.id');
       } else {
-        await supabaseRequest('PATCH', `orders?shopify_order_id=eq.${safeOrderId}&shopify_store=eq.${store.storeKey}`, update);
-        console.log(`[webhook] Updated order ${safeOrderId} fields=${Object.keys(update).join(',')}`);
+        const base = `orders?shopify_order_id=eq.${safeOrderId}&shopify_store=eq.${store.storeKey}`;
+
+        // Contact details: only write them onto orders nobody has touched in the
+        // CRM (updated_by IS NULL). Shopify fires orders/updated for all sorts of
+        // reasons (tags, notes, fulfillment), and it used to overwrite a phone or
+        // an address that staff had just corrected by hand.
+        if (Object.keys(contact).length > 0) {
+          await supabaseRequest('PATCH', `${base}&updated_by=is.null`, contact);
+          console.log(`[webhook] Updated untouched order ${safeOrderId} fields=${Object.keys(contact).join(',')}`);
+        }
+
+        // Cancellation is authoritative and always applies.
+        if (order.cancelled_at) {
+          await supabaseRequest('PATCH', base, { status: 'الغاء' });
+          console.log(`[webhook] Order ${safeOrderId} cancelled in Shopify → الغاء`);
+        }
       }
 
     } else {

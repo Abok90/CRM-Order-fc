@@ -311,7 +311,7 @@ function App() {
         {currentTab === 'orders' && <OrdersList userRole={userRole} initialFilter={initialOrderFilter} onFilterConsumed={() => setInitialOrderFilter(null)} />}
         {currentTab === 'users' && <UsersList userRole={userRole} />}
         {currentTab === 'daily_products' && <DailyProductsView />}
-        {currentTab === 'finance' && <FinanceView />}
+        {currentTab === 'finance' && <FinanceView userRole={userRole} />}
         {currentTab === 'reports' && <Reports userRole={userRole} />}
         {currentTab === 'settings' && <Settings userRole={userRole} />}
         

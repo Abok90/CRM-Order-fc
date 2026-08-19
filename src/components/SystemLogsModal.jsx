@@ -3,6 +3,11 @@ import { supabase } from '../utils/supabaseClient';
 import { X, BellRing, User, Clock, Package, CheckCircle2, ShoppingBag, Search, History } from 'lucide-react';
 import clsx from 'clsx';
 
+// PostgREST parses `or(...)` as a comma-separated filter list, so a comma or a
+// bracket typed into the search box changes the filter instead of being searched
+// for. Strip those characters (and the LIKE wildcards) from the term.
+const sanitizeSearch = (q) => String(q || '').replace(/[,()%_*"']/g, ' ').replace(/\s+/g, ' ').trim();
+
 export default function SystemLogsModal({ isOpen, onClose }) {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
@@ -63,7 +68,7 @@ export default function SystemLogsModal({ isOpen, onClose }) {
 
   useEffect(() => {
     const delayFn = setTimeout(async () => {
-      const q = orderSearch.trim();
+      const q = sanitizeSearch(orderSearch);
       if (q.length >= 3) {
         setLoading(true);
         try {
@@ -97,7 +102,7 @@ export default function SystemLogsModal({ isOpen, onClose }) {
     try {
       const { data } = await supabase
         .from('order_history')
-        .select(`*, user_roles:updated_by(username)`)
+        .select(`*, user_roles:updated_by(name)`)
         .eq('order_id', orderId)
         .order('created_at', { ascending: false });
       

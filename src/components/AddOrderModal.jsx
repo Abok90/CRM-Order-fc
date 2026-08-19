@@ -19,26 +19,44 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     productPrice: '', shippingPrice: '', notes: '', status: 'جاري التحضير', trackingNumber: ''
   });
 
-  // Minimum starting order number per brand
+  // Minimum starting order number per brand. Brands that are not listed here
+  // (the Shopify-backed web brands) carry ids like "#10367" that come from
+  // Shopify — we must not invent a number for those.
   const PAGE_MIN_ORDER_NUMBER = {
     'عايدة': 23551,
     'اوفر': 6842,
     'VEE': 112,
   };
 
+  const isAutoNumberedPage = (page) => PAGE_MIN_ORDER_NUMBER[page] !== undefined;
+
   const fetchNextId = async (page) => {
+    // Web brands take their number from Shopify — leave the field for the user
+    // instead of suggesting "1" (which is what parseInt('#10367') → NaN did).
+    if (!isAutoNumberedPage(page)) {
+      setOrder(prev => ({ ...prev, id: '' }));
+      return;
+    }
+
     setIdLoading(true);
     try {
+      // Scan a window of recent orders rather than just the newest one: the most
+      // recently *created* row is not necessarily the highest number, and rows
+      // with non-numeric ids have to be skipped instead of collapsing to NaN.
       const { data } = await supabase
         .from('orders')
         .select('id')
         .eq('page', page)
         .order('created_at', { ascending: false })
-        .limit(1);
-      const lastId = parseInt(data?.[0]?.id, 10);
-      const minStart = PAGE_MIN_ORDER_NUMBER[page] || 1;
-      const nextId = !isNaN(lastId) ? Math.max(lastId + 1, minStart) : minStart;
-      setOrder(prev => ({ ...prev, id: nextId.toString() }));
+        .limit(200);
+
+      const highest = (data || []).reduce((max, row) => {
+        const n = /^\d+$/.test(String(row.id ?? '').trim()) ? parseInt(row.id, 10) : NaN;
+        return !isNaN(n) && n > max ? n : max;
+      }, 0);
+
+      const minStart = PAGE_MIN_ORDER_NUMBER[page];
+      setOrder(prev => ({ ...prev, id: String(Math.max(highest + 1, minStart)) }));
     } catch {
       setOrder(prev => ({ ...prev, id: '' }));
     } finally {
@@ -90,6 +108,14 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
     e.preventDefault();
     setLoading(true);
 
+    // Web brands no longer get a made-up number, so make sure one was typed
+    // before we create a row with an empty primary key.
+    if (!String(order.id || '').trim()) {
+      alert('اكتب رقم الأوردر أولاً.');
+      setLoading(false);
+      return;
+    }
+
     const cleanPhone = order.phone.replace(/\D/g, '');
     if (cleanPhone.length !== 11 && cleanPhone.length !== 8) {
       alert("رقم الموبايل يجب أن يكون 11 أو 8 أرقام فقط.");
@@ -105,10 +131,26 @@ export default function AddOrderModal({ isOpen, onClose, userRole, onSuccess }) 
         date: new Date().toISOString().split('T')[0]
       };
 
-      const { error } = await supabase.from('orders').insert([payload]);
-      
-      if (error) throw error;
-      
+      let { error } = await supabase.from('orders').insert([payload]);
+
+      // Two people adding an order at the same moment can be handed the same
+      // suggested number. On a duplicate-key clash, take the next free number
+      // and try once more before bothering the user.
+      if (error && error.code === '23505' && isAutoNumberedPage(order.page)) {
+        const retryId = String((parseInt(order.id, 10) || 0) + 1);
+        setOrder(prev => ({ ...prev, id: retryId }));
+        ({ error } = await supabase.from('orders').insert([{ ...payload, id: retryId }]));
+      }
+
+      if (error) {
+        if (error.code === '23505') {
+          alert(`رقم الأوردر "${order.id}" مستخدم بالفعل. غيّر الرقم وحاول تاني.`);
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
+
       onSuccess();
       onClose();
     } catch (err) {

@@ -7,6 +7,11 @@ import * as XLSX from 'xlsx';
 import AddOrderModal from './AddOrderModal';
 import EditOrderModal from './EditOrderModal';
 
+// PostgREST parses `or(...)` as a comma-separated filter list, so a comma or a
+// bracket typed into the search box changes the filter instead of being searched
+// for. Strip those characters (and the LIKE wildcards) from the term.
+const sanitizeSearch = (q) => String(q || '').replace(/[,()%_*"']/g, ' ').replace(/\s+/g, ' ').trim();
+
 export default function OrdersList({ userRole, initialFilter, onFilterConsumed }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -375,8 +380,9 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       if (dateFrom) query = query.gte('date', dateFrom);
       if (dateTo)   query = query.lte('date', dateTo);
 
-      if (searchQuery.trim().length >= 3) {
-        query = query.or(`customer.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%,id.ilike.%${searchQuery}%,trackingNumber.ilike.%${searchQuery}%`);
+      const term = sanitizeSearch(searchQuery);
+      if (term.length >= 3) {
+        query = query.or(`customer.ilike.%${term}%,phone.ilike.%${term}%,id.ilike.%${term}%,trackingNumber.ilike.%${term}%`);
       }
 
       const from = (page - 1) * itemsPerPage;

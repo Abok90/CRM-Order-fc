@@ -52,7 +52,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
         .from('order_history')
         .select(`
           *,
-          user_roles:updated_by ( username, role )
+          user_roles:updated_by ( name, role )
         `)
         .eq('order_id', initialOrder.id)
         .order('created_at', { ascending: false });
@@ -105,6 +105,17 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
       alert("رقم الموبايل يجب أن يكون 11 أو 8 أرقام فقط.");
       setLoading(false);
       return;
+    }
+
+    // order_history rows are keyed by the order number as plain text, so an id
+    // change leaves the old history behind. Editing the id stays allowed — the
+    // user just gets told what it costs first.
+    if (order.id !== initialOrder.id) {
+      const ok = confirm(
+        `هتغيّر رقم الأوردر من "${initialOrder.id}" إلى "${order.id}".\n\n` +
+        `سجل التعديلات القديم هيفضل متسجل على الرقم القديم ومش هيظهر مع الأوردر بعد التغيير.\n\nتكمّل؟`
+      );
+      if (!ok) { setLoading(false); return; }
     }
 
     
@@ -288,10 +299,10 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-lg shadow-inner">
-                          {h.user_roles?.username?.charAt(0)?.toUpperCase() || '?'}
+                          {h.user_roles?.name?.charAt(0)?.toUpperCase() || '?'}
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-800">{h.user_roles?.username || 'مستخدم مجهول'}</p>
+                          <p className="text-sm font-bold text-slate-800">{h.user_roles?.name || 'مستخدم مجهول'}</p>
                           <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                             <Clock className="w-3 h-3" />
                             <span dir="ltr">{new Date(h.created_at).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })}</span>
