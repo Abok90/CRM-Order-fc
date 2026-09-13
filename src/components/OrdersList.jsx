@@ -120,16 +120,54 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
   const ALL_STATUSES = ['جاري التحضير', 'مراجعة', 'الشحن', 'تم', 'استبدال', 'مرتجع', 'الغاء', 'تاجيل'];
 
+  // Each status carries its own colour set. `card` drives the card view: a
+  // coloured strip and header so an order reads as its status at a glance,
+  // a matching border so two cards never blur into one another, and a very
+  // light body tint so the page is not a wall of white.
   const STATUS_STYLES = {
-    'جاري التحضير': { badge: 'bg-blue-100 text-blue-800 border-blue-200', row: 'hover:bg-blue-100/50 bg-blue-50/30 dark:bg-blue-900/20 dark:hover:bg-blue-800/30' },
-    'الشحن': { badge: 'bg-purple-100 text-purple-800 border-purple-200', row: 'hover:bg-purple-100/50 bg-purple-50/30 dark:bg-purple-900/20 dark:hover:bg-purple-800/30' },
-    'تم': { badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', row: 'hover:bg-emerald-100/50 bg-emerald-50/30 dark:bg-emerald-900/20 dark:hover:bg-emerald-800/30' },
-    'استبدال': { badge: 'bg-orange-100 text-orange-800 border-orange-200', row: 'hover:bg-orange-100/50 bg-orange-50/30 dark:bg-orange-900/20 dark:hover:bg-orange-800/30' },
-    'مراجعة': { badge: 'bg-amber-100 text-amber-800 border-amber-200', row: 'hover:bg-amber-100/50 bg-amber-50/30 dark:bg-amber-900/20 dark:hover:bg-amber-800/30' },
-    'مرتجع': { badge: 'bg-rose-100 text-rose-800 border-rose-200', row: 'hover:bg-rose-100/50 bg-rose-50/30 dark:bg-rose-900/20 dark:hover:bg-rose-800/30' },
-    'الغاء': { badge: 'bg-red-100 text-red-800 border-red-200', row: 'hover:bg-red-100/50 bg-red-50/30 dark:bg-red-900/20 dark:hover:bg-red-800/30' },
-    'تاجيل': { badge: 'bg-slate-200 text-slate-800 border-slate-300', row: 'hover:bg-slate-200/50 bg-slate-50/50 dark:bg-slate-700/30 dark:hover:bg-slate-600/30' },
+    'جاري التحضير': {
+      badge: 'bg-blue-100 text-blue-800 border-blue-200',
+      row: 'hover:bg-blue-100/50 bg-blue-50/30 dark:bg-blue-900/20 dark:hover:bg-blue-800/30',
+      card: { bar: 'bg-blue-500', border: 'border-blue-200', head: 'bg-blue-50', body: 'bg-blue-50/60', ring: 'hover:ring-blue-200' },
+    },
+    'الشحن': {
+      badge: 'bg-purple-100 text-purple-800 border-purple-200',
+      row: 'hover:bg-purple-100/50 bg-purple-50/30 dark:bg-purple-900/20 dark:hover:bg-purple-800/30',
+      card: { bar: 'bg-purple-500', border: 'border-purple-200', head: 'bg-purple-50', body: 'bg-purple-50/60', ring: 'hover:ring-purple-200' },
+    },
+    'تم': {
+      badge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      row: 'hover:bg-emerald-100/50 bg-emerald-50/30 dark:bg-emerald-900/20 dark:hover:bg-emerald-800/30',
+      card: { bar: 'bg-emerald-500', border: 'border-emerald-200', head: 'bg-emerald-50', body: 'bg-emerald-50/60', ring: 'hover:ring-emerald-200' },
+    },
+    'استبدال': {
+      badge: 'bg-orange-100 text-orange-800 border-orange-200',
+      row: 'hover:bg-orange-100/50 bg-orange-50/30 dark:bg-orange-900/20 dark:hover:bg-orange-800/30',
+      card: { bar: 'bg-orange-500', border: 'border-orange-200', head: 'bg-orange-50', body: 'bg-orange-50/60', ring: 'hover:ring-orange-200' },
+    },
+    'مراجعة': {
+      badge: 'bg-amber-100 text-amber-800 border-amber-200',
+      row: 'hover:bg-amber-100/50 bg-amber-50/30 dark:bg-amber-900/20 dark:hover:bg-amber-800/30',
+      card: { bar: 'bg-amber-500', border: 'border-amber-200', head: 'bg-amber-50', body: 'bg-amber-50/60', ring: 'hover:ring-amber-200' },
+    },
+    'مرتجع': {
+      badge: 'bg-rose-100 text-rose-800 border-rose-200',
+      row: 'hover:bg-rose-100/50 bg-rose-50/30 dark:bg-rose-900/20 dark:hover:bg-rose-800/30',
+      card: { bar: 'bg-rose-500', border: 'border-rose-200', head: 'bg-rose-50', body: 'bg-rose-50/60', ring: 'hover:ring-rose-200' },
+    },
+    'الغاء': {
+      badge: 'bg-red-100 text-red-800 border-red-200',
+      row: 'hover:bg-red-100/50 bg-red-50/30 dark:bg-red-900/20 dark:hover:bg-red-800/30',
+      card: { bar: 'bg-red-500', border: 'border-red-200', head: 'bg-red-50', body: 'bg-red-50/60', ring: 'hover:ring-red-200' },
+    },
+    'تاجيل': {
+      badge: 'bg-slate-200 text-slate-800 border-slate-300',
+      row: 'hover:bg-slate-200/50 bg-slate-50/50 dark:bg-slate-700/30 dark:hover:bg-slate-600/30',
+      card: { bar: 'bg-slate-400', border: 'border-slate-300', head: 'bg-slate-100', body: 'bg-slate-100/60', ring: 'hover:ring-slate-200' },
+    },
   };
+
+  const DEFAULT_CARD_STYLE = { bar: 'bg-slate-300', border: 'border-slate-200', head: 'bg-slate-50', body: 'bg-white', ring: 'hover:ring-slate-200' };
 
   // product_urls is stored as a JSON array string by the Shopify importers
   const parseProductUrls = (raw) => {
@@ -709,48 +747,48 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     const shippingPrice = Number(order.shippingPrice) || 0;
     const total = productPrice + shippingPrice;
     const urls = parseProductUrls(order.product_urls);
-    const accentBg = statusStyle.badge.split(' ')[0];
+    const c = statusStyle.card || DEFAULT_CARD_STYLE;
 
     return (
       <div key={order.uid} className={clsx(
-        "bg-white rounded-2xl border transition-all relative overflow-hidden flex flex-col",
-        isSelected ? "border-primary-400 ring-2 ring-primary-200 bg-primary-50/20" : "border-slate-200 hover:border-slate-300 hover:shadow-md"
+        "rounded-2xl border-2 overflow-hidden flex flex-col transition-all shadow-sm hover:shadow-lg",
+        isSelected ? "border-primary-500 ring-2 ring-primary-200" : c.border
       )}>
-        {/* Status colour bar (RTL: sits on the right edge) */}
-        <div className={clsx("absolute top-0 right-0 w-1.5 h-full", accentBg)}></div>
+        {/* Status colour strip across the top — the card reads as its status
+            from across the room, and two cards never blur into one another. */}
+        <div className={clsx("h-1.5 w-full", c.bar)} />
 
-        {/* extra right padding so nothing sits under the colour bar */}
-        <div className="p-4 pr-5 flex flex-col gap-3 flex-1">
-
-          {/* ── header: number + source + brand, status on the far side ───── */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-wrap">
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => toggleSelect(order.uid)}
-                className="w-5 h-5 shrink-0 cursor-pointer accent-primary-600 rounded"
-              />
-              <span className="font-mono font-black text-slate-800 text-sm shrink-0">{order.id}</span>
-              {isShopifyOrder(order) && (
-                <span className="bg-green-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md inline-flex items-center gap-0.5 shadow-sm shrink-0" title="أوردر أوتوماتيك من شوبيفاي">
-                  <Zap className="w-2.5 h-2.5" />شوبيفاي
-                </span>
-              )}
-              <span
-                className={clsx("max-w-[9rem] truncate px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm", getPageColor(order.page))}
-                title={order.page}
-              >
-                {order.page || 'بدون صفحة'}
+        {/* ── header: number + source + brand, status on the far side ─────── */}
+        <div className={clsx("flex items-start justify-between gap-2 px-3.5 py-2.5 border-b", c.head, c.border)}>
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => toggleSelect(order.uid)}
+              className="w-5 h-5 shrink-0 cursor-pointer accent-primary-600 rounded"
+            />
+            <span className="font-mono font-black text-slate-800 text-sm shrink-0">{order.id}</span>
+            {isShopifyOrder(order) && (
+              <span className="bg-green-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md inline-flex items-center gap-0.5 shadow-sm shrink-0" title="أوردر أوتوماتيك من شوبيفاي">
+                <Zap className="w-2.5 h-2.5" />شوبيفاي
               </span>
-            </div>
-            <div className="shrink-0">
-              {renderStatusBadge(order)}
-            </div>
+            )}
+            <span
+              className={clsx("max-w-[9rem] truncate px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm", getPageColor(order.page))}
+              title={order.page}
+            >
+              {order.page || 'بدون صفحة'}
+            </span>
           </div>
+          <div className="shrink-0">
+            {renderStatusBadge(order)}
+          </div>
+        </div>
+
+        <div className={clsx("p-3.5 flex flex-col gap-3 flex-1", c.body)}>
 
           {/* ── customer + contact ────────────────────────────────────────── */}
-          <div className="flex items-start justify-between gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+          <div className="flex items-start justify-between gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-200/80 shadow-sm">
             <div className="min-w-0 flex-1">
               <div className="font-bold text-slate-800 text-base break-words leading-snug" title={order.customer}>
                 {order.customer || 'عميل محتمل'}
@@ -779,7 +817,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
           </div>
 
           {/* ── the products, in full ─────────────────────────────────────── */}
-          <div className="bg-white border border-slate-200 rounded-xl p-2.5">
+          <div className="bg-white/80 border border-slate-200/80 rounded-xl p-2.5 shadow-sm">
             <Field label="المنتجات" value={order.item} />
             {urls.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
@@ -799,7 +837,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
           </div>
 
           {/* ── every remaining field ─────────────────────────────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 bg-slate-50/70 border border-slate-100 rounded-xl p-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 bg-white/80 border border-slate-200/80 rounded-xl p-2.5 shadow-sm">
             <Field label="العنوان" value={order.address} className="col-span-2 sm:col-span-3" />
             <Field label="المحافظة" value={order.governorate} />
             <Field label="الكمية" value={order.quantity} />
@@ -817,7 +855,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
           )}
 
           {/* ── footer: when it came in, what it is worth ─────────────────── */}
-          <div className="flex items-center justify-between gap-2 pt-3 mt-auto border-t border-slate-100">
+          <div className={clsx("flex items-center justify-between gap-2 pt-3 mt-auto border-t", c.border)}>
             <div className="min-w-0 text-[10px] text-slate-400 font-bold" dir="ltr">
               {order.created_at ? `${order.created_at.split('T')[0]} · ${formatTime(order.created_at)}` : ''}
             </div>
@@ -1247,7 +1285,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       </div>
 
       {/* Card View — always on mobile, on desktop when the cards view is picked */}
-      <div className={clsx("space-y-3", viewMode !== 'cards' && "md:hidden")}>
+      <div className={clsx("space-y-4", viewMode !== 'cards' && "md:hidden")}>
         {/* Select-all */}
         {orders.length > 0 && !loading && (
           <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
@@ -1262,7 +1300,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
         )}
 
         {loading ? (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {[...Array(6)].map((_, i) => (
                 <div key={i} className="bg-white rounded-2xl p-4 border border-slate-100 animate-pulse h-64">
                    <div className="h-4 bg-slate-200 rounded w-1/3 mb-4"></div>
@@ -1277,7 +1315,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
               لا توجد طلبات مطابقة للبحث أو الفلتر المختار
             </div>
         ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
               {orders.map(order => renderOrderCard(order))}
             </div>
         )}
