@@ -9,11 +9,12 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   const [countsData, setCountsData]       = useState([]); // get_order_counts()
   const [userStatsData, setUserStatsData] = useState([]); // get_user_order_stats()
   const [revenueData, setRevenueData]     = useState([]); // get_monthly_revenue()
+  const [workloadData, setWorkloadData]   = useState([]); // get_daily_workload()
   const [users, setUsers]                 = useState([]);
   const [loading, setLoading]             = useState(true);
 
   const [expandedUser, setExpandedUser]   = useState(null);
-  const [sectionOrder, setSectionOrder]   = useState(['stats', 'leaderboard', 'quickStatus', 'revenue', 'statusGrid', 'brands']);
+  const [sectionOrder, setSectionOrder]   = useState(['stats', 'workload', 'leaderboard', 'quickStatus', 'revenue', 'statusGrid', 'brands']);
   const [brandOrder, setBrandOrder]       = useState([]); // admin-controlled, saved to Supabase
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
@@ -45,10 +46,11 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [countsRes, userStatsRes, revenueRes, usersRes, brandOrderRes, sectionOrderRes] = await Promise.all([
+      const [countsRes, userStatsRes, revenueRes, workloadRes, usersRes, brandOrderRes, sectionOrderRes] = await Promise.all([
         supabase.rpc('get_order_counts'),
         supabase.rpc('get_user_order_stats'),
         supabase.rpc('get_monthly_revenue'),
+        supabase.rpc('get_daily_workload'),
         supabase.from('user_roles').select('id, name, role, is_approved'),
         supabase.from('app_settings').select('settings_value').eq('settings_key', 'dashboard_brand_order').maybeSingle(),
         supabase.from('app_settings').select('settings_value').eq('settings_key', 'dashboard_section_order').maybeSingle()
@@ -57,12 +59,21 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
       if (countsRes.data)  setCountsData(countsRes.data);
       if (userStatsRes.data) setUserStatsData(userStatsRes.data);
       if (revenueRes.data) setRevenueData([...revenueRes.data].reverse()); // oldest→newest for chart
+      if (workloadRes.data) setWorkloadData(workloadRes.data);
       if (usersRes.data)   setUsers(usersRes.data);
       if (brandOrderRes.data?.settings_value) {
         try { setBrandOrder(JSON.parse(brandOrderRes.data.settings_value)); } catch {}
       }
       if (sectionOrderRes.data?.settings_value) {
-        try { setSectionOrder(JSON.parse(sectionOrderRes.data.settings_value)); } catch {}
+        try {
+          const saved = JSON.parse(sectionOrderRes.data.settings_value);
+          if (Array.isArray(saved)) {
+            setSectionOrder(prev => [
+              ...saved.filter(k => prev.includes(k)),
+              ...prev.filter(k => !saved.includes(k)),
+            ]);
+          }
+        } catch {}
       }
     } catch (e) {
       console.error(e);
@@ -103,6 +114,13 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   const deliveredCount   = statusCounts['تم'] || 0;
   const totalRevenue     = useMemo(() => revenueData.reduce((s, r) => s + Number(r.total_revenue || 0), 0), [revenueData]);
 
+  const currentMonthRevenue = useMemo(() => {
+    const key = new Date().toISOString().slice(0, 7);
+    return revenueData
+      .filter(r => r.month_key === key)
+      .reduce((s, r) => s + Number(r.total_revenue || 0), 0);
+  }, [revenueData]);
+
   const sortedStatuses = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]);
 
   // ===== Sorted Pages: respects admin-set brandOrder =====
@@ -121,6 +139,30 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
     if (assigned.length === 0) return sortedPages;
     return sortedPages.filter(([pg]) => assigned.includes(pg));
   }, [dashPerms.allPages, sortedPages, userRole?.assigned_page]);
+
+  // ===== Today's work: one number per thing that needs doing =====
+  // Buckets come from get_daily_workload() per page, so the same
+  // assigned_page restriction the brand cards use applies here too.
+  const WORKLOAD_BUCKETS = [
+    { key: 'today',          label: 'دخل النهاردة',   quick: 'today',  color: '#0ea5e9', tone: 'text-sky-600',    bg: 'bg-sky-50' },
+    { key: 'needs_prep',     label: 'محتاج تحضير',    quick: 'prep',   color: '#3b82f6', tone: 'text-blue-600',   bg: 'bg-blue-50' },
+    { key: 'needs_review',   label: 'محتاج مراجعة',   quick: 'review', color: '#f59e0b', tone: 'text-amber-600',  bg: 'bg-amber-50' },
+    { key: 'late_prep',      label: 'متأخر تحضير',    quick: 'late',   color: '#ef4444', tone: 'text-red-600',    bg: 'bg-red-50' },
+    { key: 'in_shipping',    label: 'في الشحن',       quick: 'shipping', color: '#8b5cf6', tone: 'text-purple-600', bg: 'bg-purple-50' },
+    { key: 'stuck_shipping', label: 'واقف في الشحن',  quick: 'stuck',  color: '#e11d48', tone: 'text-rose-600',   bg: 'bg-rose-50' },
+  ];
+
+  const workloadCounts = useMemo(() => {
+    const allowed = dashPerms.allPages
+      ? null
+      : new Set((userRole?.assigned_page || '').split(',').filter(Boolean));
+    const map = {};
+    workloadData.forEach(r => {
+      if (allowed && allowed.size > 0 && !allowed.has(r.page_name)) return;
+      map[r.bucket] = (map[r.bucket] || 0) + Number(r.cnt || 0);
+    });
+    return map;
+  }, [workloadData, dashPerms.allPages, userRole?.assigned_page]);
 
   // ===== Save brand order globally to Supabase (admin only) =====
   const saveBrandOrder = useCallback(async (newOrder) => {
@@ -236,7 +278,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   const medalIcons  = [Trophy, Award, Star];
 
   // ===== Section reorder (Admin only) =====
-  const sectionLabels = { stats: 'الإحصائيات', leaderboard: 'المنافسة', quickStatus: 'الحالات السريعة', revenue: 'الإيرادات', statusGrid: 'بطاقات الحالات', brands: 'البراندات' };
+  const sectionLabels = { stats: 'الإحصائيات', workload: 'شغل النهاردة', leaderboard: 'المنافسة', quickStatus: 'الحالات السريعة', revenue: 'الإيرادات', statusGrid: 'بطاقات الحالات', brands: 'البراندات' };
 
   const saveSectionOrder = useCallback(async (newOrder) => {
     setSectionOrder(newOrder);
@@ -259,6 +301,7 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
   const renderSection = (sectionId) => {
     switch (sectionId) {
       case 'stats':       return dashPerms.stats       ? renderStats()       : null;
+      case 'workload':    return dashPerms.stats       ? renderWorkload()    : null;
       case 'leaderboard': return dashPerms.leaderboard ? renderLeaderboard() : null;
       case 'quickStatus': return dashPerms.quickStatus ? renderQuickStatus() : null;
       case 'revenue':     return (dashPerms.revenue && isAdmin) ? renderRevenue() : null;
@@ -286,11 +329,55 @@ export default function Dashboard({ onNavigateWithFilter, userRole }) {
       {isAdmin && (
         <div className="glass-panel p-3 md:p-5 rounded-2xl flex items-center gap-3" style={{ borderTop: '3px solid #8b5cf6' }}>
           <div className="p-2 md:p-3 bg-purple-50 text-purple-500 rounded-xl md:rounded-2xl shrink-0"><DollarSign className="w-4 h-4 md:w-5 md:h-5" /></div>
-          <div><p className="text-slate-400 text-[9px] md:text-xs font-bold mb-0.5">الإيرادات</p><p className="text-lg md:text-2xl font-black text-purple-700 leading-none">{totalRevenue.toLocaleString()}<span className="text-[10px] font-bold text-slate-400 mr-0.5">ج.م</span></p></div>
+          <div className="min-w-0">
+            <p className="text-slate-400 text-[9px] md:text-xs font-bold mb-0.5">الإيرادات <span className="font-medium">(كل الشهور)</span></p>
+            <p className="text-lg md:text-2xl font-black text-purple-700 leading-none">{totalRevenue.toLocaleString()}<span className="text-[10px] font-bold text-slate-400 mr-0.5">ج.م</span></p>
+            {currentMonthRevenue > 0 && (
+              <p className="text-[9px] md:text-[10px] font-bold text-slate-400 mt-1 truncate">الشهر ده: {currentMonthRevenue.toLocaleString()} ج.م</p>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
+
+  // ===== Render: Today's work =====
+  // Each tile is a door into the orders page with the matching filter already
+  // applied, so nobody has to rebuild the filter by hand every morning.
+  const renderWorkload = () => {
+    const anything = WORKLOAD_BUCKETS.some(b => (workloadCounts[b.key] || 0) > 0);
+    if (!anything && !loading) return null;
+    return (
+      <div key="workload">
+        <h2 className="font-black text-sm md:text-xl text-slate-800 mb-3 flex items-center gap-2">
+          <Zap className="w-5 h-5 text-primary-500" />
+          شغل النهاردة
+          <span className="text-[9px] md:text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">اضغط على أي رقم يفتحلك الأوردرات</span>
+        </h2>
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
+          {WORKLOAD_BUCKETS.map(b => {
+            const count = workloadCounts[b.key] || 0;
+            return (
+              <button
+                key={b.key}
+                onClick={() => onNavigateWithFilter(null, null, { quick: b.quick })}
+                className={clsx(
+                  "glass-panel p-2.5 md:p-4 rounded-xl md:rounded-2xl text-right transition-all hover:-translate-y-0.5 hover:shadow-lg",
+                  count === 0 && "opacity-60"
+                )}
+                style={{ borderTop: `3px solid ${b.color}` }}
+              >
+                <p className="text-slate-400 text-[9px] md:text-xs font-bold mb-1 truncate">{b.label}</p>
+                <p className={clsx("text-xl md:text-3xl font-black leading-none", count === 0 ? 'text-slate-300' : b.tone)}>
+                  {count.toLocaleString()}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   // ===== Render: Leaderboard =====
   const renderLeaderboard = () => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabaseClient';
-import { Search, Filter, RefreshCw, Plus, FileSpreadsheet, Printer, ChevronDown, Zap, Trash2 } from 'lucide-react';
+import { Search, Filter, RefreshCw, Plus, FileSpreadsheet, Printer, ChevronDown, Zap, Trash2, LayoutGrid, List } from 'lucide-react';
 import clsx from 'clsx';
 import * as XLSX from 'xlsx';
 import AddOrderModal from './AddOrderModal';
@@ -11,6 +11,23 @@ import EditOrderModal from './EditOrderModal';
 // bracket typed into the search box changes the filter instead of being searched
 // for. Strip those characters (and the LIKE wildcards) from the term.
 const sanitizeSearch = (q) => String(q || '').replace(/[,()%_*"']/g, ' ').replace(/\s+/g, ' ').trim();
+
+// One labelled value inside the order card. Kept at module scope so React does
+// not remount every field on each parent render.
+const Field = ({ label, value, mono, className }) => (
+  <div className={clsx('min-w-0', className)}>
+    <div className="text-[10px] font-bold text-slate-400 mb-0.5">{label}</div>
+    <div
+      className={clsx(
+        'text-xs font-semibold text-slate-700 break-words leading-relaxed whitespace-pre-wrap',
+        mono && 'font-mono select-all'
+      )}
+      dir={mono ? 'ltr' : undefined}
+    >
+      {value === 0 || value ? value : <span className="text-slate-300">—</span>}
+    </div>
+  </div>
+);
 
 export default function OrdersList({ userRole, initialFilter, onFilterConsumed }) {
   const [orders, setOrders] = useState([]);
@@ -23,6 +40,41 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
   // Filters toggle
   const [showFilters, setShowFilters] = useState(false);
+
+  // One-tap filters for the work people actually come here to do. These are
+  // compound conditions (status + age) that the plain dropdowns cannot express.
+  const [quickFilter, setQuickFilter] = useState(null);
+  const [totalCount, setTotalCount] = useState(null);
+
+  // Desktop can show the orders either as the dense table or as full detail
+  // cards. Mobile is always cards. The choice sticks between visits.
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ordersViewMode');
+      return saved === 'table' || saved === 'cards' ? saved : 'cards';
+    } catch { return 'cards'; }
+  });
+  const changeViewMode = (mode) => {
+    setViewMode(mode);
+    try { localStorage.setItem('ordersViewMode', mode); } catch { /* private mode */ }
+  };
+
+  const daysAgo = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString().split('T')[0];
+  };
+  const todayStr = () => new Date().toISOString().split('T')[0];
+
+  const QUICK_FILTERS = [
+    { key: 'today',     label: 'النهاردة',    hint: 'أوردرات دخلت النهاردة' },
+    { key: 'prep',      label: 'محتاج تحضير', hint: 'في حالة جاري التحضير' },
+    { key: 'review',    label: 'محتاج مراجعة', hint: 'في حالة مراجعة' },
+    { key: 'late',      label: 'متأخر',       hint: 'جاري التحضير أو مراجعة وعدّى عليه أكتر من ٣ أيام' },
+    { key: 'shipping',  label: 'في الشحن',    hint: 'اتسلّم لشركة الشحن' },
+    { key: 'stuck',     label: 'واقف في الشحن', hint: 'في الشحن من أكتر من ٧ أيام' },
+    { key: 'returns',   label: 'مرتجعات',     hint: 'أوردرات مرتجعة' },
+  ];
 
   // Bulk status change
   const [bulkStatusDropdown, setBulkStatusDropdown] = useState(false);
@@ -199,10 +251,16 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     setPageFilter('الكل');
     setDateFrom('');
     setDateTo('');
+    setQuickFilter(null);
     setPage(1);
   };
 
-  const hasActiveFilters = searchQuery || statusFilter !== 'الكل' || pageFilter !== 'الكل' || dateFrom || dateTo;
+  const hasActiveFilters = searchQuery || statusFilter !== 'الكل' || pageFilter !== 'الكل' || dateFrom || dateTo || quickFilter;
+
+  const selectQuickFilter = (key) => {
+    setQuickFilter(prev => (prev === key ? null : key));
+    setPage(1);
+  };
 
   const handleBulkStatusChange = async (newStatus) => {
     if (selectedOrders.size === 0) return;
@@ -398,6 +456,32 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       if (dateFrom) query = query.gte('date', dateFrom);
       if (dateTo)   query = query.lte('date', dateTo);
 
+      switch (quickFilter) {
+        case 'today':
+          query = query.gte('created_at', todayStr());
+          break;
+        case 'prep':
+          query = query.eq('status', 'جاري التحضير');
+          break;
+        case 'review':
+          query = query.eq('status', 'مراجعة');
+          break;
+        case 'late':
+          query = query.in('status', ['جاري التحضير', 'مراجعة']).lt('created_at', daysAgo(3));
+          break;
+        case 'shipping':
+          query = query.eq('status', 'الشحن');
+          break;
+        case 'stuck':
+          query = query.eq('status', 'الشحن').lt('created_at', daysAgo(7));
+          break;
+        case 'returns':
+          query = query.eq('status', 'مرتجع');
+          break;
+        default:
+          break;
+      }
+
       const term = sanitizeSearch(searchQuery);
       if (term.length >= 3) {
         query = query.or(`customer.ilike.%${term}%,phone.ilike.%${term}%,id.ilike.%${term}%,trackingNumber.ilike.%${term}%`);
@@ -406,9 +490,10 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       const from = (page - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
       
-      const { data, error } = await query
+      const { data, error, count } = await query
         .order('created_at', { ascending: false })
         .range(from, to);
+      setTotalCount(typeof count === 'number' ? count : null);
 
       if (error) throw error;
       setOrders(data || []);
@@ -426,6 +511,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       // Support combined filters (page + status from Dashboard cards)
       if (initialFilter.pageFilter) setPageFilter(initialFilter.pageFilter);
       if (initialFilter.statusFilter) setStatusFilter(initialFilter.statusFilter);
+      if (initialFilter.quick) setQuickFilter(initialFilter.quick);
       setPage(1);
       
       if (onFilterConsumed) onFilterConsumed();
@@ -437,7 +523,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       fetchOrders();
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, statusFilter, pageFilter, dateFrom, dateTo, page, refreshKey]);
+  }, [searchQuery, statusFilter, pageFilter, dateFrom, dateTo, quickFilter, page, refreshKey]);
 
   // Realtime: auto-refresh on new INSERT
   useEffect(() => {
@@ -614,108 +700,130 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     return order.source === 'shopify' || order.source === 'Shopify' || order.shopify_id;
   };
 
-  // UI rendering helper for cards (Mobile view)
+  // The order card — one card carries every field the order has, so nothing is
+  // hidden behind a toggle. Used on mobile and in the desktop card view.
   const renderOrderCard = (order) => {
     const statusStyle = STATUS_STYLES[order.status] || { badge: 'bg-slate-100 text-slate-700 border-slate-200', row: 'bg-white' };
     const isSelected = selectedOrders.has(order.uid);
-    const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
+    const productPrice  = Number(order.productPrice) || 0;
+    const shippingPrice = Number(order.shippingPrice) || 0;
+    const total = productPrice + shippingPrice;
+    const urls = parseProductUrls(order.product_urls);
+    const accentBg = statusStyle.badge.split(' ')[0];
 
     return (
       <div key={order.uid} className={clsx(
-        "bg-white rounded-2xl border transition-all relative overflow-hidden",
-        isSelected ? "border-primary-400 bg-primary-50/20" : "border-slate-200"
+        "bg-white rounded-2xl border transition-all relative overflow-hidden flex flex-col",
+        isSelected ? "border-primary-400 ring-2 ring-primary-200 bg-primary-50/20" : "border-slate-200 hover:border-slate-300 hover:shadow-md"
       )}>
         {/* Status colour bar (RTL: sits on the right edge) */}
-        <div className={clsx("absolute top-0 right-0 w-1.5 h-full", statusStyle.badge.split(' ')[0])}></div>
+        <div className={clsx("absolute top-0 right-0 w-1.5 h-full", accentBg)}></div>
 
         {/* extra right padding so nothing sits under the colour bar */}
-        <div className="p-4 pr-5 space-y-3">
+        <div className="p-4 pr-5 flex flex-col gap-3 flex-1">
 
-          {/* Row 1 — order number + source badge, status on the far side */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
+          {/* ── header: number + source + brand, status on the far side ───── */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
               <input
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => toggleSelect(order.uid)}
                 className="w-5 h-5 shrink-0 cursor-pointer accent-primary-600 rounded"
               />
-              <span className="font-mono font-bold text-slate-800 text-sm shrink-0">{order.id}</span>
+              <span className="font-mono font-black text-slate-800 text-sm shrink-0">{order.id}</span>
               {isShopifyOrder(order) && (
-                <span className="bg-green-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md inline-flex items-center gap-0.5 shadow-sm shrink-0">
-                  <Zap className="w-2.5 h-2.5" />Auto
+                <span className="bg-green-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md inline-flex items-center gap-0.5 shadow-sm shrink-0" title="أوردر أوتوماتيك من شوبيفاي">
+                  <Zap className="w-2.5 h-2.5" />شوبيفاي
                 </span>
               )}
+              <span
+                className={clsx("max-w-[9rem] truncate px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm", getPageColor(order.page))}
+                title={order.page}
+              >
+                {order.page || 'بدون صفحة'}
+              </span>
             </div>
             <div className="shrink-0">
               {renderStatusBadge(order)}
             </div>
           </div>
 
-          {/* Row 2 — customer + page chip, actions on the far side */}
-          <div className="flex items-start justify-between gap-2">
+          {/* ── customer + contact ────────────────────────────────────────── */}
+          <div className="flex items-start justify-between gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
             <div className="min-w-0 flex-1">
-              <div className="font-bold text-slate-800 text-base truncate" title={order.customer}>
+              <div className="font-bold text-slate-800 text-base break-words leading-snug" title={order.customer}>
                 {order.customer || 'عميل محتمل'}
               </div>
-              <span
-                className={clsx("inline-block max-w-full truncate align-middle mt-1 px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm", getPageColor(order.page))}
-                title={order.page}
-              >
-                {order.page || 'بدون صفحة'}
-              </span>
+              <div className="font-mono text-slate-600 text-sm font-bold mt-0.5" dir="ltr">{order.phone || 'بدون رقم'}</div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
+              <button onClick={() => handleWhatsApp(order)} className="p-1.5 bg-emerald-100 text-emerald-600 rounded-md hover:bg-emerald-200 transition-colors" title="مراسلة واتساب">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.015c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+              </button>
+              <button onClick={() => handleCopyMessage(order)} className="p-1.5 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 transition-colors" title="نسخ رسالة تأكيد">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              </button>
               <button
                 onClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }}
-                className="text-primary-600 font-bold text-xs hover:underline bg-primary-50 px-2.5 py-1.5 rounded-lg whitespace-nowrap"
+                className="text-primary-600 font-bold text-xs hover:bg-primary-100 bg-primary-50 px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors"
               >
                 ✏️ تعديل
               </button>
               {canDelete && (
-                <button onClick={() => handleDeleteSingle(order.uid)} className="text-rose-500 bg-rose-50 p-1.5 rounded-lg hover:bg-rose-100 transition-colors">
+                <button onClick={() => handleDeleteSingle(order.uid)} className="text-rose-500 bg-rose-50 p-1.5 rounded-lg hover:bg-rose-100 transition-colors" title="حذف الأوردر">
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
             </div>
           </div>
 
-          {/* Phone + contact shortcuts */}
-          <div className="flex items-center gap-2 justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
-            <div className="font-mono text-slate-700 text-sm font-bold truncate min-w-0" dir="ltr">{order.phone || 'بدون رقم'}</div>
-            <div className="flex gap-2 shrink-0">
-              <button onClick={() => handleWhatsApp(order)} className="p-1.5 bg-emerald-100 text-emerald-600 rounded-md"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.015c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg></button>
-              <button onClick={() => handleCopyMessage(order)} className="p-1.5 bg-blue-100 text-blue-600 rounded-md"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>
-            </div>
+          {/* ── the products, in full ─────────────────────────────────────── */}
+          <div className="bg-white border border-slate-200 rounded-xl p-2.5">
+            <Field label="المنتجات" value={order.item} />
+            {urls.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {urls.map((url, i) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-bold text-primary-600 bg-primary-50 border border-primary-100 px-2 py-0.5 rounded-lg hover:bg-primary-100 transition-colors"
+                  >
+                    منتج {i + 1} ↗
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="text-sm font-semibold text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 break-words leading-relaxed">
-            <span className="text-slate-400 text-xs ml-1">المنتج:</span> {order.item || '—'}
+          {/* ── every remaining field ─────────────────────────────────────── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 bg-slate-50/70 border border-slate-100 rounded-xl p-2.5">
+            <Field label="العنوان" value={order.address} className="col-span-2 sm:col-span-3" />
+            <Field label="المحافظة" value={order.governorate} />
+            <Field label="الكمية" value={order.quantity} />
+            <Field label="بوليصة الشحن" value={order.trackingNumber} mono />
+            <Field label="سعر المنتجات" value={productPrice ? `${productPrice} ج.م` : null} />
+            <Field label="سعر الشحن" value={shippingPrice ? `${shippingPrice} ج.م` : null} />
+            <Field label="التاريخ" value={order.date || order.created_at?.split('T')[0]} />
           </div>
-
-          {order.trackingNumber && (
-             <div className="text-xs font-semibold text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 flex items-center justify-between gap-2">
-                <span className="text-slate-400 shrink-0">بوليصة الشحن:</span>
-                <span className="font-mono font-bold select-all bg-white px-2 py-0.5 rounded border border-slate-200 truncate" dir="ltr">{order.trackingNumber}</span>
-             </div>
-          )}
 
           {order.notes && (
-            <div className="text-xs text-yellow-800 bg-yellow-50 p-2 rounded-lg font-bold border border-yellow-100 break-words">
-               {order.notes}
+            <div className="text-xs text-yellow-800 bg-yellow-50 p-2.5 rounded-xl font-bold border border-yellow-100 break-words whitespace-pre-wrap">
+              <span className="text-yellow-600/70 text-[10px] block mb-0.5">ملاحظات</span>
+              {order.notes}
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
-             <div className="min-w-0">
-               <div className="text-xs text-slate-500 font-bold">{order.date || order.created_at?.split('T')[0]}</div>
-               {order.created_at && (
-                 <div className="text-[10px] text-slate-400" dir="ltr">{formatTime(order.created_at)}</div>
-               )}
-             </div>
-             <div className="font-black text-lg text-primary-700 shrink-0">
-               {total} <span className="text-xs">ج.م</span>
-             </div>
+          {/* ── footer: when it came in, what it is worth ─────────────────── */}
+          <div className="flex items-center justify-between gap-2 pt-3 mt-auto border-t border-slate-100">
+            <div className="min-w-0 text-[10px] text-slate-400 font-bold" dir="ltr">
+              {order.created_at ? `${order.created_at.split('T')[0]} · ${formatTime(order.created_at)}` : ''}
+            </div>
+            <div className="font-black text-lg text-primary-700 shrink-0">
+              {total} <span className="text-xs">ج.م</span>
+            </div>
           </div>
         </div>
       </div>
@@ -788,6 +896,57 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
             <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex items-center gap-1.5 px-3 py-2 text-sm">
               <Plus className="w-4 h-4" /><span className="hidden sm:inline">إضافة أوردر</span>
             </button>
+          </div>
+        </div>
+
+        {/* One-tap filters for the work people actually come here to do, plus
+            how many orders the current filter matches and the view switch. */}
+        <div className="flex items-center gap-2 flex-wrap border-t border-slate-100 pt-2">
+          {/* scrolls sideways on a phone instead of eating three rows of screen */}
+          <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto md:flex-wrap basis-full md:basis-0 md:flex-1 min-w-0 pb-1 md:pb-0">
+            {QUICK_FILTERS.map(f => (
+              <button
+                key={f.key}
+                onClick={() => selectQuickFilter(f.key)}
+                title={f.hint}
+                className={clsx(
+                  "shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors whitespace-nowrap",
+                  quickFilter === f.key
+                    ? "bg-primary-600 text-white border-primary-600 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {!loading && totalCount !== null && (
+              <span className="text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg whitespace-nowrap">
+                {totalCount === 0
+                  ? 'مفيش أوردرات'
+                  : <>عرض <span className="text-slate-800">{(page - 1) * itemsPerPage + 1}–{Math.min(page * itemsPerPage, totalCount)}</span> من <span className="text-slate-800">{totalCount}</span></>}
+              </span>
+            )}
+
+            {/* Table vs. cards — desktop only; mobile is always cards. */}
+            <div className="hidden md:flex items-center bg-slate-100 rounded-lg p-0.5">
+              <button
+                onClick={() => changeViewMode('cards')}
+                title="عرض كروت — كل تفاصيل الأوردر ظاهرة"
+                className={clsx("p-1.5 rounded-md transition-colors", viewMode === 'cards' ? "bg-white text-primary-600 shadow-sm" : "text-slate-400 hover:text-slate-600")}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => changeViewMode('table')}
+                title="عرض جدول — صفوف مضغوطة"
+                className={clsx("p-1.5 rounded-md transition-colors", viewMode === 'table' ? "bg-white text-primary-600 shadow-sm" : "text-slate-400 hover:text-slate-600")}
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -865,7 +1024,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       </div>
 
       {/* Desktop Table View */}
-      <div className="hidden md:block glass-panel overflow-auto custom-scrollbar">
+      <div className={clsx("md:block glass-panel overflow-auto custom-scrollbar hidden", viewMode !== 'table' && "md:hidden")}>
         {/* Fixed layout so each column keeps a sensible width and المنتج absorbs
             whatever space is left, instead of every cell being capped at 150px. */}
         {/* min-width guarantees المنتج a floor of ~275px instead of being squeezed
@@ -1087,9 +1246,9 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
         </table>
       </div>
 
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-3">
-        {/* Select All Checkbox for Mobile */}
+      {/* Card View — always on mobile, on desktop when the cards view is picked */}
+      <div className={clsx("space-y-3", viewMode !== 'cards' && "md:hidden")}>
+        {/* Select-all */}
         {orders.length > 0 && !loading && (
           <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
              <input 
@@ -1103,19 +1262,24 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
         )}
 
         {loading ? (
-             [...Array(5)].map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl p-4 border border-slate-100 animate-pulse h-40">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl p-4 border border-slate-100 animate-pulse h-64">
                    <div className="h-4 bg-slate-200 rounded w-1/3 mb-4"></div>
                    <div className="h-6 bg-slate-200 rounded w-2/3 mb-4"></div>
                    <div className="h-10 bg-slate-100 rounded-lg w-full mb-2"></div>
+                   <div className="h-16 bg-slate-100 rounded-lg w-full"></div>
                 </div>
-             ))
+              ))}
+            </div>
         ) : orders.length === 0 ? (
             <div className="py-16 text-center text-slate-500 font-medium bg-white rounded-2xl border border-slate-100">
               لا توجد طلبات مطابقة للبحث أو الفلتر المختار
             </div>
         ) : (
-            orders.map(order => renderOrderCard(order))
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
+              {orders.map(order => renderOrderCard(order))}
+            </div>
         )}
       </div>
 
@@ -1127,7 +1291,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
             ← السابق
           </button>
           <span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-3 py-1 rounded-lg shadow-sm">
-            صفحة {page}
+            صفحة {page}{totalCount ? ` من ${Math.max(1, Math.ceil(totalCount / itemsPerPage))}` : ''}
           </span>
           <button onClick={() => setPage(p => p + 1)} disabled={orders.length < itemsPerPage}
             className="px-3 py-1 text-xs font-bold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 shadow-sm transition-colors">

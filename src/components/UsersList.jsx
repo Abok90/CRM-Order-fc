@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import clsx from 'clsx';
-import { UserCog, Trash2, CheckCircle2, ShieldCheck, User, Pencil, Save, X, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { UserCog, Trash2, CheckCircle2, ShieldCheck, User, Pencil, Save, X, KeyRound, Eye, EyeOff, Search } from 'lucide-react';
 
 const ROLES = {
   'admin':           { label: 'مدير النظام',     color: 'bg-amber-100 text-amber-700',   icon: '👑', desc: 'كل الصلاحيات' },
@@ -24,6 +24,34 @@ const DASHBOARD_PERMS = [
 
 const DASH_DEFAULTS = { stats: true, quickStatus: true, statusGrid: true, brands: true, leaderboard: true, revenue: false, allPages: false };
 
+// Ticking seven boxes one by one for every new employee was the slow part.
+// These three cover what people actually hand out.
+const DASH_PRESETS = [
+  { key: 'full',  label: 'كل حاجة',  perms: { stats: true,  quickStatus: true,  statusGrid: true,  brands: true,  leaderboard: true,  revenue: true,  allPages: true  } },
+  { key: 'basic', label: 'الأساسي',  perms: { stats: true,  quickStatus: true,  statusGrid: true,  brands: true,  leaderboard: true,  revenue: false, allPages: false } },
+  { key: 'none',  label: 'مفيش',     perms: { stats: false, quickStatus: false, statusGrid: false, brands: false, leaderboard: false, revenue: false, allPages: false } },
+];
+
+const samePerms = (a, b) => DASHBOARD_PERMS.every(({ key }) => !!a[key] === !!b[key]);
+
+// "من ٣ ساعات" reads faster than a timestamp when you are scanning a page of
+// employees for who has gone quiet.
+const timeAgo = (iso) => {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(diff)) return null;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'دلوقتي';
+  if (mins < 60) return `من ${mins} دقيقة`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `من ${hours} ساعة`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'إمبارح';
+  if (days < 30) return `من ${days} يوم`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? 'من شهر' : `من ${months} شهور`;
+};
+
 function getDashPerms(user) {
   try { return { ...DASH_DEFAULTS, ...JSON.parse(user.dashboard_perms || '{}') }; }
   catch { return { ...DASH_DEFAULTS }; }
@@ -32,6 +60,8 @@ function getDashPerms(user) {
 export default function UsersList({ userRole }) {
   const [users, setUsers]     = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activity, setActivity] = useState({}); // uid -> get_user_activity() row
+  const [search, setSearch]     = useState('');
   const [editingNameId, setEditingNameId] = useState(null);
   const [nameInput, setNameInput]         = useState('');
 
@@ -46,7 +76,17 @@ export default function UsersList({ userRole }) {
   const isAdmin = ['admin', 'brand_owner', 'super_admin', 'owner'].includes(userRole?.role);
   const currentUserId = userRole?.id;
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); fetchActivity(); }, []);
+
+  // How many orders each employee entered and when they were last active.
+  // Failure here is not fatal — the page still manages permissions without it.
+  const fetchActivity = async () => {
+    const { data, error } = await supabase.rpc('get_user_activity');
+    if (error) { console.error('activity rpc', error); return; }
+    const map = {};
+    (data || []).forEach(r => { if (r.uid) map[r.uid] = r; });
+    setActivity(map);
+  };
 
   // Realtime: أضف المستخدم الجديد تلقائياً بدون ريفريش
   useEffect(() => {
@@ -100,6 +140,16 @@ export default function UsersList({ userRole }) {
     // Optimistic update first so rapid clicks read the already-updated state
     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, dashboard_perms: nextStr } : u));
     await updateUser(user.id, { dashboard_perms: nextStr });
+  };
+
+  const applyDashPreset = async (user, perms) => {
+    const next = JSON.stringify({ ...DASH_DEFAULTS, ...perms });
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, dashboard_perms: next } : u));
+    await updateUser(user.id, { dashboard_perms: next });
+  };
+
+  const setAllPages = async (user, on) => {
+    await updateUser(user.id, { assigned_page: on ? AVAILABLE_PAGES.join(',') : '' });
   };
 
   const togglePageAccess = async (user, pageName) => {
@@ -185,6 +235,14 @@ export default function UsersList({ userRole }) {
     }
   };
 
+  const visibleUsers = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(u =>
+      (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
+    );
+  }, [users, search]);
+
   // Who can edit names: admin edits all, user edits own
   const canEditName = (user) => isAdmin || user.id === currentUserId;
   // Who can change role/permissions: admin only
@@ -211,7 +269,29 @@ export default function UsersList({ userRole }) {
             <p className="text-xs text-slate-400 font-bold mt-0.5">تحكم في الأدوار والصفحات والصلاحيات الإضافية</p>
           </div>
         </div>
-        <span className="bg-slate-100 text-slate-600 px-3 py-1 text-sm font-bold rounded-full">{users.length} موظف</span>
+        <div className="flex items-center gap-2">
+          <div className="relative hidden sm:block">
+            <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="ابحث باسم الموظف أو الإيميل..."
+              className="bg-slate-50 border border-slate-200 rounded-lg text-xs pr-8 pl-3 py-2 font-bold outline-none focus:border-primary-400 w-56"
+            />
+          </div>
+          <span className="bg-slate-100 text-slate-600 px-3 py-1 text-sm font-bold rounded-full whitespace-nowrap">{visibleUsers.length} موظف</span>
+        </div>
+      </div>
+
+      {/* search on small screens, where it does not fit in the header row */}
+      <div className="relative sm:hidden">
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="ابحث باسم الموظف أو الإيميل..."
+          className="w-full bg-white border border-slate-200 rounded-xl text-sm pr-9 pl-3 py-2.5 font-bold outline-none focus:border-primary-400"
+        />
       </div>
 
       {/* Role Legend */}
@@ -238,10 +318,18 @@ export default function UsersList({ userRole }) {
             </div>
           ))
         ) : (
-          users.map(user => {
+          visibleUsers.length === 0 ? (
+            <div className="col-span-full py-16 text-center text-slate-500 font-bold bg-white rounded-2xl border border-slate-100">
+              مفيش موظف بالاسم ده
+            </div>
+          ) : visibleUsers.map(user => {
             const roleInfo = ROLES[user.role] || ROLES['customer_service'];
             const isCurrentUser = user.id === currentUserId;
             const showPages = ['customer_service', 'pages_manager'].includes(user.role);
+            const act = activity[user.id];
+            const lastSeen = timeAgo(
+              [act?.last_order_at, act?.last_action_at].filter(Boolean).sort().pop()
+            );
 
             return (
               <div key={user.id} className={clsx(
@@ -285,6 +373,25 @@ export default function UsersList({ userRole }) {
                   {isCurrentUser && <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">أنت</span>}
                 </div>
 
+                {/* What this employee actually did — counted from the orders
+                    they entered and their last recorded change. */}
+                <div className="grid grid-cols-3 gap-2 mb-4 -mt-1">
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl px-2 py-2 text-center">
+                    <p className="text-[9px] font-black text-slate-400 mb-0.5">إجمالي الأوردرات</p>
+                    <p className="text-base font-black text-slate-800 leading-none">{Number(act?.total_orders || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="bg-primary-50/60 border border-primary-100 rounded-xl px-2 py-2 text-center">
+                    <p className="text-[9px] font-black text-primary-400 mb-0.5">الشهر ده</p>
+                    <p className="text-base font-black text-primary-700 leading-none">{Number(act?.month_orders || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl px-2 py-2 text-center">
+                    <p className="text-[9px] font-black text-slate-400 mb-0.5">آخر نشاط</p>
+                    <p className={clsx("text-[11px] font-black leading-none pt-1", lastSeen ? "text-slate-700" : "text-slate-300")}>
+                      {lastSeen || 'مفيش'}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   {/* Role Selector */}
                   <div>
@@ -309,7 +416,21 @@ export default function UsersList({ userRole }) {
                   {/* Assigned Pages — only for pages_manager & customer_service */}
                   {showPages && (
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 block mb-1.5">الصفحات المسموحة</label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[10px] font-black text-slate-500">الصفحات المسموحة</label>
+                        {canEditRole(user) && (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setAllPages(user, true)}
+                              className="text-[9px] font-black text-primary-600 bg-primary-50 hover:bg-primary-100 px-1.5 py-0.5 rounded transition-colors">
+                              الكل
+                            </button>
+                            <button onClick={() => setAllPages(user, false)}
+                              className="text-[9px] font-black text-slate-500 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded transition-colors">
+                              مسح
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-1.5">
                         {AVAILABLE_PAGES.map(pg => {
                           const isSelected = user.assigned_page?.includes(pg);
@@ -382,7 +503,25 @@ export default function UsersList({ userRole }) {
                   {/* Dashboard Visibility */}
                   {canEditRole(user) && (
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 block mb-1.5">ما يظهر في لوحة القيادة</label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[10px] font-black text-slate-500">ما يظهر في لوحة القيادة</label>
+                        <div className="flex items-center gap-1">
+                          {DASH_PRESETS.map(pr => (
+                            <button
+                              key={pr.key}
+                              onClick={() => applyDashPreset(user, pr.perms)}
+                              className={clsx(
+                                "text-[9px] font-black px-1.5 py-0.5 rounded transition-colors",
+                                samePerms(getDashPerms(user), pr.perms)
+                                  ? "bg-indigo-600 text-white"
+                                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                              )}
+                            >
+                              {pr.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                         {DASHBOARD_PERMS.map(({ key, label }) => {
                           const perms = getDashPerms(user);
