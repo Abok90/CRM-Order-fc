@@ -54,7 +54,7 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
           *,
           user_roles:updated_by ( name, role )
         `)
-        .eq('order_id', initialOrder.id)
+        .eq('order_uid', initialOrder.uid)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -107,13 +107,9 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
       return;
     }
 
-    // order_history rows are keyed by the order number as plain text, so an id
-    // change leaves the old history behind. Editing the id stays allowed — the
-    // user just gets told what it costs first.
     if (order.id !== initialOrder.id) {
       const ok = confirm(
-        `هتغيّر رقم الأوردر من "${initialOrder.id}" إلى "${order.id}".\n\n` +
-        `سجل التعديلات القديم هيفضل متسجل على الرقم القديم ومش هيظهر مع الأوردر بعد التغيير.\n\nتكمّل؟`
+        `هتغيّر رقم الأوردر من "${initialOrder.id}" إلى "${order.id}".\n\nتكمّل؟`
       );
       if (!ok) { setLoading(false); return; }
     }
@@ -135,9 +131,18 @@ export default function EditOrderModal({ isOpen, onClose, userRole, onSuccess, i
         status: order.status,
         trackingNumber: order.trackingNumber,
         updated_by: userRole?.id || null,
-      }).eq('id', initialOrder.id);
-      
-      if (error) throw error;
+      }).eq('uid', initialOrder.uid);
+
+      if (error) {
+        // (page, id) is unique now, so re-using a number inside the same brand
+        // is rejected instead of silently overwriting the other order.
+        if (error.code === '23505') {
+          alert(`رقم الأوردر "${order.id}" مستخدم بالفعل في بيدج "${order.page}". اختار رقم تاني.`);
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
       
       onSuccess();
       onClose();

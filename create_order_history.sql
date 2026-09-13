@@ -1,7 +1,11 @@
+-- ملاحظة: النسخة الحيّة من log_order_changes اتحدّثت في v7.9.0 عشان تسجّل
+-- order_uid وتغيير البيدج كمان — راجع migrate_phase3_page_scoped_ids.sql.
+
 -- 1. إنشاء جدول الـ History
 CREATE TABLE IF NOT EXISTS order_history (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     order_id TEXT NOT NULL,
+    order_uid UUID,                      -- المفتاح الداخلي للأوردر (v7.9.0)
     action TEXT NOT NULL,
     old_status TEXT,
     new_status TEXT,
@@ -14,6 +18,7 @@ CREATE TABLE IF NOT EXISTS order_history (
 
 -- عمل Index عشان البحث برقم الأوردر يكون سريع جداً
 CREATE INDEX IF NOT EXISTS idx_order_history_order_id ON order_history(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_history_order_uid ON order_history(order_uid);
 
 -- إعطاء صلاحيات القراءة للجميع (أو للمستخدمين المسجلين فقط)
 ALTER TABLE order_history ENABLE ROW LEVEL SECURITY;

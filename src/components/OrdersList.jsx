@@ -69,10 +69,6 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     'تاجيل': { badge: 'bg-slate-200 text-slate-800 border-slate-300', row: 'hover:bg-slate-200/50 bg-slate-50/50 dark:bg-slate-700/30 dark:hover:bg-slate-600/30' },
   };
 
-  // Order ids coming from Shopify already contain a leading '#', so strip any
-  // existing one before we render our own prefix (avoids "##10367").
-  const formatOrderId = (id) => String(id ?? '').replace(/^#+/, '');
-
   const formatTime = (dt) => {
     if (!dt) return '';
     return new Date(dt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -124,18 +120,21 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
   const toggleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedOrders(new Set(orders.map(o => o.id)));
+      setSelectedOrders(new Set(orders.map(o => o.uid)));
     } else {
       setSelectedOrders(new Set());
     }
   };
 
-  const toggleSelect = (id) => {
+  // Selection, edits and deletes all address orders by `uid` — their internal
+  // key. The printed number (`id`) is only unique within a page now, so using
+  // it here would let an action on one brand's order hit another brand's.
+  const toggleSelect = (uid) => {
     const newSet = new Set(selectedOrders);
-    if (newSet.has(id)) {
-      newSet.delete(id);
+    if (newSet.has(uid)) {
+      newSet.delete(uid);
     } else {
-      newSet.add(id);
+      newSet.add(uid);
     }
     setSelectedOrders(newSet);
   };
@@ -146,10 +145,10 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   const canEditAfterShip = isAdmin || !!userRole?.can_edit_after_ship;
   const canDelete = isAdmin || !!userRole?.can_delete_order;
 
-  const handleQuickStatusChange = async (orderId, newStatus) => {
+  const handleQuickStatusChange = async (orderUid, newStatus) => {
     if (statusSaving) return;
     // Permission check: find the order and check if it's locked
-    const targetOrder = orders.find(o => o.id === orderId);
+    const targetOrder = orders.find(o => o.uid === orderUid);
     if (targetOrder && POST_SHIP_STATUSES.includes(targetOrder.status) && !canEditAfterShip) {
       setStatusPicker(null);
       alert('مش مسموحلك تغير حالة أوردر في مرحلة "' + targetOrder.status + '" — تواصل مع الأدمن.');
@@ -164,9 +163,9 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
       const { error } = await supabase
         .from('orders')
         .update({ status: newStatus, updated_by: userRole?.id || null })
-        .eq('id', orderId);
+        .eq('uid', orderUid);
       if (error) throw error;
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      setOrders(prev => prev.map(o => o.uid === orderUid ? { ...o, status: newStatus } : o));
       setStatusPicker(null);
     } catch (err) {
       alert('خطأ في تغيير الحالة: ' + err.message);
@@ -191,20 +190,20 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     setBulkStatusDropdown(false);
     // Permission check: if any selected order is post-ship and user lacks permission
     if (!canEditAfterShip) {
-      const lockedOrders = orders.filter(o => selectedOrders.has(o.id) && POST_SHIP_STATUSES.includes(o.status));
+      const lockedOrders = orders.filter(o => selectedOrders.has(o.uid) && POST_SHIP_STATUSES.includes(o.status));
       if (lockedOrders.length > 0) {
         alert(`مش مسموحلك تغير حالة ${lockedOrders.length} أوردر لأنهم في مرحلة شحن أو بعدها. تواصل مع الأدمن.`);
         return;
       }
     }
     try {
-      const ids = [...selectedOrders];
+      const uids = [...selectedOrders];
       const { error } = await supabase
         .from('orders')
         .update({ status: newStatus, updated_by: userRole?.id || null })
-        .in('id', ids);
+        .in('uid', uids);
       if (error) throw error;
-      setOrders(prev => prev.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus } : o));
+      setOrders(prev => prev.map(o => selectedOrders.has(o.uid) ? { ...o, status: newStatus } : o));
       setSelectedOrders(new Set());
     } catch (err) {
       alert('خطأ في تغيير الحالة: ' + err.message);
@@ -215,22 +214,22 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     if (selectedOrders.size === 0) return;
     if (!confirm(`هل أنت متأكد من حذف ${selectedOrders.size} أوردر؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
     try {
-      const ids = [...selectedOrders];
-      const { error } = await supabase.from('orders').delete().in('id', ids);
+      const uids = [...selectedOrders];
+      const { error } = await supabase.from('orders').delete().in('uid', uids);
       if (error) throw error;
-      setOrders(prev => prev.filter(o => !selectedOrders.has(o.id)));
+      setOrders(prev => prev.filter(o => !selectedOrders.has(o.uid)));
       setSelectedOrders(new Set());
     } catch (err) {
       alert('خطأ في الحذف: ' + err.message);
     }
   };
 
-  const handleDeleteSingle = async (orderId) => {
+  const handleDeleteSingle = async (orderUid) => {
     if (!confirm('هل أنت متأكد من حذف هذا الأوردر؟')) return;
     try {
-      const { error } = await supabase.from('orders').delete().eq('id', orderId);
+      const { error } = await supabase.from('orders').delete().eq('uid', orderUid);
       if (error) throw error;
-      setOrders(prev => prev.filter(o => o.id !== orderId));
+      setOrders(prev => prev.filter(o => o.uid !== orderUid));
     } catch (err) {
       alert('خطأ في الحذف: ' + err.message);
     }
@@ -263,7 +262,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
   const exportToExcel = () => {
     const ordersToExport = selectedOrders.size > 0 
-      ? orders.filter(o => selectedOrders.has(o.id))
+      ? orders.filter(o => selectedOrders.has(o.uid))
       : orders;
       
     if (ordersToExport.length === 0) {
@@ -293,7 +292,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
   const handlePrint = (orientation = 'portrait') => {
     const ordersToPrint = selectedOrders.size > 0 
-      ? orders.filter(o => selectedOrders.has(o.id))
+      ? orders.filter(o => selectedOrders.has(o.uid))
       : orders;
 
     if (ordersToPrint.length === 0) {
@@ -458,7 +457,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   // table wrapper (overflow-auto) or by a mobile card (overflow-hidden).
   const renderStatusBadge = (order) => {
     const statusStyle = STATUS_STYLES[order.status] || { badge: 'bg-slate-100 text-slate-700 border-slate-200' };
-    const isOpen = statusPicker?.orderId === order.id;
+    const isOpen = statusPicker?.orderUid === order.uid;
 
     return (
       <button
@@ -468,7 +467,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
           if (isOpen) { setStatusPicker(null); return; }
           const r = e.currentTarget.getBoundingClientRect();
           setStatusPicker({
-            orderId: order.id,
+            orderUid: order.uid,
             anchor: { top: r.top, bottom: r.bottom, left: r.left, right: r.right },
           });
         }}
@@ -488,7 +487,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   // mobile (bigger tap targets, always fully visible above the bottom nav bar).
   const renderStatusPicker = () => {
     if (!statusPicker) return null;
-    const order = orders.find(o => o.id === statusPicker.orderId);
+    const order = orders.find(o => o.uid === statusPicker.orderUid);
     if (!order) return null;
 
     const isOrderLocked = POST_SHIP_STATUSES.includes(order.status) && !canEditAfterShip;
@@ -506,7 +505,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
         key={st}
         type="button"
         disabled={statusSaving}
-        onClick={() => handleQuickStatusChange(order.id, st)}
+        onClick={() => handleQuickStatusChange(order.uid, st)}
         className={clsx(
           "w-full min-h-[52px] px-3 py-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
           STATUS_STYLES[st]?.badge || 'bg-slate-100 text-slate-700 border-slate-200',
@@ -524,7 +523,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
         key={st}
         type="button"
         disabled={statusSaving}
-        onClick={() => handleQuickStatusChange(order.id, st)}
+        onClick={() => handleQuickStatusChange(order.uid, st)}
         className={clsx(
           "w-full text-right px-2 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed",
           st === order.status ? "bg-primary-50 ring-1 ring-primary-200" : "hover:bg-slate-50"
@@ -561,7 +560,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 border-b border-slate-100 mb-1">
-            تغيير سريع — #{formatOrderId(order.id)}
+            تغيير سريع — {order.id}
           </div>
           {menuOptions}
         </div>
@@ -577,7 +576,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
             <button type="button" onClick={close} className="text-slate-400 hover:text-slate-600 text-xl leading-none px-2">✕</button>
           </div>
           <p className="text-xs text-slate-500 font-bold mb-3 truncate">
-            #{formatOrderId(order.id)} · {order.customer || 'عميل محتمل'}
+            {order.id} · {order.customer || 'عميل محتمل'}
           </p>
           <div className="grid grid-cols-2 gap-2">
             {sheetOptions}
@@ -599,11 +598,11 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   // UI rendering helper for cards (Mobile view)
   const renderOrderCard = (order) => {
     const statusStyle = STATUS_STYLES[order.status] || { badge: 'bg-slate-100 text-slate-700 border-slate-200', row: 'bg-white' };
-    const isSelected = selectedOrders.has(order.id);
+    const isSelected = selectedOrders.has(order.uid);
     const total = (Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0);
 
     return (
-      <div key={order.id} className={clsx(
+      <div key={order.uid} className={clsx(
         "bg-white rounded-2xl border transition-all relative overflow-hidden",
         isSelected ? "border-primary-400 bg-primary-50/20" : "border-slate-200"
       )}>
@@ -619,10 +618,10 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
               <input
                 type="checkbox"
                 checked={isSelected}
-                onChange={() => toggleSelect(order.id)}
+                onChange={() => toggleSelect(order.uid)}
                 className="w-5 h-5 shrink-0 cursor-pointer accent-primary-600 rounded"
               />
-              <span className="font-mono font-bold text-slate-800 text-sm shrink-0">#{formatOrderId(order.id)}</span>
+              <span className="font-mono font-bold text-slate-800 text-sm shrink-0">{order.id}</span>
               {isShopifyOrder(order) && (
                 <span className="bg-green-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md inline-flex items-center gap-0.5 shadow-sm shrink-0">
                   <Zap className="w-2.5 h-2.5" />Auto
@@ -655,7 +654,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                 ✏️ تعديل
               </button>
               {canDelete && (
-                <button onClick={() => handleDeleteSingle(order.id)} className="text-rose-500 bg-rose-50 p-1.5 rounded-lg hover:bg-rose-100 transition-colors">
+                <button onClick={() => handleDeleteSingle(order.uid)} className="text-rose-500 bg-rose-50 p-1.5 rounded-lg hover:bg-rose-100 transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
@@ -896,15 +895,15 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                 const statusStyle = STATUS_STYLES[order.status] || { badge: 'bg-slate-100 text-slate-700 border-slate-200', row: 'hover:bg-slate-50/80 bg-white' };
                 return (
                 <tr 
-                  key={order.id} 
-                  className={clsx("transition-colors group cursor-pointer", statusStyle.row, selectedOrders.has(order.id) && "bg-primary-50/50")}
+                  key={order.uid} 
+                  className={clsx("transition-colors group cursor-pointer", statusStyle.row, selectedOrders.has(order.uid) && "bg-primary-50/50")}
                   onDoubleClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }}
                 >
                   <td className="px-4 py-3">
                     <input 
                       type="checkbox" 
-                      checked={selectedOrders.has(order.id)}
-                      onChange={() => toggleSelect(order.id)}
+                      checked={selectedOrders.has(order.uid)}
+                      onChange={() => toggleSelect(order.uid)}
                       className="w-4 h-4 cursor-pointer accent-primary-600 rounded"
                     />
                   </td>
@@ -924,7 +923,7 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                       </button>
                       {canDelete && (
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteSingle(order.id); }}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteSingle(order.uid); }}
                           className="text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-50 p-1 rounded"
                           title="حذف الأوردر"
                         >

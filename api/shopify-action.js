@@ -206,7 +206,9 @@ async function handler(req, res) {
         return null;
       }).filter(Boolean);
 
-      await supabaseRequest('POST', 'orders', {
+      // Upsert scoped to (page, id) — a number used by another brand is a
+      // different order and must not be overwritten.
+      await supabaseRequest('POST', 'orders?on_conflict=page,id', {
         id: order.name,
         customer: b.name || s.name || `${order.customer?.first_name || ''} ${order.customer?.last_name || ''}`.trim() || 'عميل Shopify',
         phone: order.phone || b.phone || s.phone || '',

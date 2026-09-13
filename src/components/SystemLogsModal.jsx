@@ -31,7 +31,7 @@ export default function SystemLogsModal({ isOpen, onClose }) {
         supabase.from('user_roles').select('*').eq('is_approved', false).order('created_at', { ascending: false }),
         supabase
           .from('orders')
-          .select('id, customer, page, status, date, created_at, productPrice, shippingPrice, source, updated_by')
+          .select('uid, id, customer, page, status, date, created_at, productPrice, shippingPrice, source, updated_by')
           .order('created_at', { ascending: false })
           .limit(50),
       ]);
@@ -74,7 +74,7 @@ export default function SystemLogsModal({ isOpen, onClose }) {
         try {
           const { data: matchingOrders } = await supabase
             .from('orders')
-            .select('id, customer, phone, trackingNumber, page, status, date, created_at, productPrice, shippingPrice, source, updated_by')
+            .select('uid, id, customer, phone, trackingNumber, page, status, date, created_at, productPrice, shippingPrice, source, updated_by')
             .or(`id.ilike.%${q}%,phone.ilike.%${q}%,trackingNumber.ilike.%${q}%`)
             .limit(15);
           setGlobalSearchResults(matchingOrders || []);
@@ -90,23 +90,23 @@ export default function SystemLogsModal({ isOpen, onClose }) {
     return () => clearTimeout(delayFn);
   }, [orderSearch]);
 
-  const loadHistoryForOrder = async (orderId) => {
-    if (expandedHistoryId === orderId) {
+  const loadHistoryForOrder = async (orderUid) => {
+    if (expandedHistoryId === orderUid) {
       setExpandedHistoryId(null);
       return;
     }
-    setExpandedHistoryId(orderId);
-    if (orderHistories[orderId]) return;
+    setExpandedHistoryId(orderUid);
+    if (orderHistories[orderUid]) return;
 
     setHistoryLoading(true);
     try {
       const { data } = await supabase
         .from('order_history')
         .select(`*, user_roles:updated_by(name)`)
-        .eq('order_id', orderId)
+        .eq('order_uid', orderUid)
         .order('created_at', { ascending: false });
       
-      setOrderHistories(prev => ({ ...prev, [orderId]: data || [] }));
+      setOrderHistories(prev => ({ ...prev, [orderUid]: data || [] }));
     } catch (e) {
       console.error(e);
     } finally {
@@ -218,7 +218,7 @@ export default function SystemLogsModal({ isOpen, onClose }) {
               </div>
             ) : (
               displayOrders.map(order => (
-                <div key={order.id} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:border-indigo-200 transition-colors">
+                <div key={order.uid || order.id} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:border-indigo-200 transition-colors">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="font-mono text-xs font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded flex items-center gap-1">
                       <Package className="w-3 h-3" /> {order.id}
@@ -249,19 +249,19 @@ export default function SystemLogsModal({ isOpen, onClose }) {
                         <span>عُدّل بواسطة: <span className="font-black text-indigo-500">{userMap[order.updated_by]}</span></span>
                       </div>
                     ) : <div></div>}
-                    <button onClick={() => loadHistoryForOrder(order.id)} className="text-[10px] flex items-center gap-1 text-indigo-500 font-bold hover:text-indigo-700 transition-colors bg-indigo-50 px-2 py-1 rounded-md">
+                    <button onClick={() => loadHistoryForOrder(order.uid)} className="text-[10px] flex items-center gap-1 text-indigo-500 font-bold hover:text-indigo-700 transition-colors bg-indigo-50 px-2 py-1 rounded-md">
                       <History className="w-3 h-3" /> سجل الحالات
                     </button>
                   </div>
 
-                  {expandedHistoryId === order.id && (
+                  {expandedHistoryId === order.uid && (
                     <div className="mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs space-y-2 animate-fade-in">
-                      {historyLoading && !orderHistories[order.id] ? (
+                      {historyLoading && !orderHistories[order.uid] ? (
                         <p className="text-center text-slate-400 py-2">جاري التحميل...</p>
-                      ) : orderHistories[order.id]?.length === 0 ? (
+                      ) : orderHistories[order.uid]?.length === 0 ? (
                         <p className="text-center text-slate-400 py-2">لا يوجد سجل متاح لهذا الأوردر</p>
                       ) : (
-                        orderHistories[order.id]?.map((h, idx) => (
+                        orderHistories[order.uid]?.map((h, idx) => (
                           <div key={idx} className="border-b border-slate-200 pb-1.5 mb-1.5 last:border-0 last:pb-0 last:mb-0">
                             <div className="flex justify-between items-center mb-1">
                               <span className="font-black text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded text-[9px]">{h.action}</span>

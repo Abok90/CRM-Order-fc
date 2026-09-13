@@ -179,7 +179,10 @@ async function handler(req, res) {
       // استخراج المحافظة من بيانات شوبيفاي
       const governorate = s.province || s.city || b.province || b.city || '';
 
-      await supabaseRequest('POST', 'orders', {
+      // on_conflict names the (page, id) constraint: an order number is unique
+      // per brand now, so a number another store already used no longer
+      // collides and no longer disappears.
+      await supabaseRequest('POST', 'orders?on_conflict=page,id', {
         id: order.name || `#${order.order_number}` || `SH-${Date.now().toString(36).toUpperCase()}`,
         customer: b.name || s.name || `${order.customer?.first_name || ''} ${order.customer?.last_name || ''}`.trim() || 'عميل Shopify',
         phone: order.phone || b.phone || s.phone || '',
