@@ -1,5 +1,5 @@
 // CRM Pro Service Worker — v3
-const CACHE_NAME = 'crm-pro-v4';
+const CACHE_NAME = 'crm-pro-v5';
 const STATIC_ASSETS = ['/'];
 
 // تثبيت: خزّن الصفحة الرئيسية في الكاش

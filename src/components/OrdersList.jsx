@@ -38,6 +38,16 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
   // Selection state
   const [selectedOrders, setSelectedOrders] = useState(new Set());
 
+  // Rows expanded to show the fields the table has no column for
+  const [expandedRows, setExpandedRows] = useState(new Set());
+  const toggleRow = (uid) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      next.has(uid) ? next.delete(uid) : next.add(uid);
+      return next;
+    });
+  };
+
   // Quick status picker — rendered in a portal so it never gets clipped by the
   // table / cards scroll containers. Shape: { orderId, anchor: DOMRect-like }
   const [statusPicker, setStatusPicker] = useState(null);
@@ -67,6 +77,15 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
     'مرتجع': { badge: 'bg-rose-100 text-rose-800 border-rose-200', row: 'hover:bg-rose-100/50 bg-rose-50/30 dark:bg-rose-900/20 dark:hover:bg-rose-800/30' },
     'الغاء': { badge: 'bg-red-100 text-red-800 border-red-200', row: 'hover:bg-red-100/50 bg-red-50/30 dark:bg-red-900/20 dark:hover:bg-red-800/30' },
     'تاجيل': { badge: 'bg-slate-200 text-slate-800 border-slate-300', row: 'hover:bg-slate-200/50 bg-slate-50/50 dark:bg-slate-700/30 dark:hover:bg-slate-600/30' },
+  };
+
+  // product_urls is stored as a JSON array string by the Shopify importers
+  const parseProductUrls = (raw) => {
+    if (!raw) return [];
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed.filter(u => typeof u === 'string' && u) : [];
+    } catch { return []; }
   };
 
   const formatTime = (dt) => {
@@ -847,7 +866,23 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
 
       {/* Desktop Table View */}
       <div className="hidden md:block glass-panel overflow-auto custom-scrollbar">
-        <table className="w-full text-right text-sm whitespace-nowrap">
+        {/* Fixed layout so each column keeps a sensible width and المنتج absorbs
+            whatever space is left, instead of every cell being capped at 150px. */}
+        {/* min-width guarantees المنتج a floor of ~275px instead of being squeezed
+            to nothing on a 1280px screen; the wrapper scrolls below that. */}
+        <table className="w-full min-w-[1360px] table-fixed text-right text-sm">
+          <colgroup>
+            <col className="w-[40px]" />
+            <col className="w-[146px]" />
+            <col className="w-[96px]" />
+            <col className="w-[190px]" />
+            <col />
+            <col className="w-[122px]" />
+            <col className="w-[118px]" />
+            <col className="w-[180px]" />
+            <col className="w-[92px]" />
+            <col className="w-[100px]" />
+          </colgroup>
           <thead className="bg-slate-50/80 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-200 text-slate-600 font-bold">
             <tr>
               <th className="px-4 py-4 w-10">
@@ -858,15 +893,15 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                   className="w-4 h-4 cursor-pointer accent-primary-600 rounded"
                 />
               </th>
-              <th className="px-4 py-4">رقم الطلب</th>
-              <th className="px-4 py-4">الصفحة</th>
-              <th className="px-4 py-4">العميل</th>
-              <th className="px-4 py-4">المنتج</th>
-              <th className="px-4 py-4">الحالة</th>
-              <th className="px-4 py-4">البوليصة</th>
-              <th className="px-4 py-4">الملاحظات</th>
-              <th className="px-4 py-4">الإجمالي (ج.م)</th>
-              <th className="px-4 py-4">التاريخ</th>
+              <th className="px-4 py-4 whitespace-nowrap">رقم الطلب</th>
+              <th className="px-3 py-4 text-center whitespace-nowrap">الصفحة</th>
+              <th className="px-4 py-4 whitespace-nowrap">العميل</th>
+              <th className="px-4 py-4 whitespace-nowrap">المنتج</th>
+              <th className="px-4 py-4 whitespace-nowrap">الحالة</th>
+              <th className="px-3 py-4 text-center whitespace-nowrap">البوليصة</th>
+              <th className="px-4 py-4 whitespace-nowrap">الملاحظات</th>
+              <th className="px-3 py-4 whitespace-nowrap">الإجمالي</th>
+              <th className="px-4 py-4 whitespace-nowrap">التاريخ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -894,21 +929,32 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
               orders.map(order => {
                 const statusStyle = STATUS_STYLES[order.status] || { badge: 'bg-slate-100 text-slate-700 border-slate-200', row: 'hover:bg-slate-50/80 bg-white' };
                 return (
+                <React.Fragment key={order.uid}>
                 <tr 
-                  key={order.uid} 
-                  className={clsx("transition-colors group cursor-pointer", statusStyle.row, selectedOrders.has(order.uid) && "bg-primary-50/50")}
+                  className={clsx("transition-colors group cursor-pointer align-top", statusStyle.row, selectedOrders.has(order.uid) && "bg-primary-50/50")}
                   onDoubleClick={() => { setEditingOrder(order); setIsEditModalOpen(true); }}
                 >
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 align-top">
                     <input 
                       type="checkbox" 
                       checked={selectedOrders.has(order.uid)}
                       onChange={() => toggleSelect(order.uid)}
-                      className="w-4 h-4 cursor-pointer accent-primary-600 rounded"
+                      className="w-4 h-4 mt-0.5 cursor-pointer accent-primary-600 rounded"
                     />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 align-top">
                     <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleRow(order.uid); }}
+                        className={clsx(
+                          "shrink-0 p-0.5 rounded text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors",
+                          expandedRows.has(order.uid) && "text-primary-600 bg-primary-50"
+                        )}
+                        title={expandedRows.has(order.uid) ? 'إخفاء التفاصيل' : 'عرض كل بيانات الأوردر'}
+                        aria-expanded={expandedRows.has(order.uid)}
+                      >
+                        <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform", expandedRows.has(order.uid) && "rotate-180")} />
+                      </button>
                       <span className="font-mono font-bold text-slate-700 text-xs">{order.id}</span>
                       {isShopifyOrder(order) && (
                         <span className="bg-green-500 text-white text-[7px] font-black px-1 py-0.5 rounded flex items-center gap-0.5" title="أوردر أوتوماتيك من شوبيفاي">
@@ -932,14 +978,14 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={clsx("text-[10px] w-20 text-center inline-block truncate px-2 py-1 rounded-md font-bold shadow-sm", getPageColor(order.page))} title={order.page}>
+                  <td className="px-3 py-3 text-center align-top">
+                    <span className={clsx("text-[10px] max-w-full inline-block truncate px-2 py-1 rounded-md font-bold shadow-sm", getPageColor(order.page))} title={order.page}>
                       {order.page || 'بدون صفحة'}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="font-bold text-slate-800">{order.customer || 'عميل محتمل'}</div>
-                    <div className="flex items-center gap-2 mt-1">
+                  <td className="px-4 py-3 align-top">
+                    <div className="font-bold text-slate-800 break-words leading-snug">{order.customer || 'عميل محتمل'}</div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <div className="text-[11px] text-slate-600 font-medium bg-white/60 px-1.5 rounded border border-slate-200" dir="ltr">{order.phone || 'بدون رقم'}</div>
                       <button onClick={(e) => { e.stopPropagation(); handleWhatsApp(order); }} className="text-emerald-500 hover:text-emerald-600 transition-colors bg-emerald-50 p-1 rounded-md" title="مراسلة واتساب">
                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.015c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
@@ -949,34 +995,91 @@ export default function OrdersList({ userRole, initialFilter, onFilterConsumed }
                       </button>
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[150px] truncate font-medium text-slate-800" title={order.item}>{order.item || '—'}</div>
+                  <td className="px-4 py-3 align-top">
+                    <div className="font-medium text-slate-800 break-words leading-snug line-clamp-2" title={order.item}>
+                      {order.item || '—'}
+                    </div>
+                    {(order.item || '').length > 70 && !expandedRows.has(order.uid) && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleRow(order.uid); }}
+                        className="text-[10px] font-bold text-primary-600 hover:underline mt-0.5"
+                      >
+                        عرض الكل
+                      </button>
+                    )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 align-top">
                     {renderStatusBadge(order)}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-3 text-center align-top">
                     {order.trackingNumber ? (
                       <span className="font-mono text-[10px] bg-slate-50 text-slate-700 px-2 py-1.5 rounded-lg border border-slate-200 select-all" dir="ltr">{order.trackingNumber}</span>
                     ) : (
                       <span className="text-slate-300 text-xs">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-[150px] truncate text-slate-600 text-xs font-semibold bg-white/50 px-2 py-1 rounded" title={order.notes}>
+                  <td className="px-4 py-3 align-top">
+                    <div className="text-slate-600 text-xs font-semibold break-words leading-snug line-clamp-2" title={order.notes}>
                       {order.notes || '—'}
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-black text-slate-800">
+                  <td className="px-3 py-3 font-black text-slate-800 tabular-nums whitespace-nowrap align-top">
                     {(Number(order.productPrice) || 0) + (Number(order.shippingPrice) || 0)}
+                    <span className="text-[10px] font-bold text-slate-400 mr-1">ج.م</span>
                   </td>
-                  <td className="px-4 py-3 text-slate-500 font-medium text-xs border-r border-slate-100/50">
+                  <td className="px-4 py-3 text-slate-500 font-medium text-xs border-r border-slate-100/50 whitespace-nowrap align-top">
                     <div>{order.date || order.created_at?.split('T')[0] || '—'}</div>
                     {order.created_at && (
                       <div className="text-slate-400 text-[10px]" dir="ltr">{formatTime(order.created_at)}</div>
                     )}
                   </td>
                 </tr>
+                {expandedRows.has(order.uid) && (
+                  <tr key={order.uid + '-details'} className={clsx("border-t-0", statusStyle.row)}>
+                    <td colSpan={10} className="px-6 pb-4 pt-0">
+                      <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
+                        {[
+                          ['المنتجات', order.item],
+                          ['العنوان', order.address],
+                          ['المحافظة', order.governorate],
+                          ['الكمية', order.quantity],
+                          ['سعر المنتجات', order.productPrice != null && order.productPrice !== '' ? `${order.productPrice} ج.م` : ''],
+                          ['سعر الشحن', order.shippingPrice != null && order.shippingPrice !== '' ? `${order.shippingPrice} ج.م` : ''],
+                          ['بوليصة الشحن', order.trackingNumber],
+                          ['الملاحظات', order.notes],
+                        ].map(([label, value]) => (
+                          <div key={label} className={clsx(label === 'المنتجات' && "col-span-2")}>
+                            <div className="text-[10px] font-bold text-slate-400 mb-1">{label}</div>
+                            <div className="text-xs font-semibold text-slate-700 break-words leading-relaxed whitespace-pre-wrap">
+                              {value === 0 || value ? value : <span className="text-slate-300">—</span>}
+                            </div>
+                          </div>
+                        ))}
+
+                        {parseProductUrls(order.product_urls).length > 0 && (
+                          <div className="col-span-2 lg:col-span-4 border-t border-slate-200 pt-3">
+                            <div className="text-[10px] font-bold text-slate-400 mb-1.5">روابط المنتجات</div>
+                            <div className="flex flex-wrap gap-2">
+                              {parseProductUrls(order.product_urls).map((url, i) => (
+                                <a
+                                  key={url}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-[11px] font-bold text-primary-600 bg-primary-50 border border-primary-100 px-2.5 py-1 rounded-lg hover:bg-primary-100 transition-colors"
+                                >
+                                  منتج {i + 1} ↗
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
                 );
               })
             )}
