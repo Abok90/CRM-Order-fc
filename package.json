@@ -1,11 +1,12 @@
 {
   "name": "crm-order-fc",
-  "version": "7.8.5",
+  "version": "7.8.6",
   "description": "CRM Order Management System",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node tests/shopify-webhook.test.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },

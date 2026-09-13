@@ -43,19 +43,44 @@ async function shopifyApi(storeUrl, token, method, path, body) {
   return data;
 }
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Same transient-failure handling as the webhook: Supabase can answer 504 for a
+// second or two, and the operator should not have to click "جلب" again for that.
+const TRANSIENT_STATUSES = [408, 425, 429, 500, 502, 503, 504];
+const RETRY_DELAYS_MS = [400, 1500];
+
 async function supabaseRequest(method, path, body, prefer = 'return=minimal') {
-  const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      Prefer: prefer,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error(`Supabase ${method} failed: ${res.status} — ${await res.text()}`);
-  return res.headers.get('content-type')?.includes('json') ? res.json() : null;
+  let lastError;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) await sleep(RETRY_DELAYS_MS[attempt - 1]);
+
+    let res;
+    try {
+      res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          Prefer: prefer,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (err) {
+      lastError = new Error(`Supabase ${method} failed: ${err.message}`);
+      continue;
+    }
+
+    if (res.ok) {
+      return res.headers.get('content-type')?.includes('json') ? res.json() : null;
+    }
+
+    const text = await res.text();
+    lastError = new Error(`Supabase ${method} failed: ${res.status} — ${text}`);
+    if (!TRANSIENT_STATUSES.includes(res.status)) break;
+  }
+  throw lastError;
 }
 
 async function fulfill(url, token, orderId) {

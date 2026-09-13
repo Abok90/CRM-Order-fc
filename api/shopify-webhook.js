@@ -61,21 +61,57 @@ function jwtRole(token) {
   } catch { return 'invalid'; }
 }
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Supabase occasionally answers 504/503 for a second or two. A webhook delivery
+// that hits one of those windows used to lose the order for good, so retry the
+// blip here before falling back to Shopify's own redelivery.
+const TRANSIENT_STATUSES = [408, 425, 429, 500, 502, 503, 504];
+const RETRY_DELAYS_MS = [400, 1500, 4000];
+
 async function supabaseRequest(method, path, body, prefer = 'return=minimal') {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const url = process.env.SUPABASE_URL;
   console.log(`[supabase] url=${url ? 'SET' : 'MISSING'} key_role=${jwtRole(key)}`);
-  const res = await fetch(`${url}/rest/v1/${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      Prefer: prefer,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error(`Supabase ${method} failed: ${res.status} — ${await res.text()}`);
+
+  let lastError;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) {
+      console.warn(`[supabase] retry ${attempt}/${RETRY_DELAYS_MS.length} for ${method} ${path.split('?')[0]} — ${lastError.message}`);
+      await sleep(RETRY_DELAYS_MS[attempt - 1]);
+    }
+
+    let res;
+    try {
+      res = await fetch(`${url}/rest/v1/${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          Prefer: prefer,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (err) {
+      // Network-level failure — always worth retrying.
+      lastError = new Error(`Supabase ${method} failed: ${err.message}`);
+      continue;
+    }
+
+    if (res.ok) {
+      return res.headers.get('content-type')?.includes('json') ? res.json() : null;
+    }
+
+    const text = await res.text();
+    lastError = new Error(`Supabase ${method} failed: ${res.status} — ${text}`);
+    lastError.status = res.status;
+
+    // A 4xx (bad payload, missing column, ...) will fail the same way forever.
+    if (!TRANSIENT_STATUSES.includes(res.status)) break;
+  }
+
+  throw lastError;
 }
 
 async function handler(req, res) {
@@ -97,8 +133,10 @@ async function handler(req, res) {
   }
 
   if (!store.secret) {
+    // 500 so the delivery is retried and Shopify surfaces the failing endpoint,
+    // instead of quietly dropping every order from this store.
     console.error(`[webhook] Missing WEBHOOK_SECRET for ${store.storeKey} — set env var in Vercel`);
-    return res.status(200).json({ ok: false, error: 'Server misconfigured — missing secret' });
+    return res.status(500).json({ ok: false, error: 'Server misconfigured — missing secret' });
   }
 
   if (!verifyHmac(rawBody, receivedHmac, store.secret)) {
@@ -196,8 +234,15 @@ async function handler(req, res) {
         // reasons (tags, notes, fulfillment), and it used to overwrite a phone or
         // an address that staff had just corrected by hand.
         if (Object.keys(contact).length > 0) {
-          await supabaseRequest('PATCH', `${base}&updated_by=is.null`, contact);
-          console.log(`[webhook] Updated untouched order ${safeOrderId} fields=${Object.keys(contact).join(',')}`);
+          // return=representation so the log says whether a row actually matched
+          // — a PATCH that matches nothing succeeds silently, which is exactly
+          // what made the lost-order case hard to spot.
+          const rows = await supabaseRequest('PATCH', `${base}&updated_by=is.null`, contact, 'return=representation');
+          const matched = Array.isArray(rows) ? rows.length : 0;
+          console.log(`[webhook] orders/updated ${safeOrderId} → ${matched} row(s) matched, fields=${Object.keys(contact).join(',')}`);
+          if (matched === 0) {
+            console.warn(`[webhook] No CRM row for Shopify order ${safeOrderId} (${store.storeKey}) — either edited by staff already, or never created.`);
+          }
         }
 
         // Cancellation is authoritative and always applies.
@@ -211,8 +256,13 @@ async function handler(req, res) {
       console.log(`[webhook] Ignored topic: ${topic}`);
     }
   } catch (err) {
-    console.error(`[webhook] Error processing ${topic} for ${shopDomain}: ${err.message}`);
-    return res.status(200).json({ ok: false, error: err.message });
+    // Answer 500, NOT 200. Shopify only redelivers a webhook when the endpoint
+    // reports failure; returning 200 here told it the order had been stored and
+    // the delivery was never repeated, so a momentary database error dropped the
+    // order permanently. Shopify now retries this delivery for ~48 hours, and
+    // orders/create is insert-if-absent so a retry cannot duplicate anything.
+    console.error(`[webhook] Error processing ${topic} for ${shopDomain}: ${err.message} — returning 500 so Shopify retries`);
+    return res.status(500).json({ ok: false, error: err.message });
   }
 
   return res.status(200).json({ ok: true });
