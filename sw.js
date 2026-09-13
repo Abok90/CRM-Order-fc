@@ -1,5 +1,5 @@
-// CRM Pro Service Worker — v3
-const CACHE_NAME = 'crm-pro-v5';
+// CRM Pro Service Worker — v4
+const CACHE_NAME = 'crm-pro-v6';
 const STATIC_ASSETS = ['/'];
 
 // تثبيت: خزّن الصفحة الرئيسية في الكاش
@@ -30,20 +30,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // الصفحة الرئيسية — Stale-While-Revalidate
-  // بيرجع من الكاش فوراً وبيحدّث في الخلفية
+  // الصفحة الرئيسية — Network-First
+  //
+  // كانت Stale-While-Revalidate: بترجّع الـ HTML المخزَّن على طول وتحدّث في
+  // الخلفية. المشكلة إن الـ HTML هو اللي فيه أسامي ملفات الـ JS، فبعد أي
+  // نشر جديد أول فتحة كانت بتفضل شغّالة على النسخة القديمة والابديت
+  // مبيبانش غير في الفتحة اللي بعدها.
+  //
+  // دلوقتي بنجيب من الشبكة الأول ونرجع للكاش لو مفيش نت — يعني الابديت
+  // يظهر من أول فتحة، والتطبيق لسه بيفتح أوفلاين.
   if (request.mode === 'navigate' || (request.method === 'GET' && request.headers.get('accept')?.includes('text/html'))) {
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match('/');
-        const fetchPromise = fetch(request).then((response) => {
+        try {
+          const response = await fetch(request);
           if (response.ok) cache.put('/', response.clone());
           return response;
-        }).catch(() => cached);
-
-        // لو في كاش: ارجعه فوراً وحدّث في الخلفية
-        // لو مفيش كاش: استنى الشبكة
-        return cached || fetchPromise;
+        } catch {
+          const cached = await cache.match('/');
+          if (cached) return cached;
+          throw new Error('offline and nothing cached');
+        }
       })
     );
     return;
